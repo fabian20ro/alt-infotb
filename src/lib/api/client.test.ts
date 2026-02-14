@@ -21,7 +21,7 @@ describe('apiFetchBinary', () => {
 		expect(result).toEqual(mockData);
 	});
 
-	it('sends correct headers', async () => {
+	it('does not send custom headers that trigger CORS preflight', async () => {
 		const mockFetch = vi.fn().mockResolvedValue({
 			ok: true,
 			arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
@@ -31,9 +31,10 @@ describe('apiFetchBinary', () => {
 		await apiFetchBinary('https://info.stb.ro/test');
 
 		const [, options] = mockFetch.mock.calls[0];
-		expect(options.headers['App-Id']).toBe('b32cc233-00d7-4640-bf90-374572668c30');
-		expect(options.headers['Source']).toBe('ro.radcom.smartcity.web');
-		expect(options.headers['OS-Type']).toBeUndefined();
+		expect(options.headers['App-Id']).toBeUndefined();
+		expect(options.headers['Lang']).toBeUndefined();
+		expect(options.headers['Source']).toBeUndefined();
+		expect(options.headers['Device-Name']).toBeUndefined();
 	});
 
 	it('throws ApiError on HTTP error', async () => {
