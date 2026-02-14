@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatArrivalTime, formatTime } from './arrivals.js';
+import { formatArrivalTime, formatTime } from './arrivals.svelte.js';
 
 describe('formatArrivalTime', () => {
 	it('returns "acum" for 0 seconds', () => {

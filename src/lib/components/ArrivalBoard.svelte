@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { STATION_NAME, LINE_ORDER } from '$lib/api/constants.js';
-	import { createArrivalsStore, getCachedArrivals, cacheArrivals } from '$lib/stores/arrivals.js';
+	import { createArrivalsStore, getCachedArrivals, cacheArrivals } from '$lib/stores/arrivals.svelte.js';
 	import type { ArrivalInfo } from '$lib/api/types.js';
 	import ArrivalRow from './ArrivalRow.svelte';
 	import RefreshButton from './RefreshButton.svelte';
