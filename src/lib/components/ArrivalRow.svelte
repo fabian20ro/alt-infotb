@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { LINE_COLORS } from '$lib/api/constants.js';
-	import { formatArrivalTime } from '$lib/stores/arrivals.js';
+	import { formatArrivalTime } from '$lib/stores/arrivals.svelte.js';
 	import type { ArrivalInfo } from '$lib/api/types.js';
 
 	interface Props {

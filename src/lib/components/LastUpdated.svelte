@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatTime } from '$lib/stores/arrivals.js';
+	import { formatTime } from '$lib/stores/arrivals.svelte.js';
 
 	interface Props {
 		date: Date | null;
