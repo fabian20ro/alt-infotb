@@ -35,8 +35,6 @@ export const API = {
 		'App-Version': '0.0.0',
 		'Device-Name': 'Chrome',
 		'Lang': 'ro',
-		'OS-Type': 'Web',
-		'OS-Version': 'web',
 		'Source': 'ro.radcom.smartcity.web'
 	} as Record<string, string>
 } as const;
