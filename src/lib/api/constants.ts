@@ -29,14 +29,12 @@ export const LINE_ORDER: string[] = ['7', '27', '47'];
 export const API = {
 	BASE: 'https://info.stb.ro/api/web/v2-6',
 	TIMEOUT: 10_000,
-	HEADERS: {
-		'Accept': 'application/json',
-		'App-Id': 'b32cc233-00d7-4640-bf90-374572668c30',
-		'App-Version': '0.0.0',
-		'Device-Name': 'Chrome',
-		'Lang': 'ro',
-		'Source': 'ro.radcom.smartcity.web'
-	} as Record<string, string>
+	/**
+	 * Only CORS-safelisted headers are included here.
+	 * Custom headers (App-Id, Lang, etc.) trigger a preflight OPTIONS request
+	 * that the STB server rejects, causing a CORS error from cross-origin pages.
+	 */
+	HEADERS: {} as Record<string, string>
 } as const;
 
 /** Auto-refresh interval in milliseconds */

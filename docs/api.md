@@ -6,7 +6,9 @@
 GET https://info.stb.ro/api/web/v2-6/lines/stop?stop_id={stop_id}
 ```
 
-## Required headers
+## Headers
+
+The STB API accepts these custom headers (observed from the official STB web app):
 
 | Header | Value |
 |---|---|
@@ -17,6 +19,8 @@ GET https://info.stb.ro/api/web/v2-6/lines/stop?stop_id={stop_id}
 | `OS-Type` | `Web` |
 | `OS-Version` | `web` |
 | `Source` | `ro.radcom.smartcity.web` |
+
+**CORS note:** These headers are **not sent** from the browser app. They are non-standard headers that trigger a CORS preflight (OPTIONS) request, and the STB server rejects them with `Access-Control-Allow-Headers` that doesn't include them. The API works without these headers from cross-origin pages. They are listed here for reference only (e.g., for curl or server-side use).
 
 ## Response format
 
@@ -55,4 +59,4 @@ curl -s 'https://info.stb.ro/api/web/v2-6/lines/stop?stop_id=3570' \
 
 - The API may also require a `User-Info` header (bcrypt hash) for some endpoints. The stop arrival endpoint works without it as of the time of writing.
 - The domain is `info.stb.ro` (not `info.stbsa.ro` which was a previous version).
-- CORS behavior from different origins has not been confirmed. If blocked, a proxy or browser extension may be needed during development.
+- CORS: The STB server responds to preflight requests but rejects custom headers. The app omits all custom headers to avoid triggering preflight, which allows cross-origin requests to succeed.

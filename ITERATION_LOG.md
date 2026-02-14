@@ -50,4 +50,14 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-14] Fix CORS error caused by custom request headers
+
+**Context:** The deployed app on `fabian20ro.github.io` was failing with: `Request header field lang is not allowed by Access-Control-Allow-Headers in preflight response`. All API calls were blocked.
+**What happened:** The STB API headers (`App-Id`, `App-Version`, `Device-Name`, `Lang`, `Source`) are non-standard and trigger a CORS preflight (OPTIONS) request. The STB server responds to the preflight but doesn't include these headers in `Access-Control-Allow-Headers`, so the browser rejects the request. Fixed by removing all custom headers from `API.HEADERS` in `constants.ts`. Updated the test in `client.test.ts` to verify custom headers are not sent. Updated `docs/api.md` to document the CORS behavior.
+**Outcome:** Success — 29 tests pass, 0 type errors, build succeeds. The API is expected to work without custom headers since it serves the same protobuf response regardless.
+**Insight:** The STB API server has partial CORS support (it responds to OPTIONS) but doesn't allow custom headers. Avoid sending any non-CORS-safelisted headers from browser context.
+**Promoted to Lessons Learned:** Yes
+
+---
+
 <!-- New entries go above this line, most recent first -->

@@ -29,7 +29,9 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-14]** STB API returns protobuf, not JSON — The `info.stb.ro` API endpoint returns Protocol Buffers binary despite sending an `Accept: application/json` header. A custom ~100-line decoder (`proto.ts`) handles this. No protobuf library is needed since the schema is small and stable.
 
-**[2026-02-14]** No backend required — All API calls go directly from the browser to `info.stb.ro`. This means zero hosting cost but depends on CORS being allowed. If CORS is ever blocked, a proxy will be needed.
+**[2026-02-14]** No backend required — All API calls go directly from the browser to `info.stb.ro`. This means zero hosting cost but depends on CORS being allowed.
+
+**[2026-02-14]** Custom headers cause CORS preflight failures — The STB API server responds to CORS preflight (OPTIONS) but rejects non-standard headers like `App-Id`, `Lang`, `Device-Name`, `Source` via `Access-Control-Allow-Headers`. The fix is to omit all custom headers from browser requests. The API works without them. Only use these headers in curl/server-side contexts.
 
 ## Code Patterns & Pitfalls
 
