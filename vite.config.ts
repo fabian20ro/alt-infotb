@@ -39,7 +39,7 @@ export default defineConfig({
 				globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2}'],
 				runtimeCaching: [
 					{
-						urlPattern: /^https:\/\/(info\.stbsa\.ro|maps\.mo-bi\.ro)\/.*/i,
+						urlPattern: /^https:\/\/info\.stb\.ro\/.*/i,
 						handler: 'NetworkOnly'
 					}
 				]

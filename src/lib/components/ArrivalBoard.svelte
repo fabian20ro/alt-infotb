@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { STATION_NAME, TRAM_LINES, LINE_COLORS } from '$lib/api/constants.js';
+	import { STATION_NAME, LINE_ORDER } from '$lib/api/constants.js';
 	import { createArrivalsStore, getCachedArrivals, cacheArrivals } from '$lib/stores/arrivals.js';
 	import type { ArrivalInfo } from '$lib/api/types.js';
 	import ArrivalRow from './ArrivalRow.svelte';
@@ -17,10 +17,12 @@
 	);
 
 	/** Placeholder rows for loading state */
-	let placeholderArrivals: ArrivalInfo[] = TRAM_LINES.map((name) => ({
-		lineId: name,
+	const placeholderArrivals: ArrivalInfo[] = LINE_ORDER.map((name) => ({
 		lineName: name,
-		direction: '0',
+		lineId: 0,
+		vehicleType: 'TRAM',
+		color: '#BE1622',
+		direction: '',
 		arrivingTimes: []
 	}));
 
@@ -30,7 +32,6 @@
 		// Try to show cached data immediately
 		const cached = getCachedArrivals();
 		if (cached) {
-			// Manually update to show cached data while fetching
 			store.state.data = cached;
 		}
 

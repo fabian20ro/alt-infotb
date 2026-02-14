@@ -1,13 +1,16 @@
 import { API } from './constants.js';
 
-/** Fetch wrapper with timeout and error handling */
-export async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
+/**
+ * Fetch binary data from the STB API.
+ * The API returns Protocol Buffers, so we read as ArrayBuffer.
+ */
+export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), API.TIMEOUT);
 
 	try {
 		const response = await fetch(url, {
-			...options,
+			headers: API.HEADERS,
 			signal: controller.signal
 		});
 
@@ -15,7 +18,8 @@ export async function apiFetch<T>(url: string, options?: RequestInit): Promise<T
 			throw new ApiError(`HTTP ${response.status}`, response.status);
 		}
 
-		return (await response.json()) as T;
+		const buf = await response.arrayBuffer();
+		return new Uint8Array(buf);
 	} catch (err) {
 		if (err instanceof ApiError) throw err;
 		if (err instanceof DOMException && err.name === 'AbortError') {

@@ -2,7 +2,7 @@ import { fetchArrivals } from '$lib/api/arrivals.js';
 import { AUTO_REFRESH_INTERVAL } from '$lib/api/constants.js';
 import type { ArrivalsState, StationArrivals } from '$lib/api/types.js';
 
-/** Reactive arrivals state using Svelte 5 runes - used in components via $state */
+/** Reactive arrivals state using Svelte 5 runes */
 export function createArrivalsStore() {
 	let state = $state<ArrivalsState>({
 		status: 'idle',
@@ -13,22 +13,12 @@ export function createArrivalsStore() {
 	let autoRefreshEnabled = $state(false);
 	let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
-	/** Cached station ID from previous successful fetch */
-	function getCachedStationId(): string | undefined {
-		try {
-			return localStorage.getItem('better-stb-station-id') ?? undefined;
-		} catch {
-			return undefined;
-		}
-	}
-
 	async function refresh() {
 		state.status = 'loading';
 		state.error = null;
 
 		try {
-			const stationId = getCachedStationId();
-			const data = await fetchArrivals(stationId);
+			const data = await fetchArrivals();
 			state.data = data;
 			state.status = 'success';
 		} catch (err) {
