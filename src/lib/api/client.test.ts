@@ -32,8 +32,8 @@ describe('apiFetchBinary', () => {
 
 		const [, options] = mockFetch.mock.calls[0];
 		expect(options.headers['App-Id']).toBe('b32cc233-00d7-4640-bf90-374572668c30');
-		expect(options.headers['OS-Type']).toBe('Web');
 		expect(options.headers['Source']).toBe('ro.radcom.smartcity.web');
+		expect(options.headers['OS-Type']).toBeUndefined();
 	});
 
 	it('throws ApiError on HTTP error', async () => {
