@@ -40,6 +40,8 @@ This project maintains a persistent learning system across AI agent sessions.
 | Test runner | Vitest | 4.x |
 | PWA | vite-plugin-pwa / @vite-pwa/sveltekit | 1.x |
 | Hosting | GitHub Pages (static adapter) | — |
+| API proxy | Cloudflare Workers | — |
+| E2E testing | Playwright | 1.x |
 | API protocol | Protocol Buffers (custom decoder, no library) | — |
 
 ## Developer experience required
@@ -47,8 +49,9 @@ This project maintains a persistent learning system across AI agent sessions.
 - **Svelte 5 runes** — The app uses the modern runes API (`$state`, `$derived`, `$effect`, `$props`), not the legacy `$:` reactive syntax. Understand how runes work before modifying stores or components.
 - **TypeScript strict mode** — All code must pass `svelte-check` with strict settings. No `any` types, no implicit returns.
 - **Protobuf wire format** — The STB API returns binary protobuf, not JSON. See `src/lib/api/proto.ts` for the decoder and `docs/api.md` for the schema. Understanding varint encoding and wire types is helpful when debugging API changes.
-- **SvelteKit static adapter** — There is no server. All rendering happens client-side (`ssr = false`, `prerender = true`). API calls go directly from the browser.
+- **SvelteKit static adapter** — There is no server. All rendering happens client-side (`ssr = false`, `prerender = true`). API calls go through a proxy (Vite plugin in dev, Cloudflare Worker in prod).
 - **Vitest** — Tests live next to source files (`*.test.ts`). Run `npm test` before committing.
+- **Playwright** — E2E tests in `e2e/`. Run `npm run test:e2e` to verify the full app flow.
 
 ## UX expertise
 
@@ -64,17 +67,26 @@ Detailed documentation is in the [`docs/`](./docs/) folder:
 
 - **[`docs/architecture.md`](./docs/architecture.md)** — High-level data flow, design decisions, protobuf schema
 - **[`docs/codemap.md`](./docs/codemap.md)** — File-by-file directory listing, module dependency graph, configuration reference
-- **[`docs/api.md`](./docs/api.md)** — STB API endpoint, required headers, known stop/line IDs, curl examples
+- **[`docs/api.md`](./docs/api.md)** — STB API endpoint, auth flow, required headers, proxy architecture, curl examples
+- **[`docs/deployment.md`](./docs/deployment.md)** — How to deploy the frontend (GitHub Pages) and worker (Cloudflare)
 
 ## Commands
 
 ```bash
+# App
 npm install          # Install dependencies
-npm run dev          # Start dev server
+npm run dev          # Start dev server (with STB API proxy)
 npm run check        # Type check (svelte-check)
 npm test             # Run unit tests (vitest)
+npm run test:integration  # Run integration tests (real API, needs network)
+npm run test:e2e     # Run E2E tests (Playwright, needs dev server)
 npm run build        # Production build (static)
 npm run preview      # Preview production build
+
+# Worker (from worker/ directory)
+cd worker && npm install      # Install worker dependencies
+cd worker && npm run dev      # Run worker locally (localhost:8787)
+cd worker && npm run deploy   # Deploy worker to Cloudflare
 ```
 
 ## Project conventions
