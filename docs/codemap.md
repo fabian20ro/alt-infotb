@@ -37,6 +37,7 @@ src/
 │   ├── stations/
 │   │   ├── types.ts                Station, StationWithDistance interfaces
 │   │   ├── stations.json           Bundled station data (2710 stops, from GTFS)
+│   │   ├── subway-stops.ts         GTFS metro ID → STB API subway stop IDs mapping
 │   │   ├── data.ts                 Station loader (IndexedDB → bundled fallback)
 │   │   ├── db.ts                   IndexedDB wrapper for station storage
 │   │   ├── geo.ts                  Haversine distance, nearest stations, viewport bounds filter
@@ -60,6 +61,7 @@ src/
 
 scripts/
 ├── dump-proto.ts                   Diagnostic: dump all protobuf fields from API
+├── discover-subway-stops.ts        Scan STB API for subway stop IDs (brute-force)
 └── fetch-stations.ts               Extract stations from GTFS stops.txt
 
 e2e/
@@ -94,9 +96,10 @@ docs/
   │    └─ map/tiles.ts
   ├─ DrawerMenu.svelte
   ├─ stores/arrivals ─── api/arrivals
-  │                        ├── api/client (apiFetchBinary)
-  │                        ├── api/proto (ProtoReader, helpers)
-  │                        └── api/constants (API, PROTO_FIELDS)
+  │   │                    ├── api/client (apiFetchBinary)
+  │   │                    ├── api/proto (ProtoReader, helpers)
+  │   │                    └── api/constants (API, PROTO_FIELDS)
+  │   └─ stations/subway-stops (resolveStopIds)
   ├─ stores/geolocation
   ├─ stores/settings
   ├─ stores/favorites
@@ -132,6 +135,6 @@ All tunable values live in `src/lib/api/constants.ts`:
 
 | Script | What it runs | Tests | Network? |
 |---|---|---|---|
-| `npm test` | Unit tests (vitest) | 69 | No |
+| `npm test` | Unit tests (vitest) | 74 | No |
 | `npm run test:integration` | Real STB API calls (vitest) | 6 | Yes |
 | `npm run test:e2e` | Playwright browser tests | varies | Yes (via proxy) |

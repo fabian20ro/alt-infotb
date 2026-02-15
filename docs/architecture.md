@@ -110,6 +110,20 @@ Hamburger drawer (left slide):
   - Language toggle (RO/EN)
 ```
 
+## Subway stop ID resolution
+
+GTFS metro parent station IDs (14xxx, 15xxx, 57xxx) do NOT return data from the STB API. The API uses internal stop IDs (95xx–97xx) for subway stations. Each physical metro station has 2+ API stops (one per platform/direction). Interchange stations have 4+ stops.
+
+The mapping is stored in `src/lib/stations/subway-stops.ts` and was discovered via `scripts/discover-subway-stops.ts` (brute-force scanning range 9500–9757).
+
+When a user taps a metro station on the map:
+1. `resolveStopIds(gtfsId)` returns an array of STB API stop IDs
+2. `fetchArrivals([id1, id2, ...])` fetches all stops in parallel via `Promise.allSettled`
+3. Results are merged: arrivals concatenated, re-sorted by line name
+4. Partial failures are tolerated — if one platform fails, others still show
+
+For surface transport (bus, tram, trolleybus), the GTFS ID maps directly to the API stop ID, so `resolveStopIds` returns `[stationId]` unchanged.
+
 ## Station data flow
 
 ```

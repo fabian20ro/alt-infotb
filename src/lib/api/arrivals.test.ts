@@ -44,10 +44,10 @@ function buildStopResponse(lines: Array<{
 	color: string;
 	direction: string;
 	arrivals: Array<{ seconds: number; isScheduled?: number }>;
-}>): Uint8Array {
+}>, stationName = 'Piata Unirii', address = 'Bd. Regina Maria, Bucuresti'): Uint8Array {
 	const bytes: number[] = [
-		...encodeStringField(1, 'Piata Unirii'),
-		...encodeStringField(2, 'Bd. Regina Maria, Bucuresti'),
+		...encodeStringField(1, stationName),
+		...encodeStringField(2, address),
 		...encodeStringField(5, 'STATION')
 	];
 	for (const line of lines) {
@@ -248,5 +248,145 @@ describe('fetchArrivals', () => {
 		const { fetchArrivals } = await import('./arrivals.js');
 		const result = await fetchArrivals(3570);
 		expect(result.arrivals[0].color).toBe('#006600');
+	});
+});
+
+describe('fetchArrivals multi-stop merging', () => {
+	beforeEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('fetches multiple stops in parallel and merges arrivals', async () => {
+		const stop1 = buildStopResponse([
+			{
+				name: 'M1', id: 522, type: 'SUBWAY', color: '#1D1D1B', direction: 'Dristor',
+				arrivals: [{ seconds: 300 }]
+			}
+		], 'Piata Unirii', 'Piata Unirii');
+
+		const stop2 = buildStopResponse([
+			{
+				name: 'M2', id: 523, type: 'SUBWAY', color: '#1D1D1B', direction: 'Pipera',
+				arrivals: [{ seconds: 180 }]
+			}
+		], 'Piata Unirii', 'Piata Unirii');
+
+		const mockFetch = vi.fn()
+			.mockImplementation((url: string) => {
+				const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+				const data = stopId === '9552' ? stop1 : stop2;
+				return Promise.resolve({
+					ok: true,
+					arrayBuffer: () => Promise.resolve(data.buffer)
+				});
+			});
+		vi.stubGlobal('fetch', mockFetch);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		// Both lines merged
+		expect(result.arrivals).toHaveLength(2);
+		const lineNames = result.arrivals.map((a) => a.lineName);
+		expect(lineNames).toContain('M1');
+		expect(lineNames).toContain('M2');
+
+		// Fetched both stops
+		expect(mockFetch).toHaveBeenCalledTimes(2);
+	});
+
+	it('sorts merged arrivals by line name', async () => {
+		const stop1 = buildStopResponse([
+			{
+				name: 'M3', id: 521, type: 'SUBWAY', color: '#1D1D1B', direction: 'Preciziei',
+				arrivals: [{ seconds: 600 }]
+			}
+		], 'Piata Unirii');
+
+		const stop2 = buildStopResponse([
+			{
+				name: 'M1', id: 522, type: 'SUBWAY', color: '#1D1D1B', direction: 'Pantelimon',
+				arrivals: [{ seconds: 300 }]
+			}
+		], 'Piata Unirii');
+
+		const mockFetch = vi.fn()
+			.mockImplementation((url: string) => {
+				const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+				const data = stopId === '9552' ? stop1 : stop2;
+				return Promise.resolve({
+					ok: true,
+					arrayBuffer: () => Promise.resolve(data.buffer)
+				});
+			});
+		vi.stubGlobal('fetch', mockFetch);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9553]);
+
+		// Sorted: M1 before M3
+		expect(result.arrivals.map((a) => a.lineName)).toEqual(['M1', 'M3']);
+	});
+
+	it('tolerates partial failures in multi-stop fetch', async () => {
+		const stop1 = buildStopResponse([
+			{
+				name: 'M1', id: 522, type: 'SUBWAY', color: '#1D1D1B', direction: 'Dristor',
+				arrivals: [{ seconds: 300 }]
+			}
+		], 'Piata Unirii');
+
+		const mockFetch = vi.fn()
+			.mockImplementation((url: string) => {
+				const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+				if (stopId === '9552') {
+					return Promise.resolve({
+						ok: true,
+						arrayBuffer: () => Promise.resolve(stop1.buffer)
+					});
+				}
+				return Promise.resolve({ ok: false, status: 500 });
+			});
+		vi.stubGlobal('fetch', mockFetch);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		// Only the successful stop's arrivals
+		expect(result.arrivals).toHaveLength(1);
+		expect(result.arrivals[0].lineName).toBe('M1');
+	});
+
+	it('throws when all stops fail in multi-stop fetch', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 500 })
+		);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		await expect(fetchArrivals([9552, 9543])).rejects.toThrow();
+	});
+
+	it('single ID still works as before (backward compat)', async () => {
+		const responseData = buildStopResponse([
+			{
+				name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul',
+				arrivals: [{ seconds: 120 }]
+			}
+		]);
+
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.resolve(responseData.buffer)
+			})
+		);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+
+		expect(result.arrivals).toHaveLength(1);
+		expect(result.arrivals[0].lineName).toBe('7');
 	});
 });

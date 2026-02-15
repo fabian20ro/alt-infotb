@@ -137,7 +137,7 @@
 
 				marker.bindTooltip(station.name, {
 					direction: 'top',
-					offset: [0, -10]
+					offset: [0, -16]
 				});
 
 				markerCache.set(station.id, marker);

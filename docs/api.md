@@ -70,9 +70,15 @@ The response body is **Protocol Buffers** binary, not JSON. See [architecture.md
 
 ## Known stop IDs
 
-| Stop ID | Name | Address |
-|---|---|---|
-| `3570` | Piata Unirii | Bd. Regina Maria, Bucuresti |
+| Stop ID | Name | Address | Type |
+|---|---|---|---|
+| `3570` | Piata Unirii | Bd. Regina Maria, Bucuresti | Surface (tram) |
+| `9543` | Piata Unirii | Piata Unirii | Subway (M2→Pipera) |
+| `9544` | Piata Unirii | Piata Unirii | Subway (M2→Tudor Arghezi) |
+| `9552` | Piata Unirii | Piata Unirii | Subway (M1→Dristor, M3→Preciziei) |
+| `9553` | Piata Unirii | Piata Unirii | Subway (M3→A.Saligny, M1→Pantelimon) |
+
+**Note:** GTFS metro parent station IDs (14xxx, 15xxx, 57xxx) do NOT return data from the STB API. The API uses its own internal stop IDs (95xx–97xx) for subway stations. See `src/lib/stations/subway-stops.ts` for the full mapping. Discovered via `scripts/discover-subway-stops.ts`.
 
 ## Known line IDs
 

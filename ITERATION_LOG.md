@@ -156,4 +156,32 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-15] Add subway support with multi-stop merging + larger markers
+
+**Context:** Metro stations existed in the station list (59 GTFS parent stations) but their IDs returned no data from the STB API. The API uses separate internal stop IDs (9500–9757) for subway stations. Each physical station has 2+ stops (one per platform/direction). Goal was to make metro arrivals work by discovering the correct IDs and merging multiple stops into one view.
+
+**What happened:**
+1. **Discovery:** Created `scripts/discover-subway-stops.ts` to brute-force scan the STB API for subway stop IDs. Found 107 stops across 47 unique station names in range 9500–9864. M5 (Drumul Taberei) has no API data.
+2. **Mapping:** Created `src/lib/stations/subway-stops.ts` mapping 47 GTFS metro parent station IDs to their STB API subway stop IDs. `resolveStopIds()` returns the mapped IDs or `[stationId]` for surface transport.
+3. **Multi-stop fetch:** Updated `fetchArrivals()` in `arrivals.ts` to accept `number | number[]`. When given an array, fetches all in parallel via `Promise.allSettled`, merges arrivals, re-sorts by line name. Partial failures tolerated.
+4. **Store update:** Updated `arrivals.svelte.ts` to resolve station IDs through the subway mapping before fetching.
+5. **Marker sizes:** Doubled all map marker dot sizes (normal: 12→24px, selected: 18→36px). Updated tooltip offset to match.
+6. **SUBWAY color:** Added `SUBWAY: '#1D1D1B'` to `TYPE_COLORS` in station-icons.ts.
+7. **Tests:** Added 5 new tests for multi-stop merging (parallel fetch, sorting, partial failures, total failure, backward compat). All 74 tests pass.
+
+**Files created:** `scripts/discover-subway-stops.ts`, `src/lib/stations/subway-stops.ts`
+**Files modified:** `src/lib/api/arrivals.ts`, `src/lib/stores/arrivals.svelte.ts`, `src/lib/api/arrivals.test.ts`, `src/lib/components/map/station-icons.ts`, `src/lib/components/MapView.svelte`, docs/*, AGENTS.md, README.md
+
+**Outcome:** Success — 74 unit tests pass, 0 type errors, build succeeds. Metro stations now show M1/M2/M3/M4 arrivals with merged multi-platform data.
+
+**Insight:**
+- GTFS metro parent station IDs ≠ STB API subway stop IDs. The API uses its own numbering (9500–9757 range).
+- `Promise.allSettled` is essential for multi-stop fetch — one failing platform shouldn't crash the whole request.
+- M5 (Drumul Taberei) line has no API data despite having GTFS station entries (99010–99090).
+- Some stations have duplicate stop IDs (e.g., Dristor has 4 stops, 2 seem redundant but we include all for completeness).
+
+**Promoted to Lessons Learned:** Yes
+
+---
+
 <!-- New entries go above this line, most recent first -->

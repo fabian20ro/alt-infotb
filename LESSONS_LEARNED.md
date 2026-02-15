@@ -49,6 +49,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-15]** Svelte 5 `$effect` dependency tracking requires unconditional reads — `$effect` only tracks reactive values (`$state`, `$derived`, `$props`) that are read during execution. If a guard using plain `let` variables short-circuits before a prop is read (e.g., `if (!map) return` before reading `theme`), Svelte records zero dependencies and the effect never re-runs. Fix: read all reactive values at the top before any guards: `const t = theme; if (!map) return; use(t);`.
 
+**[2026-02-15]** GTFS metro parent station IDs ≠ STB API subway stop IDs — The STB API uses internal stop IDs (9500–9757) for subway stations, not the GTFS parent station IDs (14xxx, 15xxx, 57xxx). Each physical station has 2+ API stops (one per platform/direction). The mapping is stored in `src/lib/stations/subway-stops.ts` and was discovered via `scripts/discover-subway-stops.ts`. M5 (Drumul Taberei) stations have no API data.
+
+**[2026-02-15]** Multi-stop fetch+merge pattern for metro stations — `fetchArrivals()` accepts `number | number[]`. For arrays, use `Promise.allSettled` (not `Promise.all`) to tolerate partial failures. Merge by concatenating arrivals from all successful fetches and re-sorting. This way, one failing platform doesn't crash the entire station's view.
+
 ## Testing & Quality
 
 **[2026-02-14]** Protobuf tests need encoding helpers — Tests for the protobuf decoder require building valid binary messages. Use `encodeVarint`, `encodeStringField`, `encodeVarintField`, and `encodeMessageField` helpers (defined in `proto.test.ts`) to construct test fixtures.

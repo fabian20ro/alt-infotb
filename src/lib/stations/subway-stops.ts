@@ -1,0 +1,76 @@
+/**
+ * Maps GTFS metro parent station IDs to STB API subway stop IDs.
+ *
+ * GTFS metro parent station IDs (14xxx, 15xxx, 57xxx, 99xxx) return empty
+ * responses from the STB API. The API uses its own internal stop IDs (95xx-97xx)
+ * for subway stations. Each physical station has 2+ stops (one per platform/direction).
+ * Interchange stations (where lines cross) have 4+ stops.
+ *
+ * Discovered via scripts/discover-subway-stops.ts on 2026-02-15.
+ * M5 (Drumul Taberei) stations have no API data and are excluded.
+ */
+
+/** Maps GTFS metro parent station ID → STB API subway stop IDs */
+export const SUBWAY_STOP_IDS: Record<number, number[]> = {
+	// M1 line stations
+	14718: [9629, 9630], // Pantelimon
+	14719: [9632, 9633], // Republica
+	14717: [9635, 9636], // Costin Georgian
+	14716: [9639, 9640], // Titan
+	15102: [9645, 9646, 9647, 9864], // Nicolae Grigorescu (M1+M3 interchange)
+	14712: [9662, 9663], // Mihai Bravu (M1+M3 shared)
+	14697: [9653, 9654, 9656, 9657], // Dristor 1+2 (M1+M3 interchange)
+	14713: [9653, 9654, 9656, 9657], // Dristor 1 (same physical station)
+	14711: [9666, 9667], // Timpuri Noi (M1+M3 shared)
+	15100: [9543, 9544, 9552, 9553], // Piața Unirii (M1+M2+M3 interchange)
+	14725: [9596, 9597], // Universitate (M2)
+	14724: [9592, 9593], // Piața Romană (M2)
+	15099: [9607, 9608, 9609, 9610], // Piața Victoriei (M1+M2 interchange)
+	14701: [9704, 9705], // Ștefan cel Mare (M1)
+	14700: [9699, 9700], // Obor (M1)
+	14699: [9695, 9696], // Piața Iancului (M1)
+	14698: [9691, 9692], // Piața Muncii (M1)
+	14703: [9751, 9752], // Gara de Nord 1 (M1)
+	14704: [9735, 9738, 9756, 9757], // Basarab (M1+M4 interchange)
+	14705: [9721, 9729], // Crângași (M1)
+	14706: [9707, 9714], // Petrache Poenaru (M1)
+	14707: [9673, 9676], // Grozăvești (M1)
+	14708: [9578, 9579], // Eroilor (M1+M3 interchange)
+	14709: [9539, 9540], // Izvor (M1+M3 shared)
+
+	// M2 line stations (not already covered above)
+	14727: [9587, 9588], // Tineretului (M2)
+	14728: [9572, 9573], // Eroii Revoluției (M2)
+	14729: [9569, 9570], // Constantin Brâncoveanu (M2)
+	14730: [9565, 9566], // Piața Sudului (M2)
+	14731: [9562, 9563], // Apărătorii Patriei (M2)
+	14733: [9556, 9557], // Berceni (M2)
+	14732: [9559, 9560], // Dimitrie Leonida (M2)
+	14722: [9613, 9614], // Aviatorilor (M2)
+	14721: [9616, 9617], // Aurel Vlaicu (M2)
+	14720: [9620, 9621], // Pipera (M2)
+
+	// M3 line stations (not already covered above)
+	14738: [9584, 9585], // Politehnica (M3)
+	14737: [9624, 9625], // Lujerului (M3)
+	14736: [9628, 9641], // Gorjului (M3)
+	14735: [9652, 9655], // Păcii (M3)
+	14734: [9660, 9668], // Preciziei (M3)
+	14739: [9674, 9675], // 1 Decembrie 1918 (M3)
+	14740: [9681, 9682], // Nicolae Teclu (M3)
+	14741: [9685, 9686], // Anghel Saligny (M3)
+
+	// M4 line stations (not already covered above)
+	14742: [9753, 9754], // Gara de Nord 2 (M4)
+	14744: [9747, 9748], // Grivița (M4)
+	14745: [9742, 9743], // 1 Mai (M4)
+	14746: [9733, 9734], // Jiului (M4)
+	14747: [9727, 9728], // Parc Bazilescu (M4)
+	57443: [9722, 9723], // Laminorului (M4)
+	57442: [9712, 9713], // Străulești (M4)
+};
+
+/** Resolve a station ID to its STB API stop IDs. Non-subway stations return [stationId]. */
+export function resolveStopIds(stationId: number): number[] {
+	return SUBWAY_STOP_IDS[stationId] ?? [stationId];
+}

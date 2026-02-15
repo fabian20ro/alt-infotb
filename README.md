@@ -2,16 +2,18 @@
 
 [![Build](https://github.com/fabian20ro/better-stb/actions/workflows/deploy.yml/badge.svg)](https://github.com/fabian20ro/better-stb/actions/workflows/deploy.yml)
 
-Real-time arrival times for STB trams in Bucuresti.
+Real-time arrivals for bus, tram, trolleybus, and subway across Bucharest.
 No accounts, no tracking, runs entirely in your browser.
 
 **[Open the live app](https://fabian20ro.github.io/better-stb/)**
 
 ## Features
 
-- Arrival times for trams at Piata Unirii (7, 27, 47)
+- Real-time arrivals for all 2,710 STB stations (bus, tram, trolleybus, subway M1–M4)
+- Interactive map with GPS-based station discovery
+- Favorites and recent stations
+- Light/dark theme, Romanian/English
 - Installable as PWA
-- Dark theme, mobile-first
 - Auto-refresh every 30s (optional)
 - Offline support with cached data
 

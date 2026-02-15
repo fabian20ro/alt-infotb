@@ -1,6 +1,7 @@
 import { fetchArrivals } from '$lib/api/arrivals.js';
 import { AUTO_REFRESH_INTERVAL, STOP_ID } from '$lib/api/constants.js';
 import type { ArrivalsState, StationArrivals } from '$lib/api/types.js';
+import { resolveStopIds } from '$lib/stations/subway-stops.js';
 
 /** Reactive arrivals state using Svelte 5 runes */
 export function createArrivalsStore() {
@@ -10,7 +11,7 @@ export function createArrivalsStore() {
 		error: null
 	});
 
-	let currentStopId = $state(STOP_ID);
+	let currentStopIds = $state<number[]>([STOP_ID]);
 	let autoRefreshEnabled = $state(false);
 	let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -19,7 +20,7 @@ export function createArrivalsStore() {
 		state.error = null;
 
 		try {
-			const data = await fetchArrivals(currentStopId);
+			const data = await fetchArrivals(currentStopIds);
 			state.data = data;
 			state.status = 'success';
 		} catch (err) {
@@ -29,7 +30,7 @@ export function createArrivalsStore() {
 	}
 
 	function selectStation(stopId: number) {
-		currentStopId = stopId;
+		currentStopIds = resolveStopIds(stopId);
 		state.data = null;
 		refresh();
 	}
@@ -69,7 +70,7 @@ export function createArrivalsStore() {
 			return state;
 		},
 		get currentStopId() {
-			return currentStopId;
+			return currentStopIds[0];
 		},
 		get autoRefreshEnabled() {
 			return autoRefreshEnabled;

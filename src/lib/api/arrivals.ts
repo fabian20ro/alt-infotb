@@ -70,8 +70,8 @@ function decodeStopResponse(data: Uint8Array): StationArrivals {
 	};
 }
 
-/** Fetch arrivals from the STB API for the given stop. */
-export async function fetchArrivals(stopId: number): Promise<StationArrivals> {
+/** Fetch arrivals from the STB API for a single stop. */
+async function fetchSingleStop(stopId: number): Promise<StationArrivals> {
 	const url = `${API.BASE}/lines/stop?stop_id=${stopId}`;
 
 	try {
@@ -84,4 +84,55 @@ export async function fetchArrivals(stopId: number): Promise<StationArrivals> {
 			0
 		);
 	}
+}
+
+/** Merge multiple StationArrivals into one, combining all lines and re-sorting. */
+function mergeArrivals(results: StationArrivals[]): StationArrivals {
+	const first = results[0];
+	const allArrivals = results.flatMap((r) => r.arrivals);
+
+	// Sort by line name numerically
+	allArrivals.sort((a, b) => {
+		const aNum = parseInt(a.lineName, 10);
+		const bNum = parseInt(b.lineName, 10);
+		if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+		return a.lineName.localeCompare(b.lineName);
+	});
+
+	return {
+		stationName: first.stationName,
+		address: first.address,
+		arrivals: allArrivals,
+		fetchedAt: new Date()
+	};
+}
+
+/**
+ * Fetch arrivals from the STB API for the given stop(s).
+ * Accepts a single stop ID or an array of stop IDs (for metro stations with
+ * multiple platforms). When given an array, fetches all in parallel and merges
+ * the results. Partial failures are tolerated — if some stops fail, the
+ * successful results are still returned.
+ */
+export async function fetchArrivals(stopIds: number | number[]): Promise<StationArrivals> {
+	const ids = Array.isArray(stopIds) ? stopIds : [stopIds];
+
+	if (ids.length === 1) {
+		return fetchSingleStop(ids[0]);
+	}
+
+	const settled = await Promise.allSettled(ids.map(fetchSingleStop));
+	const successes = settled
+		.filter((r): r is PromiseFulfilledResult<StationArrivals> => r.status === 'fulfilled')
+		.map((r) => r.value);
+
+	if (successes.length === 0) {
+		// All failed — re-throw the first error
+		const firstError = settled.find(
+			(r): r is PromiseRejectedResult => r.status === 'rejected'
+		);
+		throw firstError?.reason ?? new ApiError('All subway stop fetches failed', 0);
+	}
+
+	return mergeArrivals(successes);
 }

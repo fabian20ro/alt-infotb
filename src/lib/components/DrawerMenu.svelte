@@ -116,6 +116,14 @@
 				</div>
 			</div>
 		</section>
+
+		<div class="build-badge">
+			<a href="https://github.com/fabian20ro/better-stb/actions/workflows/deploy.yml"
+				 target="_blank" rel="noopener noreferrer">
+				<img src="https://github.com/fabian20ro/better-stb/actions/workflows/deploy.yml/badge.svg"
+						 alt="Build status" height="20" />
+			</a>
+		</div>
 	</div>
 </nav>
 
@@ -262,5 +270,15 @@
 		background: var(--color-accent);
 		color: #000;
 		font-weight: 600;
+	}
+
+	.build-badge {
+		margin-top: 1.5rem;
+		text-align: center;
+		opacity: 0.6;
+	}
+
+	.build-badge:hover {
+		opacity: 1;
 	}
 </style>
