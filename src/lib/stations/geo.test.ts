@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { distanceMeters, findNearestStations } from './geo.js';
+import { distanceMeters, findNearestStations, findStationsInBounds } from './geo.js';
 import type { Station } from './types.js';
+import type { LatLngBounds } from './geo.js';
 
 describe('distanceMeters', () => {
 	it('returns 0 for same point', () => {
@@ -64,5 +65,58 @@ describe('findNearestStations', () => {
 	it('handles empty station list', () => {
 		const nearest = findNearestStations(44.4268, 26.1025, [], 5);
 		expect(nearest).toHaveLength(0);
+	});
+});
+
+describe('findStationsInBounds', () => {
+	const stations: Station[] = [
+		{ id: 1, name: 'A', description: '', lat: 44.4266, lon: 26.1002 },
+		{ id: 2, name: 'B', description: '', lat: 44.4358, lon: 26.1027 },
+		{ id: 3, name: 'C', description: '', lat: 44.4500, lon: 26.1100 },
+		{ id: 4, name: 'D', description: '', lat: 44.4600, lon: 26.1200 },
+		{ id: 5, name: 'E', description: '', lat: 44.5000, lon: 26.1500 },
+	];
+
+	const bounds: LatLngBounds = { south: 44.42, north: 44.46, west: 26.09, east: 26.13 };
+
+	it('returns all stations within bounds when under cap', () => {
+		const result = findStationsInBounds(bounds, stations, 100);
+		// Stations 1, 2, 3 are within bounds; 4 is at 44.46 (boundary); 5 is outside
+		expect(result.map((s) => s.id)).toContain(1);
+		expect(result.map((s) => s.id)).toContain(2);
+		expect(result.map((s) => s.id)).toContain(3);
+		expect(result.map((s) => s.id)).not.toContain(5);
+	});
+
+	it('respects maxCount, returns stations nearest to center', () => {
+		const result = findStationsInBounds(bounds, stations, 2);
+		expect(result).toHaveLength(2);
+		// Center is ~44.44, ~26.11 — stations 2 (44.4358) and 3 (44.4500) are closest
+		const ids = result.map((s) => s.id);
+		expect(ids).toContain(2);
+		expect(ids).toContain(3);
+	});
+
+	it('always includes selectedId even when over cap', () => {
+		const result = findStationsInBounds(bounds, stations, 2, 1);
+		expect(result).toHaveLength(2);
+		expect(result.map((s) => s.id)).toContain(1);
+	});
+
+	it('includes selectedId even when outside bounds', () => {
+		const result = findStationsInBounds(bounds, stations, 100, 5);
+		expect(result.map((s) => s.id)).toContain(5);
+	});
+
+	it('returns empty array for bounds with no stations', () => {
+		const emptyBounds: LatLngBounds = { south: 45.0, north: 45.1, west: 27.0, east: 27.1 };
+		const result = findStationsInBounds(emptyBounds, stations, 100);
+		expect(result).toHaveLength(0);
+	});
+
+	it('includes station exactly on boundary', () => {
+		// Station 4 is at lat 44.46 = north boundary
+		const result = findStationsInBounds(bounds, stations, 100);
+		expect(result.map((s) => s.id)).toContain(4);
 	});
 });

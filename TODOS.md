@@ -47,3 +47,10 @@
 - [x] 6.3 PWA updates (map tiles StaleWhileRevalidate) — 2026-02-15
 - [x] 6.4 E2E tests (15 tests across 6 describe blocks) — 2026-02-15
 - [x] 6.5 Documentation updates (AGENTS.md, ITERATION_LOG.md, LESSONS_LEARNED.md) — 2026-02-15
+
+## Phase 7: Map Usability — Dynamic Stations + Theme Fix
+- [x] 7.1 Add `findStationsInBounds` to geo.ts + tests — 2026-02-15
+- [x] 7.2 Fix theme tile switching bug in MapView — 2026-02-15
+- [x] 7.3 Refactor MapView: marker cache, moveend handler, debounce — 2026-02-15
+- [x] 7.4 Simplify +page.svelte data flow — 2026-02-15
+- [x] 7.5 Update documentation (codemap, architecture, iteration log) — 2026-02-15

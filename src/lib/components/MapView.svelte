@@ -1,25 +1,32 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { Station, StationWithDistance } from '$lib/stations/types.js';
+	import type { Station } from '$lib/stations/types.js';
 	import type { GeoPosition } from '$lib/stores/geolocation.svelte.js';
+	import { findStationsInBounds, type LatLngBounds } from '$lib/stations/geo.js';
+
+	const MAX_VISIBLE_MARKERS = 100;
+	const DEBOUNCE_MS = 150;
 
 	interface Props {
-		stations: StationWithDistance[];
+		allStations: Station[];
 		selectedStationId: number | null;
 		userPosition: GeoPosition | null;
 		theme: 'light' | 'dark';
 		onStationSelect: (station: Station) => void;
 	}
 
-	let { stations, selectedStationId, userPosition, theme, onStationSelect }: Props = $props();
+	let { allStations, selectedStationId, userPosition, theme, onStationSelect }: Props = $props();
 
 	let mapContainer: HTMLDivElement;
 	let map: L.Map | null = null;
 	let tileLayer: L.TileLayer | null = null;
-	let stationMarkers: L.Marker[] = [];
+	let markerCache = new Map<number, L.Marker>();
+	let currentSelectedId: number | null = null;
 	let userMarker: L.Marker | null = null;
 	let accuracyCircle: L.Circle | null = null;
 	let loaded = $state(false);
+	let initialViewSet = false;
+	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Lazy-load Leaflet modules
 	let L: typeof import('leaflet') | null = null;
@@ -30,6 +37,8 @@
 	onMount(() => {
 		loadMap();
 		return () => {
+			if (debounceTimer) clearTimeout(debounceTimer);
+			markerCache.clear();
 			map?.remove();
 			map = null;
 		};
@@ -42,7 +51,6 @@
 			import('./map/station-icons.js'),
 			import('./map/user-marker.js')
 		]);
-		// Need to import Leaflet CSS
 		await import('leaflet/dist/leaflet.css');
 
 		L = leaflet.default ?? leaflet;
@@ -61,7 +69,6 @@
 			attributionControl: false
 		});
 
-		// Add zoom control to top-right
 		L.control.zoom({ position: 'topright' }).addTo(map);
 		L.control.attribution({ position: 'bottomleft' }).addTo(map);
 
@@ -71,41 +78,94 @@
 			maxZoom: config.maxZoom
 		}).addTo(map);
 
+		// Debounced handler for pan/zoom
+		map.on('moveend', () => {
+			if (debounceTimer) clearTimeout(debounceTimer);
+			debounceTimer = setTimeout(updateVisibleStations, DEBOUNCE_MS);
+		});
+
 		loaded = true;
-		updateStationMarkers();
+		updateVisibleStations();
 		updateUserMarker();
 	}
 
-	function updateStationMarkers() {
-		if (!map || !L || !stationIcons) return;
+	function updateVisibleStations() {
+		if (!map || !L || !stationIcons || allStations.length === 0) return;
 
-		// Remove old markers
-		for (const marker of stationMarkers) {
-			marker.remove();
+		const leafletBounds = map.getBounds();
+		const bounds: LatLngBounds = {
+			south: leafletBounds.getSouth(),
+			north: leafletBounds.getNorth(),
+			west: leafletBounds.getWest(),
+			east: leafletBounds.getEast()
+		};
+
+		const visible = findStationsInBounds(bounds, allStations, MAX_VISIBLE_MARKERS, selectedStationId);
+		const visibleIds = new Set(visible.map((s) => s.id));
+
+		// Remove markers no longer visible
+		for (const [id, marker] of markerCache) {
+			if (!visibleIds.has(id)) {
+				marker.remove();
+				markerCache.delete(id);
+			}
 		}
-		stationMarkers = [];
 
-		// Add new markers
-		for (const station of stations) {
+		// Add new markers and update selection state
+		for (const station of visible) {
 			const isSelected = station.id === selectedStationId;
-			const icon = isSelected
-				? stationIcons.createSelectedStationIcon()
-				: stationIcons.createStationIcon();
+			const existing = markerCache.get(station.id);
 
-			const marker = L.marker([station.lat, station.lon], { icon })
-				.addTo(map!)
-				.on('click', () => onStationSelect(station));
+			if (existing) {
+				// Update icon if selection state changed
+				const wasSelected = station.id === currentSelectedId;
+				if (isSelected !== wasSelected) {
+					const icon = isSelected
+						? stationIcons.createSelectedStationIcon()
+						: stationIcons.createStationIcon();
+					existing.setIcon(icon);
+				}
+			} else {
+				// Create new marker
+				const icon = isSelected
+					? stationIcons.createSelectedStationIcon()
+					: stationIcons.createStationIcon();
 
-			// Add tooltip with station name
-			marker.bindTooltip(station.name, {
-				direction: 'top',
-				offset: [0, -10]
-			});
+				const marker = L.marker([station.lat, station.lon], { icon })
+					.addTo(map!)
+					.on('click', () => onStationSelect(station));
 
-			stationMarkers.push(marker);
+				marker.bindTooltip(station.name, {
+					direction: 'top',
+					offset: [0, -10]
+				});
+
+				markerCache.set(station.id, marker);
+			}
 		}
 
-		fitBounds();
+		currentSelectedId = selectedStationId;
+	}
+
+	function setInitialView() {
+		if (!map || !L || initialViewSet) return;
+		initialViewSet = true;
+
+		const points: [number, number][] = [];
+		if (userPosition) points.push([userPosition.lat, userPosition.lon]);
+
+		// Include selected station if known
+		if (selectedStationId) {
+			const sel = allStations.find((s) => s.id === selectedStationId);
+			if (sel) points.push([sel.lat, sel.lon]);
+		}
+
+		if (points.length > 1) {
+			const bounds = L.latLngBounds(points);
+			map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+		} else if (points.length === 1) {
+			map.setView(points[0], 15);
+		}
 	}
 
 	function updateUserMarker() {
@@ -136,20 +196,6 @@
 		}
 	}
 
-	function fitBounds() {
-		if (!map || !L) return;
-
-		const points: [number, number][] = stations.map((s) => [s.lat, s.lon]);
-		if (userPosition) {
-			points.push([userPosition.lat, userPosition.lon]);
-		}
-
-		if (points.length > 1) {
-			const bounds = L.latLngBounds(points);
-			map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
-		}
-	}
-
 	function recenter() {
 		if (!map || !L) return;
 		if (userPosition) {
@@ -157,12 +203,19 @@
 		}
 	}
 
-	// React to station changes
+	// Set initial view once allStations first populates
+	$effect(() => {
+		if (loaded && allStations.length > 0) {
+			setInitialView();
+			updateVisibleStations();
+		}
+	});
+
+	// React to selection changes — update marker icons
 	$effect(() => {
 		if (loaded) {
-			stations; // track dependency
-			selectedStationId; // track dependency
-			updateStationMarkers();
+			selectedStationId; // track
+			updateVisibleStations();
 		}
 	});
 
@@ -173,12 +226,12 @@
 		}
 	});
 
-	// React to theme changes
+	// React to theme changes — read theme BEFORE guard to ensure tracking
 	$effect(() => {
-		if (map && tileLayer && tileConfigs && L) {
-			const config = tileConfigs[theme];
-			tileLayer.setUrl(config.url);
-		}
+		const t = theme;
+		if (!map || !tileLayer || !tileConfigs) return;
+		const config = tileConfigs[t];
+		tileLayer.setUrl(config.url);
 	});
 </script>
 

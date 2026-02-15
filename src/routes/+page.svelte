@@ -7,8 +7,7 @@
 	import { createFavoritesStore } from '$lib/stores/favorites.svelte.js';
 	import { createRecentsStore } from '$lib/stores/recents.svelte.js';
 	import { loadStations } from '$lib/stations/data.js';
-	import { findNearestStations } from '$lib/stations/geo.js';
-	import type { Station, StationWithDistance } from '$lib/stations/types.js';
+	import type { Station } from '$lib/stations/types.js';
 	import StationHeader from '$lib/components/StationHeader.svelte';
 	import StationArrivals from '$lib/components/StationArrivals.svelte';
 	import MapView from '$lib/components/MapView.svelte';
@@ -21,7 +20,6 @@
 	const recents = createRecentsStore();
 
 	let allStations = $state<Station[]>([]);
-	let nearbyStations = $state<StationWithDistance[]>([]);
 	let selectedStation = $state<Station | null>(null);
 	let drawerOpen = $state(false);
 
@@ -67,7 +65,6 @@
 		// THREAD B: Load station data
 		loadStations().then((stations) => {
 			allStations = stations;
-			updateNearbyStations();
 		});
 
 		// THREAD C: Start GPS
@@ -77,20 +74,6 @@
 			arrivals.cleanup();
 			geo.stopWatching();
 		};
-	});
-
-	function updateNearbyStations() {
-		const center = geo.getCenter();
-		if (allStations.length > 0) {
-			nearbyStations = findNearestStations(center.lat, center.lon, allStations, 15);
-		}
-	}
-
-	// Update nearby stations when GPS position changes
-	$effect(() => {
-		if (geo.position && allStations.length > 0) {
-			updateNearbyStations();
-		}
 	});
 
 	// Cache successful fetches
@@ -137,7 +120,7 @@
 	</div>
 
 	<MapView
-		stations={nearbyStations}
+		{allStations}
 		selectedStationId={selectedStation?.id ?? null}
 		userPosition={geo.position}
 		theme={settings.theme}

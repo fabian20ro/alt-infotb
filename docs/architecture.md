@@ -100,7 +100,7 @@ message ArrivalEntry {
 |  auto-refresh bar                |
 |==================================|
 |          Leaflet Map             |  <- MapView (50dvh)
-|     Station markers + GPS dot    |     Lazy-loaded
+|     Station markers + GPS dot    |     Viewport-filtered, 100-marker cap
 +----------------------------------+
 
 Hamburger drawer (left slide):
@@ -128,4 +128,11 @@ Station selection:
   2. Update arrivals store with new stop_id
   3. Fetch arrivals from STB API
   4. Add to recents
+
+Map viewport updates:
+  1. User pans/zooms → Leaflet fires 'moveend'
+  2. Debounced (150ms) → findStationsInBounds(viewport, allStations, 100)
+  3. Diff against marker cache (Map<id, L.Marker>)
+  4. Add new markers, remove off-screen, update selection icons
+  5. Selected station always included regardless of viewport/cap
 ```

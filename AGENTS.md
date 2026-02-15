@@ -83,7 +83,7 @@ Detailed documentation is in the [`docs/`](./docs/) folder:
 npm install          # Install dependencies
 npm run dev          # Start dev server (with STB API proxy)
 npm run check        # Type check (svelte-check)
-npm test             # Run unit tests (vitest, 63 tests)
+npm test             # Run unit tests (vitest, 69 tests)
 npm run test:integration  # Run integration tests (real API, needs network)
 npm run test:e2e     # Run E2E tests (Playwright, needs dev server)
 npm run build        # Production build (static)

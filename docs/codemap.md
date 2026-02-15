@@ -23,7 +23,7 @@ src/
 │   │   ├── ArrivalRow.svelte       Single line row (badge, direction, times)
 │   │   ├── DrawerMenu.svelte       Hamburger drawer (favorites, recents, settings)
 │   │   ├── LastUpdated.svelte      "actualizat: HH:MM" footer text
-│   │   ├── MapView.svelte          Leaflet map (lazy-loaded, station markers, GPS)
+│   │   ├── MapView.svelte          Leaflet map (viewport-based filtering, marker cache, debounce)
 │   │   ├── RefreshButton.svelte    Refresh icon + auto-refresh toggle
 │   │   ├── StationArrivals.svelte  Scrollable arrival list for selected station
 │   │   ├── StationHeader.svelte    Burger menu + station name + favorite button
@@ -39,7 +39,7 @@ src/
 │   │   ├── stations.json           Bundled station data (2710 stops, from GTFS)
 │   │   ├── data.ts                 Station loader (IndexedDB → bundled fallback)
 │   │   ├── db.ts                   IndexedDB wrapper for station storage
-│   │   ├── geo.ts                  Haversine distance, find nearest stations
+│   │   ├── geo.ts                  Haversine distance, nearest stations, viewport bounds filter
 │   │   ├── geo.test.ts             Tests for geo utilities
 │   │   ├── search.ts              Fuzzy search with diacritics stripping
 │   │   └── search.test.ts         Tests for station search
@@ -88,6 +88,7 @@ docs/
   ├─ StationArrivals.svelte
   │    └─ ArrivalRow.svelte ─── stores/arrivals (formatArrivalTime)
   ├─ MapView.svelte
+  │    ├─ stations/geo.ts (findStationsInBounds — viewport filtering)
   │    ├─ map/station-icons.ts
   │    ├─ map/user-marker.ts
   │    └─ map/tiles.ts
@@ -131,6 +132,6 @@ All tunable values live in `src/lib/api/constants.ts`:
 
 | Script | What it runs | Tests | Network? |
 |---|---|---|---|
-| `npm test` | Unit tests (vitest) | 63 | No |
+| `npm test` | Unit tests (vitest) | 69 | No |
 | `npm run test:integration` | Real STB API calls (vitest) | 6 | Yes |
 | `npm run test:e2e` | Playwright browser tests | varies | Yes (via proxy) |

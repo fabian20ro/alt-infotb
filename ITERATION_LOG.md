@@ -138,4 +138,22 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-15] Dynamic map stations + theme tile fix
+
+**Context:** Two usability bugs: (1) Map only showed 15 stations nearest to GPS. Panning/zooming the map didn't load new stations — no `moveend`/`zoomend` handlers existed. (2) Toggling light/dark theme didn't switch map tiles. Root cause: Svelte 5 `$effect` dependency tracking bug — the theme effect guarded on plain `let` variables (`map`, `tileLayer`) which short-circuited before reading the reactive `theme` prop, so Svelte recorded zero dependencies.
+
+**What happened:**
+1. Added `findStationsInBounds()` to `geo.ts` — filters 2710 stations by viewport bounds, caps at 100, sorts overflow by distance to center, always includes selected station. 6 new tests.
+2. Fixed theme `$effect` — read `theme` prop before the null-guard so Svelte always tracks it: `const t = theme; if (!map || ...) return;`.
+3. Refactored MapView: replaced `stationMarkers: L.Marker[]` with `markerCache: Map<number, L.Marker>` for diff-based updates. Added debounced `moveend` handler (150ms). Replaced per-update `fitBounds()` with one-time `setInitialView()`. Added cleanup for debounce timer and marker cache.
+4. Simplified `+page.svelte`: removed `nearbyStations`, `updateNearbyStations()`, and GPS-triggered `$effect`. MapView now receives `allStations` and owns viewport-based filtering internally.
+
+**Outcome:** Success — 69 unit tests pass (6 new), 0 type errors, build succeeds. Pan/zoom now loads stations dynamically, theme toggle switches tiles immediately.
+
+**Insight:** Svelte 5 `$effect` dependency tracking only records reactive values that are actually **read** during execution. If a guard condition (`if (!plainLetVar)`) short-circuits before a `$props` value is read, the effect has zero dependencies and never re-runs. Fix: always read all reactive values unconditionally at the top of the effect body, before any guards.
+
+**Promoted to Lessons Learned:** Yes
+
+---
+
 <!-- New entries go above this line, most recent first -->

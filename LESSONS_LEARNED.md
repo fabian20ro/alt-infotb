@@ -47,6 +47,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-15]** Svelte 5 `$state` in store factories — When a store factory reads `$state` variables (e.g., `settings.theme`), don't pass them directly to non-reactive functions during initialization. Capture the initial value in a plain variable first: `const initial = { theme: stored?.theme ?? 'dark' }; applyTheme(initial.theme);`. This avoids the `state_referenced_locally` warning.
 
+**[2026-02-15]** Svelte 5 `$effect` dependency tracking requires unconditional reads — `$effect` only tracks reactive values (`$state`, `$derived`, `$props`) that are read during execution. If a guard using plain `let` variables short-circuits before a prop is read (e.g., `if (!map) return` before reading `theme`), Svelte records zero dependencies and the effect never re-runs. Fix: read all reactive values at the top before any guards: `const t = theme; if (!map) return; use(t);`.
+
 ## Testing & Quality
 
 **[2026-02-14]** Protobuf tests need encoding helpers — Tests for the protobuf decoder require building valid binary messages. Use `encodeVarint`, `encodeStringField`, `encodeVarintField`, and `encodeMessageField` helpers (defined in `proto.test.ts`) to construct test fixtures.
