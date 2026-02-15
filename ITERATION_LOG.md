@@ -85,4 +85,29 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-15] Deploy Cloudflare Worker + auto-deploy via Git integration
+
+**Context:** Worker was deployed manually via `wrangler deploy`. Needed to set up auto-deploy so the worker redeploys on push without remembering CLI commands.
+
+**What happened:**
+1. Deployed worker to `https://better-stb-proxy.fabian20ro.workers.dev` via `npx wrangler deploy`.
+2. Created `.env.production` with the worker URL, un-ignored it in `.gitignore` (it's not a secret).
+3. Connected the GitHub repo to Cloudflare via dashboard: Workers & Pages > `better-stb-proxy` > Settings > Build > Connect to Git.
+4. Configured: build command = `npm install`, deploy command = `npx wrangler deploy`, root directory = `worker`, build watch paths = `worker/*`.
+5. Cloudflare auto-created a "Workers Builds" API token for the integration.
+6. Wrote comprehensive `docs/deployment.md` with architecture diagram, all Cloudflare settings, troubleshooting tables, and nuclear redeploy instructions.
+
+**Key settings for Cloudflare Git integration:**
+- Root directory must be `worker` (not `/`) so commands run in the right context
+- Build watch paths = `worker/*` to avoid unnecessary deploys on frontend-only changes
+- Build command = `npm install` (installs wrangler), Deploy command = `npx wrangler deploy`
+
+**Outcome:** Success — both frontend (GitHub Pages) and worker (Cloudflare) now auto-deploy on push to `main`. Worker only redeploys when `worker/*` files change.
+
+**Insight:** Cloudflare's Git integration for Workers has separate "build command" and "deploy command" fields. The build command runs first (use it for `npm install`), then the deploy command runs (use it for `npx wrangler deploy`). The "root directory" setting changes the working directory for both commands, which is essential for monorepos where the worker lives in a subdirectory.
+
+**Promoted to Lessons Learned:** No (deployment config, not a code pattern)
+
+---
+
 <!-- New entries go above this line, most recent first -->
