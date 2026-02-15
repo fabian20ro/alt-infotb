@@ -34,12 +34,23 @@ src/
 e2e/
 └── arrival-board.spec.ts           Playwright E2E tests (Desktop + Mobile Chrome)
 
-worker/
+worker/                              Cloudflare Worker (auto-deploys on push)
 ├── src/
-│   └── index.ts                    Cloudflare Worker proxy (production)
+│   └── index.ts                    Proxy: injects headers + auth token
 ├── package.json                    Worker dependencies (wrangler)
 ├── tsconfig.json                   Worker TypeScript config
-└── wrangler.toml                   Cloudflare Worker configuration
+└── wrangler.toml                   Worker name, entry point, compat date
+
+docs/
+├── api.md                          STB API reference, auth flow, curl examples
+├── architecture.md                 Data flow, design decisions, protobuf schema
+├── codemap.md                      This file
+└── deployment.md                   How both components auto-deploy
+
+.env.production                     Worker URL baked into production build
+.env.example                        Documents available env vars
+playwright.config.ts                Playwright config (1 worker, Desktop + Mobile)
+vitest.integration.config.ts        Separate vitest config for real API tests
 ```
 
 ## Module dependency graph

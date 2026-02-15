@@ -83,10 +83,10 @@ npm run test:e2e     # Run E2E tests (Playwright, needs dev server)
 npm run build        # Production build (static)
 npm run preview      # Preview production build
 
-# Worker (from worker/ directory)
-cd worker && npm install      # Install worker dependencies
+# Worker (auto-deploys on push if worker/* changed — see docs/deployment.md)
+cd worker && npm install      # Install worker dependencies (first time only)
 cd worker && npm run dev      # Run worker locally (localhost:8787)
-cd worker && npm run deploy   # Deploy worker to Cloudflare
+cd worker && npm run deploy   # Manual deploy (normally not needed)
 ```
 
 ## Project conventions
