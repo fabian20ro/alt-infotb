@@ -23,7 +23,9 @@ export const translations = {
 		searchPlaceholder: 'Caută stație...',
 		noFavorites: 'Niciun favorit',
 		noRecents: 'Nicio stație recentă',
-		close: 'Închide'
+		close: 'Închide',
+		pinStation: 'Fixează ca stație principală',
+		unpinStation: 'Elimină fixarea'
 	},
 	en: {
 		appTitle: 'Better STB',
@@ -49,7 +51,9 @@ export const translations = {
 		searchPlaceholder: 'Search station...',
 		noFavorites: 'No favorites',
 		noRecents: 'No recent stations',
-		close: 'Close'
+		close: 'Close',
+		pinStation: 'Pin as startup station',
+		unpinStation: 'Unpin station'
 	}
 } as const;
 

@@ -10,13 +10,15 @@
 		theme: Theme;
 		lang: Lang;
 		lastDataUpdate: number;
+		pinnedId: number | null;
 		onClose: () => void;
 		onSelectStation: (station: Station) => void;
 		onThemeChange: (theme: Theme) => void;
 		onLangChange: (lang: Lang) => void;
+		onTogglePin: (id: number) => void;
 	}
 
-	let { open, favorites, recents, theme, lang, lastDataUpdate, onClose, onSelectStation, onThemeChange, onLangChange }: Props = $props();
+	let { open, favorites, recents, theme, lang, lastDataUpdate, pinnedId, onClose, onSelectStation, onThemeChange, onLangChange, onTogglePin }: Props = $props();
 
 	function handleStationClick(station: Station) {
 		onSelectStation(station);
@@ -29,6 +31,11 @@
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') onClose();
+	}
+
+	function handlePinClick(e: MouseEvent, stationId: number) {
+		e.stopPropagation();
+		onTogglePin(stationId);
 	}
 </script>
 
@@ -47,11 +54,19 @@
 			{:else}
 				<ul class="station-list">
 					{#each favorites as station (station.id)}
-						<li>
+						<li class="favorite-row">
 							<button class="station-item" onclick={() => handleStationClick(station)}>
 								<span class="station-item-icon">★</span>
 								<span class="station-item-name">{station.name}</span>
 							</button>
+							<button
+								class="pin-btn"
+								class:pinned={pinnedId === station.id}
+								onclick={(e) => handlePinClick(e, station.id)}
+								title={pinnedId === station.id
+									? (lang === 'ro' ? 'Elimină fixarea' : 'Unpin station')
+									: (lang === 'ro' ? 'Fixează ca stație principală' : 'Pin as startup station')}
+							>📌</button>
 						</li>
 					{/each}
 				</ul>
@@ -79,42 +94,34 @@
 		<hr class="divider" />
 
 		<section class="drawer-section settings-section">
-			<div class="setting-row">
-				<span class="setting-label">{lang === 'ro' ? 'Temă' : 'Theme'}</span>
+			<div class="emoji-toggles">
 				<div class="toggle-group">
 					<button
 						class="toggle-btn"
 						class:active={theme === 'light'}
 						onclick={() => onThemeChange('light')}
-					>
-						{lang === 'ro' ? 'Deschisă' : 'Light'}
-					</button>
+						aria-label="Light theme"
+					>☀️</button>
 					<button
 						class="toggle-btn"
 						class:active={theme === 'dark'}
 						onclick={() => onThemeChange('dark')}
-					>
-						{lang === 'ro' ? 'Întunecată' : 'Dark'}
-					</button>
+						aria-label="Dark theme"
+					>🌙</button>
 				</div>
-			</div>
-			<div class="setting-row">
-				<span class="setting-label">{lang === 'ro' ? 'Limbă' : 'Language'}</span>
 				<div class="toggle-group">
 					<button
 						class="toggle-btn"
 						class:active={lang === 'ro'}
 						onclick={() => onLangChange('ro')}
-					>
-						RO
-					</button>
+						aria-label="Română"
+					>🇷🇴</button>
 					<button
 						class="toggle-btn"
 						class:active={lang === 'en'}
 						onclick={() => onLangChange('en')}
-					>
-						EN
-					</button>
+						aria-label="English"
+					>🇬🇧</button>
 				</div>
 			</div>
 		</section>
@@ -197,6 +204,11 @@
 		padding: 0;
 	}
 
+	.favorite-row {
+		display: flex;
+		align-items: center;
+	}
+
 	.station-item {
 		display: flex;
 		align-items: center;
@@ -229,6 +241,30 @@
 		text-overflow: ellipsis;
 	}
 
+	.pin-btn {
+		flex-shrink: 0;
+		width: 2.5rem;
+		height: 2.5rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		background: transparent;
+		font-size: 1rem;
+		cursor: pointer;
+		opacity: 0.3;
+		transition: opacity 0.15s;
+		border-radius: 0.375rem;
+	}
+
+	.pin-btn:hover {
+		opacity: 0.7;
+	}
+
+	.pin-btn.pinned {
+		opacity: 1;
+	}
+
 	.divider {
 		border: none;
 		border-top: 1px solid var(--color-border);
@@ -241,16 +277,10 @@
 		gap: 1rem;
 	}
 
-	.setting-row {
+	.emoji-toggles {
 		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-	}
-
-	.setting-label {
-		font-size: 1.275rem;
-		color: var(--color-text);
+		justify-content: center;
+		gap: 1.5rem;
 	}
 
 	.toggle-group {
@@ -261,7 +291,7 @@
 	}
 
 	.toggle-btn {
-		padding: 0.5rem 1rem;
+		padding: 0.5rem 0.75rem;
 		border: none;
 		background: transparent;
 		color: var(--color-text-muted);

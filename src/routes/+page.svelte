@@ -45,20 +45,16 @@
 	}
 
 	onMount(() => {
-		// THREAD A: Load favorites and show first favorite immediately
-		const favList = favorites.favorites;
-		if (favList.length > 0) {
-			const firstFav = favList[0];
-			selectStation(firstFav);
+		// THREAD A: Load startup station (pinned → first favorite → default)
+		const startupStation = favorites.pinnedStation
+			?? (favorites.favorites.length > 0 ? favorites.favorites[0] : null)
+			?? { id: STOP_ID, name: 'Piata Unirii', description: 'Bd. Regina Maria, Bucuresti', lat: 44.42658, lon: 26.100225 };
+		selectStation(startupStation);
 
-			// Try cached arrivals for instant display
-			const cached = getCachedArrivals();
-			if (cached) {
-				arrivals.state.data = cached;
-			}
-		} else {
-			// Default station
-			selectStation({ id: STOP_ID, name: 'Piata Unirii', description: 'Bd. Regina Maria, Bucuresti', lat: 44.42658, lon: 26.100225 });
+		// Try cached arrivals for instant display
+		const cached = getCachedArrivals();
+		if (cached) {
+			arrivals.state.data = cached;
 		}
 
 		// Start auto-refresh
@@ -106,6 +102,8 @@
 	onSelectStation={selectStation}
 	onThemeChange={(t) => settings.setTheme(t)}
 	onLangChange={(l) => settings.setLang(l)}
+	pinnedId={favorites.pinnedId}
+	onTogglePin={(id) => favorites.togglePin(id)}
 />
 
 <main class="app-layout">
