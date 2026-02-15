@@ -64,9 +64,8 @@ export function findNearestStations(
 
 /**
  * Find stations within a geographic bounding box.
- * If more than `maxCount` stations fall within bounds, returns the nearest
- * to the center (by squared Euclidean distance — accurate at city scale).
- * The selected station is always included regardless of cap.
+ * If more than `maxCount` stations fall within bounds, the viewport is too
+ * zoomed out for useful markers — returns empty (or just the selected station).
  */
 export function findStationsInBounds(
 	bounds: LatLngBounds,
@@ -80,34 +79,19 @@ export function findStationsInBounds(
 		(s) => s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east
 	);
 
-	if (inBounds.length <= maxCount) {
-		// Under cap — include selected even if outside bounds
-		if (selectedId != null && !inBounds.some((s) => s.id === selectedId)) {
+	// Too many stations → zoomed out too far, hide all markers
+	if (inBounds.length > maxCount) {
+		if (selectedId != null) {
 			const selected = stations.find((s) => s.id === selectedId);
-			if (selected) return [...inBounds, selected];
+			if (selected) return [selected];
 		}
-		return inBounds;
+		return [];
 	}
 
-	// Over cap — sort by squared Euclidean distance to center
-	const centerLat = (south + north) / 2;
-	const centerLon = (west + east) / 2;
-
-	const sorted = [...inBounds].sort((a, b) => {
-		const da = (a.lat - centerLat) ** 2 + (a.lon - centerLon) ** 2;
-		const db = (b.lat - centerLat) ** 2 + (b.lon - centerLon) ** 2;
-		return da - db;
-	});
-
-	const result = sorted.slice(0, maxCount);
-
-	// Ensure selected station is included
-	if (selectedId != null && !result.some((s) => s.id === selectedId)) {
+	// Under cap — include selected even if outside bounds
+	if (selectedId != null && !inBounds.some((s) => s.id === selectedId)) {
 		const selected = stations.find((s) => s.id === selectedId);
-		if (selected) {
-			result[result.length - 1] = selected; // replace farthest
-		}
+		if (selected) return [...inBounds, selected];
 	}
-
-	return result;
+	return inBounds;
 }

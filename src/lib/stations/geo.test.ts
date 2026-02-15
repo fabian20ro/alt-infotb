@@ -88,19 +88,15 @@ describe('findStationsInBounds', () => {
 		expect(result.map((s) => s.id)).not.toContain(5);
 	});
 
-	it('respects maxCount, returns stations nearest to center', () => {
+	it('returns empty when station count exceeds maxCount (zoomed out too far)', () => {
 		const result = findStationsInBounds(bounds, stations, 2);
-		expect(result).toHaveLength(2);
-		// Center is ~44.44, ~26.11 — stations 2 (44.4358) and 3 (44.4500) are closest
-		const ids = result.map((s) => s.id);
-		expect(ids).toContain(2);
-		expect(ids).toContain(3);
+		expect(result).toHaveLength(0);
 	});
 
-	it('always includes selectedId even when over cap', () => {
+	it('returns only selected station when over cap', () => {
 		const result = findStationsInBounds(bounds, stations, 2, 1);
-		expect(result).toHaveLength(2);
-		expect(result.map((s) => s.id)).toContain(1);
+		expect(result).toHaveLength(1);
+		expect(result[0].id).toBe(1);
 	});
 
 	it('includes selectedId even when outside bounds', () => {
