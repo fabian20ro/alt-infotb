@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Station } from '$lib/stations/types.js';
 	import type { Theme, Lang } from '$lib/stores/settings.svelte.js';
+	import { formatLastUpdate } from '$lib/stations/format.js';
 
 	interface Props {
 		open: boolean;
@@ -8,13 +9,14 @@
 		recents: Station[];
 		theme: Theme;
 		lang: Lang;
+		lastDataUpdate: number;
 		onClose: () => void;
 		onSelectStation: (station: Station) => void;
 		onThemeChange: (theme: Theme) => void;
 		onLangChange: (lang: Lang) => void;
 	}
 
-	let { open, favorites, recents, theme, lang, onClose, onSelectStation, onThemeChange, onLangChange }: Props = $props();
+	let { open, favorites, recents, theme, lang, lastDataUpdate, onClose, onSelectStation, onThemeChange, onLangChange }: Props = $props();
 
 	function handleStationClick(station: Station) {
 		onSelectStation(station);
@@ -116,6 +118,12 @@
 				</div>
 			</div>
 		</section>
+
+		{#if lastDataUpdate}
+			<p class="last-update">
+				{lang === 'ro' ? 'Date actualizate' : 'Data updated'}: {formatLastUpdate(lastDataUpdate, lang)}
+			</p>
+		{/if}
 
 		<div class="build-badge">
 			<a href="https://github.com/fabian20ro/better-stb/actions/workflows/deploy.yml"
@@ -272,8 +280,15 @@
 		font-weight: 600;
 	}
 
+	.last-update {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		text-align: center;
+		margin: 1.5rem 0 0;
+	}
+
 	.build-badge {
-		margin-top: 1.5rem;
+		margin-top: 0.5rem;
 		text-align: center;
 		opacity: 0.6;
 	}

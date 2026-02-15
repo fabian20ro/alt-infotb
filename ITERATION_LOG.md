@@ -184,4 +184,26 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-15] Add build status badge and last data update timestamp to drawer
+
+**Context:** User wanted visibility into when station data was last refreshed (daily morning updates) and a build status indicator, both shown in the hamburger drawer.
+
+**What happened:**
+1. **TDD:** Wrote 4 tests for `formatLastUpdate(timestamp, lang)` helper — empty on 0, Romanian locale, English locale, time component. Tests failed (RED), then implemented the function using `Intl.DateTimeFormat` with locale-aware formatting (GREEN).
+2. **format.ts:** Created `src/lib/stations/format.ts` with a pure function using `Intl.DateTimeFormat` for locale-aware date+time formatting.
+3. **DrawerMenu:** Added `lastDataUpdate` prop, imported `formatLastUpdate`, and displayed it above the build badge with bilingual label ("Date actualizate" / "Data updated").
+4. **+page.svelte:** Imported `getLastRefreshTime` from `db.ts`, fetched timestamp in `onMount` (parallel with station loading), passed as prop to DrawerMenu.
+5. **Docs:** Updated codemap.md (new files, test count 74→78, dependency graph), architecture.md (drawer items), AGENTS.md (drawer description, test count).
+
+**Files created:** `src/lib/stations/format.ts`, `src/lib/stations/format.test.ts`
+**Files modified:** `src/lib/components/DrawerMenu.svelte`, `src/routes/+page.svelte`, `docs/codemap.md`, `docs/architecture.md`, `AGENTS.md`
+
+**Outcome:** Success — 78 unit tests pass, 0 type errors, build succeeds.
+
+**Insight:** `Intl.DateTimeFormat` is the right choice for locale-aware timestamps in a bilingual app — no i18n library needed for date formatting, and it follows the user's language toggle naturally.
+
+**Promoted to Lessons Learned:** No (straightforward feature)
+
+---
+
 <!-- New entries go above this line, most recent first -->

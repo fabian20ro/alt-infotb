@@ -63,7 +63,7 @@ This project maintains a persistent learning system across AI agent sessions.
 - **Dual theme** — Light and dark themes via CSS custom properties in `app.css`. All colors use `--color-*` variables. Theme is toggled via `data-theme` attribute on `<html>`. Map tiles switch between CartoDB Voyager (light) and Dark Matter (dark).
 - **Bilingual** — Romanian (default) and English. Translation strings in `src/lib/i18n/translations.ts`. Use `t(key)` function for all UI strings.
 - **All transport types** — Bus, tram, trolleybus, subway (M1–M4). Lines sorted numerically. Metro stations use multi-stop fetch+merge via `subway-stops.ts` mapping.
-- **Hamburger drawer** — Left-slide drawer with favorites, recents (max 5, excluding favorites), theme toggle, language toggle.
+- **Hamburger drawer** — Left-slide drawer with favorites, recents (max 5, excluding favorites), theme toggle, language toggle, last data update timestamp, and build status badge.
 - **Offline-first PWA** — Cached arrivals display immediately on startup, then refresh from API. Station data cached in IndexedDB with 24h staleness check. Map tiles use StaleWhileRevalidate caching.
 
 ## Documentation
@@ -83,7 +83,7 @@ Detailed documentation is in the [`docs/`](./docs/) folder:
 npm install          # Install dependencies
 npm run dev          # Start dev server (with STB API proxy)
 npm run check        # Type check (svelte-check)
-npm test             # Run unit tests (vitest, 74 tests)
+npm test             # Run unit tests (vitest, 78 tests)
 npm run test:integration  # Run integration tests (real API, needs network)
 npm run test:e2e     # Run E2E tests (Playwright, needs dev server)
 npm run build        # Production build (static)

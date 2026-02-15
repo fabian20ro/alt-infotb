@@ -108,6 +108,8 @@ Hamburger drawer (left slide):
   - Recents (excluding favorites)
   - Theme toggle (Light/Dark)
   - Language toggle (RO/EN)
+  - Last data update timestamp
+  - Build status badge
 ```
 
 ## Subway stop ID resolution

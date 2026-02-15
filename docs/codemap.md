@@ -40,6 +40,8 @@ src/
 │   │   ├── subway-stops.ts         GTFS metro ID → STB API subway stop IDs mapping
 │   │   ├── data.ts                 Station loader (IndexedDB → bundled fallback)
 │   │   ├── db.ts                   IndexedDB wrapper for station storage
+│   │   ├── format.ts               formatLastUpdate() — locale-aware timestamp formatting
+│   │   ├── format.test.ts          Tests for format utilities
 │   │   ├── geo.ts                  Haversine distance, nearest stations, viewport bounds filter
 │   │   ├── geo.test.ts             Tests for geo utilities
 │   │   ├── search.ts              Fuzzy search with diacritics stripping
@@ -95,6 +97,7 @@ docs/
   │    ├─ map/user-marker.ts
   │    └─ map/tiles.ts
   ├─ DrawerMenu.svelte
+  │    └─ stations/format.ts (formatLastUpdate)
   ├─ stores/arrivals ─── api/arrivals
   │   │                    ├── api/client (apiFetchBinary)
   │   │                    ├── api/proto (ProtoReader, helpers)
@@ -135,6 +138,6 @@ All tunable values live in `src/lib/api/constants.ts`:
 
 | Script | What it runs | Tests | Network? |
 |---|---|---|---|
-| `npm test` | Unit tests (vitest) | 74 | No |
+| `npm test` | Unit tests (vitest) | 78 | No |
 | `npm run test:integration` | Real STB API calls (vitest) | 6 | Yes |
 | `npm run test:e2e` | Playwright browser tests | varies | Yes (via proxy) |

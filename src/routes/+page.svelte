@@ -7,6 +7,7 @@
 	import { createFavoritesStore } from '$lib/stores/favorites.svelte.js';
 	import { createRecentsStore } from '$lib/stores/recents.svelte.js';
 	import { loadStations } from '$lib/stations/data.js';
+	import { getLastRefreshTime } from '$lib/stations/db.js';
 	import type { Station } from '$lib/stations/types.js';
 	import StationHeader from '$lib/components/StationHeader.svelte';
 	import StationArrivals from '$lib/components/StationArrivals.svelte';
@@ -22,6 +23,7 @@
 	let allStations = $state<Station[]>([]);
 	let selectedStation = $state<Station | null>(null);
 	let drawerOpen = $state(false);
+	let lastDataUpdate = $state<number>(0);
 
 	let stationName = $derived(arrivals.state.data?.stationName ?? selectedStation?.name ?? '');
 	let stationAddress = $derived(arrivals.state.data?.address ?? selectedStation?.description ?? '');
@@ -67,6 +69,11 @@
 			allStations = stations;
 		});
 
+		// THREAD D: Load last data refresh timestamp
+		getLastRefreshTime().then((t) => {
+			lastDataUpdate = t;
+		});
+
 		// THREAD C: Start GPS
 		geo.startWatching();
 
@@ -94,6 +101,7 @@
 	recents={displayRecents()}
 	theme={settings.theme}
 	lang={settings.lang}
+	{lastDataUpdate}
 	onClose={() => drawerOpen = false}
 	onSelectStation={selectStation}
 	onThemeChange={(t) => settings.setTheme(t)}
