@@ -60,4 +60,29 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-15] Fix STB API integration: proxy + auth + testing
+
+**Context:** The deployed app was failing with 400 Bad Request. Previous fix (removing custom headers) turned the CORS error into a 400 because the STB API actually requires those headers (including a `User-Info` auth token). This created a catch-22: headers needed but CORS-blocked.
+
+**What happened:**
+1. Discovered the STB API now requires a `User-Info` header (bcrypt hash). Without it: `Missing request header 'User-Info'` (400). With expired token: 412.
+2. Found the auth endpoint by reverse-engineering the STB web app's JS bundle: `GET /proxy/user/auth` with `App-key` and `App-Id` headers returns a token.
+3. Built a Vite plugin (`stbProxy`) that acts as a middleware, fetching auth tokens lazily and retrying on 412.
+4. Created integration tests that verify the real API works (5 tests, all pass with auth).
+5. Set up Playwright E2E tests (10 tests across Desktop + Mobile Chrome).
+6. Created a Cloudflare Worker (`worker/src/index.ts`) for production proxy with path whitelist and CORS.
+7. Updated all documentation (api.md, architecture.md, codemap.md).
+
+**Files created:** `stb-api.integration.test.ts`, `vitest.integration.config.ts`, `playwright.config.ts`, `e2e/arrival-board.spec.ts`, `worker/src/index.ts`, `worker/wrangler.toml`, `worker/package.json`, `worker/tsconfig.json`, `.env.example`
+
+**Files modified:** `vite.config.ts`, `src/lib/api/constants.ts`, `src/app.d.ts`, `package.json`, `.gitignore`, `docs/api.md`, `docs/architecture.md`, `docs/codemap.md`, `LESSONS_LEARNED.md`
+
+**Outcome:** Success — 29 unit tests pass, 5 integration tests pass, 10 E2E tests pass, 0 type errors. The app loads real tram data through the Vite dev proxy.
+
+**Insight:** The STB API's auth endpoint and credentials are embedded in the official web app's JS bundle at `info.stb.ro/main-es2015.*.js`. Look for `userInfoAppKey` and `getAuthToken`. Vite's `server.proxy.headers` is great for static headers, but dynamic auth needs a custom plugin with `configureServer` middleware.
+
+**Promoted to Lessons Learned:** Yes (proxy architecture, auth flow, E2E serialization)
+
+---
+
 <!-- New entries go above this line, most recent first -->

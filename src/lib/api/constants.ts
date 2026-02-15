@@ -25,15 +25,46 @@ export const LINE_COLORS: Record<string, string> = {
 /** Display order for lines */
 export const LINE_ORDER: string[] = ['7', '27', '47'];
 
+/**
+ * STB API authentication and header configuration (server-side only).
+ * These headers trigger CORS preflight failures when sent from a browser,
+ * so they're injected by the Vite dev proxy and Cloudflare Worker instead.
+ */
+export const STB_AUTH = {
+	APP_ID: 'b32cc233-00d7-4640-bf90-374572668c30',
+	APP_KEY: 'gcALgRyZHC,qFonZ=Jde',
+	AUTH_PATH: '/proxy/user/auth'
+} as const;
+
+export const STB_SERVER_HEADERS: Record<string, string> = {
+	'App-Id': STB_AUTH.APP_ID,
+	'App-Version': '0.0.0',
+	'Device-Name': 'Chrome',
+	Lang: 'ro',
+	'OS-Type': 'Web',
+	'OS-Version': 'web',
+	Source: 'ro.radcom.smartcity.web'
+};
+
+/**
+ * Resolve the API base URL based on environment:
+ * - Dev: `/stb-api` (proxied by Vite, no CORS issues)
+ * - Production: `VITE_STB_API_BASE` env var (Cloudflare Worker URL)
+ * - Fallback: direct STB URL (will fail from browser due to CORS/400)
+ */
+function resolveApiBase(): string {
+	if (typeof import.meta !== 'undefined' && import.meta.env) {
+		if (import.meta.env.DEV) return '/stb-api';
+		if (import.meta.env.VITE_STB_API_BASE) return import.meta.env.VITE_STB_API_BASE;
+	}
+	return 'https://info.stb.ro/api/web/v2-6';
+}
+
 /** STB API configuration */
 export const API = {
-	BASE: 'https://info.stb.ro/api/web/v2-6',
+	BASE: resolveApiBase(),
 	TIMEOUT: 10_000,
-	/**
-	 * Only CORS-safelisted headers are included here.
-	 * Custom headers (App-Id, Lang, etc.) trigger a preflight OPTIONS request
-	 * that the STB server rejects, causing a CORS error from cross-origin pages.
-	 */
+	/** Browser never sends custom headers — the proxy injects them server-side */
 	HEADERS: {} as Record<string, string>
 } as const;
 

@@ -29,9 +29,11 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-14]** STB API returns protobuf, not JSON — The `info.stb.ro` API endpoint returns Protocol Buffers binary despite sending an `Accept: application/json` header. A custom ~100-line decoder (`proto.ts`) handles this. No protobuf library is needed since the schema is small and stable.
 
-**[2026-02-14]** No backend required — All API calls go directly from the browser to `info.stb.ro`. This means zero hosting cost but depends on CORS being allowed.
+**[2026-02-15]** Server-side proxy is required — The STB API requires custom headers (`User-Info`, `App-Id`, `Lang`, etc.) that CORS blocks from browsers. A proxy injects these headers server-side. Vite plugin for dev (`/stb-api/*`), Cloudflare Worker for production.
 
-**[2026-02-14]** Custom headers cause CORS preflight failures — The STB API server responds to CORS preflight (OPTIONS) but rejects non-standard headers like `App-Id`, `Lang`, `Device-Name`, `Source` via `Access-Control-Allow-Headers`. The fix is to omit all custom headers from browser requests. The API works without them. Only use these headers in curl/server-side contexts.
+**[2026-02-15]** STB API requires User-Info auth token — The API returns 400 without a `User-Info` header. Get a bcrypt token from `GET /proxy/user/auth` (requires `App-key` and `App-Id` headers). Token expires (412 response) and must be re-fetched. The official STB web app does this automatically.
+
+**[2026-02-15]** STB auth credentials — `App-key: gcALgRyZHC,qFonZ=Jde`, `App-Id: b32cc233-00d7-4640-bf90-374572668c30`. These are extracted from the official STB web app's main JS bundle. If auth stops working, re-check the bundle at `info.stb.ro/main-es2015.*.js`.
 
 ## Code Patterns & Pitfalls
 
@@ -42,6 +44,10 @@ move it to the Archive section at the bottom with a date and reason.
 ## Testing & Quality
 
 **[2026-02-14]** Protobuf tests need encoding helpers — Tests for the protobuf decoder require building valid binary messages. Use `encodeVarint`, `encodeStringField`, `encodeVarintField`, and `encodeMessageField` helpers (defined in `proto.test.ts`) to construct test fixtures.
+
+**[2026-02-15]** E2E tests must run serially (1 worker) — Playwright tests hit the Vite dev proxy which makes real API calls. Running multiple workers in parallel causes auth token race conditions and 15s timeouts. Set `workers: 1` in `playwright.config.ts`.
+
+**[2026-02-15]** Exclude integration and E2E tests from `npm test` — Vitest picks up `*.integration.test.ts` and Playwright's `e2e/` files unless explicitly excluded. Use `--exclude` flags in the test script. Integration tests use a separate vitest config (`vitest.integration.config.ts`).
 
 ## Performance & Infrastructure
 
@@ -61,5 +67,6 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Archive
 
-<!-- Lessons that are no longer applicable. Keep for historical context. -->
-<!-- Format: **[YYYY-MM-DD] Archived [YYYY-MM-DD]** Title — Reason for archival -->
+**[2026-02-14] Archived [2026-02-15]** No backend required — Superseded: the STB API now requires `User-Info` auth token, which means a proxy is mandatory. The "no backend" architecture is no longer viable.
+
+**[2026-02-14] Archived [2026-02-15]** Custom headers cause CORS preflight failures / API works without them — Partially wrong: the API does NOT work without custom headers (returns 400). The CORS part is still true, but the fix is a proxy that injects headers, not omitting them.
