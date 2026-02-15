@@ -1,17 +1,19 @@
 import { apiFetchBinary, ApiError } from './client.js';
-import { API, STOP_ID, STATION_NAME, TRAM_LINES, LINE_ORDER, PROTO_FIELDS } from './constants.js';
-import { ProtoReader, getString, getVarint, getMessages, getVarints } from './proto.js';
+import { API, PROTO_FIELDS } from './constants.js';
+import { ProtoReader, getString, getVarint, getMessages } from './proto.js';
 import type { StationArrivals, ArrivalInfo } from './types.js';
 
 /**
  * Decode the protobuf response from the STB stop endpoint.
+ * Reads field 9 repeated sub-messages for arrival times (not fields 6/7/8).
+ * See docs/proto-analysis.md for the schema.
  */
 function decodeStopResponse(data: Uint8Array): StationArrivals {
 	const reader = new ProtoReader(data);
 	const fields = reader.readAllFields();
-	const { STOP, LINE } = PROTO_FIELDS;
+	const { STOP, LINE, ARRIVAL } = PROTO_FIELDS;
 
-	const stationName = getString(fields, STOP.NAME) ?? STATION_NAME;
+	const stationName = getString(fields, STOP.NAME) ?? '';
 	const address = getString(fields, STOP.ADDRESS) ?? '';
 
 	const lineMessages = getMessages(fields, STOP.LINES);
@@ -22,23 +24,25 @@ function decodeStopResponse(data: Uint8Array): StationArrivals {
 		const lineFields = lineReader.readAllFields();
 
 		const lineName = getString(lineFields, LINE.NAME) ?? '';
-		if (!TRAM_LINES.has(lineName)) continue;
-
 		const lineId = getVarint(lineFields, LINE.ID) ?? 0;
 		const vehicleType = getString(lineFields, LINE.VEHICLE_TYPE) ?? '';
-		const color = getString(lineFields, LINE.COLOR) ?? '#BE1622';
+		const color = getString(lineFields, LINE.COLOR) ?? '#888888';
 		const direction = getString(lineFields, LINE.DIRECTION) ?? '';
 
-		// Collect arrival times from candidate fields
+		// Extract arrival times from field 9 sub-messages
+		const arrivalMessages = getMessages(lineFields, LINE.ARRIVALS);
 		const times: number[] = [];
-		for (const fieldNum of PROTO_FIELDS.ARRIVAL_TIME_FIELDS) {
-			const vals = getVarints(lineFields, fieldNum);
-			times.push(...vals);
+
+		for (const arrivalData of arrivalMessages) {
+			const arrivalReader = new ProtoReader(arrivalData);
+			const arrivalFields = arrivalReader.readAllFields();
+			const seconds = getVarint(arrivalFields, ARRIVAL.SECONDS);
+			if (seconds !== undefined && seconds >= 0 && seconds <= 7200) {
+				times.push(seconds);
+			}
 		}
 
-		// Filter to reasonable values (0-7200 seconds = up to 2 hours)
-		const validTimes = times.filter((t) => t >= 0 && t <= 7200);
-		validTimes.sort((a, b) => a - b);
+		times.sort((a, b) => a - b);
 
 		arrivals.push({
 			lineName,
@@ -46,13 +50,17 @@ function decodeStopResponse(data: Uint8Array): StationArrivals {
 			vehicleType,
 			color,
 			direction,
-			arrivingTimes: validTimes.slice(0, 3)
+			arrivingTimes: times.slice(0, 3)
 		});
 	}
 
-	// Sort by display order
-	const order = new Map(LINE_ORDER.map((name, i) => [name, i]));
-	arrivals.sort((a, b) => (order.get(a.lineName) ?? 99) - (order.get(b.lineName) ?? 99));
+	// Sort by line name numerically
+	arrivals.sort((a, b) => {
+		const aNum = parseInt(a.lineName, 10);
+		const bNum = parseInt(b.lineName, 10);
+		if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+		return a.lineName.localeCompare(b.lineName);
+	});
 
 	return {
 		stationName,
@@ -62,9 +70,9 @@ function decodeStopResponse(data: Uint8Array): StationArrivals {
 	};
 }
 
-/** Fetch arrivals from the STB API for the hardcoded stop. */
-export async function fetchArrivals(): Promise<StationArrivals> {
-	const url = `${API.BASE}/lines/stop?stop_id=${STOP_ID}`;
+/** Fetch arrivals from the STB API for the given stop. */
+export async function fetchArrivals(stopId: number): Promise<StationArrivals> {
+	const url = `${API.BASE}/lines/stop?stop_id=${stopId}`;
 
 	try {
 		const data = await apiFetchBinary(url);

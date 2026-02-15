@@ -79,7 +79,7 @@ export default defineConfig({
 			manifest: {
 				name: 'Better STB',
 				short_name: 'BetterSTB',
-				description: 'Arrival times for STB trams in București',
+				description: 'Real-time transit arrivals for București — bus, tram, trolleybus',
 				start_url: '/better-stb/',
 				display: 'standalone',
 				background_color: '#1a1a2e',
@@ -105,7 +105,7 @@ export default defineConfig({
 				]
 			},
 			workbox: {
-				globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2}'],
+				globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2,json}'],
 				runtimeCaching: [
 					{
 						urlPattern: /^https:\/\/info\.stb\.ro\/.*/i,
@@ -114,6 +114,14 @@ export default defineConfig({
 					{
 						urlPattern: /\/stb-api\/.*/i,
 						handler: 'NetworkOnly'
+					},
+					{
+						urlPattern: /^https:\/\/[a-z]\.basemaps\.cartocdn\.com\/.*/i,
+						handler: 'StaleWhileRevalidate',
+						options: {
+							cacheName: 'map-tiles',
+							expiration: { maxEntries: 500, maxAgeSeconds: 7 * 24 * 60 * 60 }
+						}
 					}
 				]
 			}

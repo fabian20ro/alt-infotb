@@ -110,4 +110,32 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-15] Complete app redesign: map, GPS, multi-station, favorites, i18n
+
+**Context:** The app was a text-only dark-themed board showing hardcoded tram arrivals for a single station (Piata Unirii). Arrival times were wrong (showed "1 min" for everything due to incorrect protobuf field mapping). The goal was a full redesign: map-priority layout, GPS-based station discovery, all transport types, favorites/recents, theme toggle, language toggle.
+
+**What happened:**
+1. **Phase 0 — Diagnosed arrival bug:** Created `scripts/dump-proto.ts` to dump all protobuf fields from live API. Discovered fields 6/7/8 are NOT three arrival times — field 6 = first arrival (redundant), field 7 = always 0, field 8 = always 1. Real arrival data lives in field 9 as repeated sub-messages with `{1: is_scheduled, 2: seconds}`.
+2. **Phase 1 — Fixed arrivals:** Rewrote `arrivals.ts` to read field 9 sub-messages. Added hour formatting in Romanian ("oră"/"ore"). Made `fetchArrivals()` accept dynamic `stopId`. Removed tram-only filter.
+3. **Phase 2 — Station data:** Found GTFS data from ROTI (4665 stops). Mapped GTFS `1008-{stb_id}` → STB API `stop_id`. Extracted 2710 Bucharest stations. Created geo utilities (Haversine), fuzzy search with diacritics stripping, IndexedDB caching with 24h staleness.
+4. **Phase 3 — Map:** Installed Leaflet. Created MapView with lazy loading, station markers, user GPS dot. Map utilities for icons, tiles (CartoDB Voyager/Dark Matter), user marker.
+5. **Phase 4 — Layout:** Rewrote `+page.svelte` with split layout (arrivals panel top, square map bottom). Created StationHeader, StationArrivals components. Updated ArrivalRow to use API-provided colors.
+6. **Phase 5 — Features:** Favorites store (localStorage), recents store (max 5, FIFO), settings store (theme/lang). DrawerMenu with slide-in navigation. i18n system (RO+EN). Parallel startup: favorites-first → cached arrivals → fresh fetch, stations in background, GPS parallel.
+7. **Phase 6 — Polish:** Light+dark themes in CSS. PWA updates (StaleWhileRevalidate for map tiles). E2E tests rewritten for new UI (15 tests across 6 describe blocks). Documentation updated.
+
+**Files created:** 25+ new files across stations/, stores/, components/, map/, i18n/, scripts/, docs/
+**Files modified:** constants.ts, arrivals.ts, arrivals store, ArrivalRow, +page.svelte, app.css, app.html, vite.config.ts, .gitignore
+
+**Outcome:** Success — 63 unit tests pass, 6 integration tests pass, build succeeds, 0 type errors.
+
+**Insight:**
+- Protobuf field 9 repeated sub-messages are the correct source for arrival times. Fields 6/7/8 are metadata (first arrival shortcut, unknown flags).
+- GTFS stop_id format `1008-{number}` maps directly to STB API stop_id.
+- Leaflet lazy-loading via `Promise.all([import('leaflet'), ...])` keeps the initial bundle small (~43KB gzip deferred).
+- Svelte 5 `$state` in stores requires careful handling — avoid referencing reactive state in non-reactive contexts (use closure variables for initial values).
+
+**Promoted to Lessons Learned:** Yes
+
+---
+
 <!-- New entries go above this line, most recent first -->

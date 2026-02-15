@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { LINE_COLORS } from '$lib/api/constants.js';
 	import { formatArrivalTime } from '$lib/stores/arrivals.svelte.js';
 	import type { ArrivalInfo } from '$lib/api/types.js';
 
@@ -10,7 +9,7 @@
 
 	let { arrival, loading = false }: Props = $props();
 
-	let color = $derived(LINE_COLORS[arrival.lineName] ?? '#888');
+	let color = $derived(arrival.color || '#888');
 </script>
 
 <div class="arrival-row">

@@ -73,27 +73,30 @@ export const AUTO_REFRESH_INTERVAL = 30_000;
 
 /**
  * Protobuf field numbers in the stop response.
- * Discovered by inspecting the binary response from the STB API.
+ * Verified via scripts/dump-proto.ts on 2026-02-15.
+ * See docs/proto-analysis.md for full evidence.
  *
- * Top-level message:
+ * Top-level message (StopResponse):
  *   1 = station name (string)
  *   2 = address (string)
  *   5 = type (string, e.g. "STATION")
  *   10 = line entries (repeated message)
  *
- * Line sub-message:
+ * Line sub-message (LineEntry):
  *   1 = line name (string, e.g. "27")
  *   2 = line id (varint, e.g. 66)
  *   3 = vehicle type (string, e.g. "TRAM")
  *   4 = color (string, e.g. "#BE1622")
  *   5 = direction name (string, e.g. "Faur")
- *   6 = first arrival time in seconds (varint)
- *   7 = second arrival time in seconds (varint)
- *   8 = third arrival time in seconds (varint)
+ *   6 = first arrival seconds (varint, redundant with arrivals[0])
+ *   9 = arrival entries (repeated sub-message)
+ *
+ * Arrival sub-message (ArrivalEntry):
+ *   1 = is_scheduled flag (varint, 0=real-time, 1=estimated)
+ *   2 = seconds until arrival (varint)
  */
 export const PROTO_FIELDS = {
 	STOP: { NAME: 1, ADDRESS: 2, TYPE: 5, LINES: 10 },
-	LINE: { NAME: 1, ID: 2, VEHICLE_TYPE: 3, COLOR: 4, DIRECTION: 5 },
-	/** Candidate field numbers for arrival times (will try in order) */
-	ARRIVAL_TIME_FIELDS: [6, 7, 8]
+	LINE: { NAME: 1, ID: 2, VEHICLE_TYPE: 3, COLOR: 4, DIRECTION: 5, ARRIVALS: 9 },
+	ARRIVAL: { IS_SCHEDULED: 1, SECONDS: 2 }
 } as const;

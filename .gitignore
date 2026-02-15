@@ -10,6 +10,9 @@ node_modules
 /.idea
 /*.iml
 
+# Downloaded data (GTFS etc)
+/data/
+
 # Playwright
 /test-results/
 /playwright-report/

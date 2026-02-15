@@ -1,0 +1,76 @@
+import { describe, it, expect } from 'vitest';
+import { normalize, searchStations } from './search.js';
+import type { Station } from './types.js';
+
+describe('normalize', () => {
+	it('strips Romanian diacritics', () => {
+		expect(normalize('Piața Unirii')).toBe('piata unirii');
+		expect(normalize('Ștefan cel Mare')).toBe('stefan cel mare');
+		expect(normalize('Românească')).toBe('romaneasca');
+	});
+
+	it('handles mixed case', () => {
+		expect(normalize('PIAȚA UNIRII')).toBe('piata unirii');
+	});
+
+	it('handles cedilla variants (ş vs ș)', () => {
+		expect(normalize('Ştefan')).toBe('stefan');
+		expect(normalize('Ţepeş')).toBe('tepes');
+	});
+
+	it('preserves non-diacritic characters', () => {
+		expect(normalize('abc 123')).toBe('abc 123');
+	});
+});
+
+describe('searchStations', () => {
+	const stations: Station[] = [
+		{ id: 3570, name: 'Piata Unirii', description: 'Bd. Regina Maria, Bucuresti', lat: 44.4266, lon: 26.1002 },
+		{ id: 3788, name: 'Piata Unirii', description: 'Bd. Dimitrie Cantemir, Bucuresti', lat: 44.4248, lon: 26.1039 },
+		{ id: 1001, name: 'Universitate', description: 'Bd. Regina Elisabeta', lat: 44.4358, lon: 26.1027 },
+		{ id: 1002, name: 'Piata Romana', description: 'Bd. Magheru', lat: 44.4470, lon: 26.0971 },
+		{ id: 1003, name: 'Eroilor', description: 'Bd. Eroilor', lat: 44.4350, lon: 26.0850 },
+		{ id: 1004, name: 'Stefan cel Mare', description: '', lat: 44.4450, lon: 26.1100 },
+	];
+
+	it('finds exact name matches', () => {
+		const results = searchStations('Universitate', stations);
+		expect(results[0].name).toBe('Universitate');
+	});
+
+	it('finds matches ignoring diacritics', () => {
+		const results = searchStations('Stefan', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Stefan cel Mare');
+	});
+
+	it('finds partial matches', () => {
+		const results = searchStations('Piata', stations);
+		expect(results.length).toBeGreaterThanOrEqual(3);
+	});
+
+	it('is case insensitive', () => {
+		const results = searchStations('universitate', stations);
+		expect(results[0].name).toBe('Universitate');
+	});
+
+	it('respects maxResults', () => {
+		const results = searchStations('Piata', stations, 2);
+		expect(results).toHaveLength(2);
+	});
+
+	it('returns empty for empty query', () => {
+		expect(searchStations('', stations)).toHaveLength(0);
+		expect(searchStations('  ', stations)).toHaveLength(0);
+	});
+
+	it('returns empty for no matches', () => {
+		expect(searchStations('Nonexistent Station', stations)).toHaveLength(0);
+	});
+
+	it('searches in description too', () => {
+		const results = searchStations('Magheru', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Piata Romana');
+	});
+});

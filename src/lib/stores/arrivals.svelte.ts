@@ -1,5 +1,5 @@
 import { fetchArrivals } from '$lib/api/arrivals.js';
-import { AUTO_REFRESH_INTERVAL } from '$lib/api/constants.js';
+import { AUTO_REFRESH_INTERVAL, STOP_ID } from '$lib/api/constants.js';
 import type { ArrivalsState, StationArrivals } from '$lib/api/types.js';
 
 /** Reactive arrivals state using Svelte 5 runes */
@@ -10,6 +10,7 @@ export function createArrivalsStore() {
 		error: null
 	});
 
+	let currentStopId = $state(STOP_ID);
 	let autoRefreshEnabled = $state(false);
 	let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -18,13 +19,19 @@ export function createArrivalsStore() {
 		state.error = null;
 
 		try {
-			const data = await fetchArrivals();
+			const data = await fetchArrivals(currentStopId);
 			state.data = data;
 			state.status = 'success';
 		} catch (err) {
 			state.error = err instanceof Error ? err.message : 'Eroare necunoscută';
 			state.status = 'error';
 		}
+	}
+
+	function selectStation(stopId: number) {
+		currentStopId = stopId;
+		state.data = null;
+		refresh();
 	}
 
 	function startAutoRefresh() {
@@ -61,10 +68,14 @@ export function createArrivalsStore() {
 		get state() {
 			return state;
 		},
+		get currentStopId() {
+			return currentStopId;
+		},
 		get autoRefreshEnabled() {
 			return autoRefreshEnabled;
 		},
 		refresh,
+		selectStation,
 		toggleAutoRefresh,
 		cleanup
 	};
@@ -72,9 +83,14 @@ export function createArrivalsStore() {
 
 /** Format seconds to a human-readable arrival time */
 export function formatArrivalTime(seconds: number): string {
-	const minutes = Math.ceil(seconds / 60);
-	if (minutes < 1) return 'acum';
-	return `${minutes} min`;
+	if (seconds < 30) return 'acum';
+	const totalMinutes = Math.ceil(seconds / 60);
+	if (totalMinutes <= 59) return `${totalMinutes} min`;
+	const hours = Math.floor(totalMinutes / 60);
+	const mins = totalMinutes % 60;
+	const hourWord = hours === 1 ? 'oră' : 'ore';
+	if (mins === 0) return `${hours} ${hourWord}`;
+	return `${hours} ${hourWord}, ${mins} min`;
 }
 
 /** Format a Date to HH:MM */

@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { STATION_NAME, LINE_ORDER } from '$lib/api/constants.js';
+	import { STATION_NAME } from '$lib/api/constants.js';
 	import { createArrivalsStore, getCachedArrivals, cacheArrivals } from '$lib/stores/arrivals.svelte.js';
-	import type { ArrivalInfo } from '$lib/api/types.js';
 	import ArrivalRow from './ArrivalRow.svelte';
 	import RefreshButton from './RefreshButton.svelte';
 	import LastUpdated from './LastUpdated.svelte';
@@ -16,17 +15,8 @@
 			: false
 	);
 
-	/** Placeholder rows for loading state */
-	const placeholderArrivals: ArrivalInfo[] = LINE_ORDER.map((name) => ({
-		lineName: name,
-		lineId: 0,
-		vehicleType: 'TRAM',
-		color: '#BE1622',
-		direction: '',
-		arrivingTimes: []
-	}));
-
-	let displayArrivals = $derived(store.state.data?.arrivals ?? placeholderArrivals);
+	let displayArrivals = $derived(store.state.data?.arrivals ?? []);
+	let isLoading = $derived(store.state.status === 'loading' && !store.state.data);
 
 	onMount(() => {
 		// Try to show cached data immediately
@@ -61,10 +51,16 @@
 				<p class="error-detail">{store.state.error}</p>
 				<button class="retry-btn" onclick={() => store.refresh()}>Încearcă din nou</button>
 			</div>
+		{:else if isLoading}
+			<div class="arrivals-list">
+				{#each [1, 2, 3] as i (i)}
+					<ArrivalRow arrival={{ lineName: '', lineId: 0, vehicleType: '', color: '#888', direction: '', arrivingTimes: [] }} loading={true} />
+				{/each}
+			</div>
 		{:else}
 			<div class="arrivals-list">
-				{#each displayArrivals as arrival (arrival.lineName)}
-					<ArrivalRow {arrival} loading={store.state.status === 'loading' && !store.state.data} />
+				{#each displayArrivals as arrival (arrival.lineName + arrival.direction)}
+					<ArrivalRow {arrival} />
 				{/each}
 			</div>
 		{/if}

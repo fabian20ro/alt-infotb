@@ -1,6 +1,6 @@
 # Architecture
 
-Better STB is a static single-page app that shows real-time tram arrival times for Piata Unirii in Bucharest. The browser app is static (no backend), but requires a **server-side proxy** to reach the STB API.
+Better STB is a mobile-first PWA that shows real-time transit arrival times for any station in Bucharest. It features a map-priority split layout with GPS-based station discovery, favorites, and theme/language toggles. The browser app is static (no backend), but requires a **server-side proxy** to reach the STB API.
 
 ## High-level flow
 
@@ -15,9 +15,10 @@ Browser ──fetch──▸ Proxy ──fetch + headers──▸ info.stb.ro (p
    ◂── protobuf ─────┘
    │
    ├── decode (proto.ts)
-   ├── filter & sort (arrivals.ts)
+   ├── extract arrivals from field 9 sub-messages (arrivals.ts)
    ├── render (Svelte components)
-   └── cache (localStorage)
+   ├── cache (localStorage + IndexedDB)
+   └── display on map (Leaflet)
 ```
 
 ### Proxy layer
@@ -37,11 +38,11 @@ Both proxies handle the same auth flow:
 
 ### Data pipeline
 
-1. The app calls the proxy at `/stb-api/lines/stop?stop_id=3570` (dev) or the worker URL (prod)
-2. The proxy forwards the request to `info.stb.ro/api/web/v2-6/lines/stop?stop_id=3570` with injected headers
+1. The app calls the proxy at `/stb-api/lines/stop?stop_id={id}` (dev) or the worker URL (prod)
+2. The proxy forwards the request to `info.stb.ro/api/web/v2-6/lines/stop?stop_id={id}` with injected headers
 3. The response is **Protocol Buffers** binary (not JSON)
 4. A minimal protobuf reader (`proto.ts`) decodes the wire format
-5. `arrivals.ts` maps the decoded fields to `ArrivalInfo[]` and filters to lines 7, 27, 47
+5. `arrivals.ts` extracts arrival times from **field 9 repeated sub-messages** in each line entry
 6. The Svelte store pushes data to components for rendering
 7. Results are cached in localStorage for offline display
 
@@ -50,28 +51,81 @@ Both proxies handle the same auth flow:
 - **No protobuf library** — The response schema is small and stable. A ~100-line reader handles varint and length-delimited wire types, which is all we need. This keeps the bundle tiny.
 - **Proxy required** — The STB API requires custom headers (`User-Info`, `App-Id`, etc.) that CORS blocks from browsers. A server-side proxy injects them. Vite handles dev, Cloudflare Worker handles prod.
 - **Static adapter** — SvelteKit prerenders a single HTML shell. All logic runs client-side (`ssr = false`).
-- **PWA** — The app is installable via `vite-plugin-pwa`. The service worker caches static assets; API calls use `NetworkOnly` since stale arrival times are worse than no data.
+- **PWA** — The app is installable via `vite-plugin-pwa`. Static assets are precached; API calls use `NetworkOnly`; map tiles use `StaleWhileRevalidate`.
+- **Leaflet lazy-loading** — Leaflet (~43KB gzip) is loaded via dynamic `import()` after initial render, with a loading skeleton shown while the map initializes.
+- **Station data from GTFS** — 2,710 station coordinates are bundled from ROTI GTFS data (`scripts/fetch-stations.ts`). The GTFS stop_id format `1008-{stb_id}` maps directly to the STB API `stop_id`. IndexedDB provides caching.
+- **Immutable state** — All stores use Svelte 5 `$state` runes. State updates create new values rather than mutating.
 
-## Protobuf schema (reverse-engineered)
+## Protobuf schema (verified 2026-02-15)
+
+See `docs/proto-analysis.md` for full evidence from `scripts/dump-proto.ts`.
 
 ```
 message StopResponse {
-  string name = 1;            // "Piata Unirii"
-  string address = 2;         // "Bd. Regina Maria, Bucuresti"
-  string type = 5;            // "STATION"
+  string name = 1;                    // "Piata Unirii"
+  string address = 2;                 // "Bd. Regina Maria, Bucuresti"
+  string type = 5;                    // "STATION"
   repeated LineEntry lines = 10;
 }
 
 message LineEntry {
-  string name = 1;            // "27"
-  int32  id = 2;              // 66
-  string vehicle_type = 3;    // "TRAM"
-  string color = 4;           // "#BE1622"
-  string direction = 5;       // "Faur"
-  int32  arrival_time_1 = 6;  // seconds
-  int32  arrival_time_2 = 7;  // seconds
-  int32  arrival_time_3 = 8;  // seconds
+  string name = 1;                    // "27"
+  int32  id = 2;                      // 66
+  string vehicle_type = 3;            // "TRAM", "BUS", "TROLLEYBUS"
+  string color = 4;                   // "#BE1622"
+  string direction = 5;               // "Faur"
+  int32  first_arrival_seconds = 6;   // seconds (redundant with arrivals[0])
+  int32  unknown_7 = 7;              // always 0
+  int32  unknown_8 = 8;              // always 1
+  repeated ArrivalEntry arrivals = 9; // THE REAL ARRIVAL DATA
+}
+
+message ArrivalEntry {
+  int32  is_scheduled = 1;           // 0 = real-time GPS, 1 = estimated
+  int32  seconds = 2;                // seconds until arrival
 }
 ```
 
-Field numbers were determined by inspecting the raw binary response with `hexdump`.
+**Important**: Fields 6, 7, 8 were originally misidentified as three separate arrival times. The actual arrival data lives in field 9 as repeated sub-messages.
+
+## UI Architecture
+
+```
++----------------------------------+
+| [=] Station Name           [fav] |  <- StationHeader (48px)
+|   Address subtitle               |
+|----------------------------------|
+|  Scrollable arrival rows         |  <- StationArrivals (flex: 1)
+|  [Line] Direction    Time Time   |     ArrivalRow per line
+|  auto-refresh bar                |
+|==================================|
+|          Leaflet Map             |  <- MapView (50dvh)
+|     Station markers + GPS dot    |     Lazy-loaded
++----------------------------------+
+
+Hamburger drawer (left slide):
+  - Favorites
+  - Recents (excluding favorites)
+  - Theme toggle (Light/Dark)
+  - Language toggle (RO/EN)
+```
+
+## Station data flow
+
+```
+First load:
+  1. Load bundled stations.json (build-time, 2710 stations)
+  2. Save to IndexedDB
+  3. Display on map
+
+Subsequent loads:
+  1. Load from IndexedDB (instant)
+  2. Check if > 24h stale
+  3. Background refresh if stale
+
+Station selection:
+  1. Tap map marker → selectStation(station)
+  2. Update arrivals store with new stop_id
+  3. Fetch arrivals from STB API
+  4. Add to recents
+```

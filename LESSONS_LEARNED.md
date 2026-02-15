@@ -39,7 +39,13 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-14]** DOMException.name is read-only — When mocking `AbortError` in tests, use the constructor `new DOMException('message', 'AbortError')` instead of `Object.assign(new DOMException(...), { name: 'AbortError' })`. The `name` property on `DOMException` is a getter and cannot be overwritten.
 
-**[2026-02-14]** TRAM_LINES is a Set, not an array — `constants.ts` defines `TRAM_LINES` as `new Set(...)` for O(1) lookup in the protobuf decoder. Use `LINE_ORDER` (array) when you need ordered iteration for display.
+**[2026-02-15]** Protobuf arrival data is in field 9 sub-messages — Fields 6/7/8 in the line sub-message are NOT three arrival times. Field 6 = first arrival seconds (redundant), field 7 = always 0, field 8 = always 1. The real arrival data lives in field 9 as repeated sub-messages with `{1: is_scheduled (0=GPS, 1=estimated), 2: seconds}`. See `docs/proto-analysis.md`.
+
+**[2026-02-15]** GTFS stop_id maps to STB API stop_id — ROTI GTFS feed uses format `1008-{numeric_id}` where the numeric suffix is the STB API `stop_id`. Filter to Bucharest bounding box (lat 44.3-44.6, lon 25.9-26.3) to get ~2710 valid stations.
+
+**[2026-02-15]** Leaflet lazy-loading pattern — Use `Promise.all([import('leaflet'), import('./tiles.js'), ...])` to load Leaflet and map utilities in parallel after initial render. Import CSS dynamically too: `await import('leaflet/dist/leaflet.css')`. Show a loading skeleton while the map initializes.
+
+**[2026-02-15]** Svelte 5 `$state` in store factories — When a store factory reads `$state` variables (e.g., `settings.theme`), don't pass them directly to non-reactive functions during initialization. Capture the initial value in a plain variable first: `const initial = { theme: stored?.theme ?? 'dark' }; applyTheme(initial.theme);`. This avoids the `state_referenced_locally` warning.
 
 ## Testing & Quality
 
@@ -61,7 +67,7 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Process & Workflow
 
-**[2026-02-14]** Arrival time field mapping is tentative — Protobuf fields 6, 7, 8 in the line sub-message are assumed to be arrival times in seconds. This was determined by hex dump inspection, not official documentation. If times look wrong in production, these field numbers may need adjustment.
+**[2026-02-15]** Romanian time pluralization — "oră" (singular, 1 hour) vs "ore" (plural, 2+ hours). Format: "acum" (<30s), "X min" (1-59), "1 oră, Y min" (60-119), "X ore, Y min" (120+).
 
 ---
 
@@ -70,3 +76,7 @@ move it to the Archive section at the bottom with a date and reason.
 **[2026-02-14] Archived [2026-02-15]** No backend required — Superseded: the STB API now requires `User-Info` auth token, which means a proxy is mandatory. The "no backend" architecture is no longer viable.
 
 **[2026-02-14] Archived [2026-02-15]** Custom headers cause CORS preflight failures / API works without them — Partially wrong: the API does NOT work without custom headers (returns 400). The CORS part is still true, but the fix is a proxy that injects headers, not omitting them.
+
+**[2026-02-14] Archived [2026-02-15]** TRAM_LINES is a Set, not an array — Removed: `TRAM_LINES`, `LINE_ORDER`, and `LINE_COLORS` were deleted during the redesign. The app now shows all transport types and uses API-provided colors.
+
+**[2026-02-14] Archived [2026-02-15]** Arrival time field mapping is tentative — Resolved: protobuf field mapping has been confirmed. Arrival data is in field 9 sub-messages, not fields 6/7/8. See `docs/proto-analysis.md` for evidence.
