@@ -176,7 +176,7 @@
 	}
 
 	.section-title {
-		font-size: 0.75rem;
+		font-size: 1.125rem;
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
@@ -185,7 +185,7 @@
 	}
 
 	.empty-text {
-		font-size: 0.85rem;
+		font-size: 1.275rem;
 		color: var(--color-text-muted);
 		font-style: italic;
 		margin: 0;
@@ -207,7 +207,7 @@
 		border-radius: 0.375rem;
 		background: transparent;
 		color: var(--color-text);
-		font-size: 0.9rem;
+		font-size: 1.35rem;
 		cursor: pointer;
 		text-align: left;
 		transition: background-color 0.15s;
@@ -219,7 +219,7 @@
 
 	.station-item-icon {
 		flex-shrink: 0;
-		font-size: 0.8rem;
+		font-size: 1.2rem;
 		color: var(--color-text-muted);
 	}
 
@@ -249,7 +249,7 @@
 	}
 
 	.setting-label {
-		font-size: 0.85rem;
+		font-size: 1.275rem;
 		color: var(--color-text);
 	}
 
@@ -261,11 +261,11 @@
 	}
 
 	.toggle-btn {
-		padding: 0.375rem 0.75rem;
+		padding: 0.5rem 1rem;
 		border: none;
 		background: transparent;
 		color: var(--color-text-muted);
-		font-size: 0.8rem;
+		font-size: 1.2rem;
 		cursor: pointer;
 		transition: all 0.15s;
 	}
@@ -281,7 +281,7 @@
 	}
 
 	.last-update {
-		font-size: 0.75rem;
+		font-size: 1.125rem;
 		color: var(--color-text-muted);
 		text-align: center;
 		margin: 1.5rem 0 0;

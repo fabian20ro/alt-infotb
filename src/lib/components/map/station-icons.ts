@@ -28,20 +28,20 @@ export function createStationIcon(vehicleType?: string): L.DivIcon {
 	});
 }
 
-/** Create a selected station icon (larger, with pulse) */
+/** Create a selected station icon (slightly larger than normal, with subtle glow) */
 export function createSelectedStationIcon(): L.DivIcon {
 	return L.divIcon({
 		className: 'station-marker-selected',
 		html: `<div style="
-			width: 36px;
-			height: 36px;
+			width: 28px;
+			height: 28px;
 			border-radius: 50%;
 			background: #4cc9f0;
-			border: 4px solid white;
-			box-shadow: 0 0 0 4px rgba(76, 201, 240, 0.3), 0 2px 6px rgba(0,0,0,0.4);
+			border: 3px solid white;
+			box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.3), 0 1px 4px rgba(0,0,0,0.4);
 		"></div>`,
-		iconSize: [44, 44],
-		iconAnchor: [22, 22]
+		iconSize: [34, 34],
+		iconAnchor: [17, 17]
 	});
 }
 
