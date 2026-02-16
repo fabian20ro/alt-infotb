@@ -280,4 +280,26 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-16] Upgrade dependencies to latest available versions
+
+**Context:** Routine dependency upgrade to keep packages current.
+
+**What happened:**
+1. Checked latest versions for all dependencies in root `package.json` and `worker/package.json`.
+2. Updated root package.json:
+   - `@sveltejs/kit`: ^2.50.2 → ^2.52.0
+   - `svelte`: ^5.49.2 → ^5.51.2
+   - `svelte-check`: ^4.3.6 → ^4.4.0
+3. Updated worker/package.json:
+   - `@cloudflare/workers-types`: ^4.20250214.0 → ^4.20260214.0
+   - `wrangler`: ^4.11.0 → ^4.65.0
+4. Already at latest: @playwright/test, @sveltejs/adapter-static, @sveltejs/vite-plugin-svelte, @types/leaflet, @types/node, dotenv, typescript, vite, vite-plugin-pwa, vitest, @vite-pwa/sveltekit, leaflet.
+5. Verified: `npm run check` (0 errors), `npm test` (86 tests pass), `npm run build` (success).
+
+**Outcome:** Success — all dependencies upgraded, type check clean, all tests pass, build succeeds.
+
+**Promoted to Lessons Learned:** No (routine maintenance)
+
+---
+
 <!-- New entries go above this line, most recent first -->
