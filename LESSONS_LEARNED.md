@@ -33,7 +33,7 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-15]** STB API requires User-Info auth token — The API returns 400 without a `User-Info` header. Get a bcrypt token from `GET /proxy/user/auth` (requires `App-key` and `App-Id` headers). Token expires (412 response) and must be re-fetched. The official STB web app does this automatically.
 
-**[2026-02-15]** STB auth credentials — `App-key: gcALgRyZHC,qFonZ=Jde`, `App-Id: b32cc233-00d7-4640-bf90-374572668c30`. These are extracted from the official STB web app's main JS bundle. If auth stops working, re-check the bundle at `info.stb.ro/main-es2015.*.js`.
+**[2026-02-15]** STB auth credentials — `App-key` and `App-Id` values are extracted from the official STB web app's main JS bundle. They are stored in environment variables (`STB_APP_KEY`, `STB_APP_ID`), not in source code. See `.env.example` for setup. If auth stops working, re-check the bundle at `info.stb.ro/main-es2015.*.js` and update `.env`.
 
 ## Code Patterns & Pitfalls
 

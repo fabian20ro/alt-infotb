@@ -11,16 +11,22 @@
  * Output: JSON mapping of station name → stop IDs with line info
  */
 
-const STB_API_BASE = 'https://info.stb.ro/api/web/v2-6';
+import 'dotenv/config';
 
-const STB_AUTH = {
-	APP_ID: 'b32cc233-00d7-4640-bf90-374572668c30',
-	APP_KEY: 'gcALgRyZHC,qFonZ=Jde',
-	AUTH_PATH: '/proxy/user/auth'
-} as const;
+const STB_API_BASE = 'https://info.stb.ro/api/web/v2-6';
+const STB_AUTH_PATH = '/proxy/user/auth';
+
+const APP_ID = process.env.STB_APP_ID;
+const APP_KEY = process.env.STB_APP_KEY;
+
+if (!APP_ID || !APP_KEY) {
+	console.error('Missing STB_APP_ID or STB_APP_KEY environment variables.');
+	console.error('Copy .env.example to .env and fill in the credentials.');
+	process.exit(1);
+}
 
 const STB_HEADERS: Record<string, string> = {
-	'App-Id': STB_AUTH.APP_ID,
+	'App-Id': APP_ID,
 	'App-Version': '0.0.0',
 	'Device-Name': 'Chrome',
 	Lang: 'ro',
@@ -100,8 +106,8 @@ function tryDecodeString(data: Uint8Array): string | null {
 }
 
 async function authenticate(): Promise<string> {
-	const res = await fetch(`${STB_API_BASE}${STB_AUTH.AUTH_PATH}`, {
-		headers: { 'App-key': STB_AUTH.APP_KEY, 'App-Id': STB_AUTH.APP_ID }
+	const res = await fetch(`${STB_API_BASE}${STB_AUTH_PATH}`, {
+		headers: { 'App-key': APP_KEY, 'App-Id': APP_ID }
 	});
 	if (!res.ok) throw new Error(`Auth failed: ${res.status}`);
 	const json = (await res.json()) as { data: { userInfo: string } };

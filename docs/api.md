@@ -19,8 +19,8 @@ GET https://info.stb.ro/api/web/v2-6/proxy/user/auth
 Headers:
 | Header | Value |
 |---|---|
-| `App-key` | `gcALgRyZHC,qFonZ=Jde` |
-| `App-Id` | `b32cc233-00d7-4640-bf90-374572668c30` |
+| `App-key` | `$STB_APP_KEY` (from environment) |
+| `App-Id` | `$STB_APP_ID` (from environment) |
 
 Response (JSON):
 ```json
@@ -35,7 +35,7 @@ All requests to the stop endpoint require these headers:
 
 | Header | Value | Required |
 |---|---|---|
-| `App-Id` | `b32cc233-00d7-4640-bf90-374572668c30` | Yes |
+| `App-Id` | `$STB_APP_ID` (from environment) | Yes |
 | `App-Version` | `0.0.0` | Yes |
 | `Device-Name` | `Chrome` | Yes |
 | `Lang` | `ro` | Yes |
@@ -94,9 +94,10 @@ The response body is **Protocol Buffers** binary, not JSON. See [architecture.md
 ### Step 1: Get auth token
 
 ```bash
+# Requires STB_APP_ID and STB_APP_KEY environment variables (see .env.example)
 TOKEN=$(curl -s 'https://info.stb.ro/api/web/v2-6/proxy/user/auth' \
-  -H 'App-key: gcALgRyZHC,qFonZ=Jde' \
-  -H 'App-Id: b32cc233-00d7-4640-bf90-374572668c30' \
+  -H "App-key: $STB_APP_KEY" \
+  -H "App-Id: $STB_APP_ID" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['userInfo'])")
 ```
 
@@ -104,7 +105,7 @@ TOKEN=$(curl -s 'https://info.stb.ro/api/web/v2-6/proxy/user/auth' \
 
 ```bash
 curl -s 'https://info.stb.ro/api/web/v2-6/lines/stop?stop_id=3570' \
-  -H 'App-Id: b32cc233-00d7-4640-bf90-374572668c30' \
+  -H "App-Id: $STB_APP_ID" \
   -H 'App-Version: 0.0.0' \
   -H 'Device-Name: Chrome' \
   -H 'Lang: ro' \

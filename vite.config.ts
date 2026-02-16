@@ -1,8 +1,8 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import type { Plugin } from 'vite';
-import { STB_SERVER_HEADERS, STB_AUTH } from './src/lib/api/constants.js';
+import { createStbServerHeaders, STB_AUTH_PATH } from './src/lib/api/constants.js';
 
 const STB_API_BASE = 'https://info.stb.ro/api/web/v2-6';
 
@@ -10,13 +10,14 @@ const STB_API_BASE = 'https://info.stb.ro/api/web/v2-6';
  * Vite plugin that proxies /stb-api/* requests to the real STB API,
  * injecting required headers and managing the User-Info auth token.
  */
-function stbProxy(): Plugin {
+function stbProxy(appId: string, appKey: string): Plugin {
 	let userInfoToken: string | null = null;
+	const serverHeaders = createStbServerHeaders(appId);
 
 	async function fetchAuthToken(): Promise<string> {
-		const url = `${STB_API_BASE}${STB_AUTH.AUTH_PATH}`;
+		const url = `${STB_API_BASE}${STB_AUTH_PATH}`;
 		const res = await fetch(url, {
-			headers: { 'App-key': STB_AUTH.APP_KEY, 'App-Id': STB_AUTH.APP_ID }
+			headers: { 'App-key': appKey, 'App-Id': appId }
 		});
 		const json = (await res.json()) as { data: { userInfo: string } };
 		return json.data.userInfo;
@@ -28,7 +29,7 @@ function stbProxy(): Plugin {
 	): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
 		const url = `${STB_API_BASE}${targetPath}`;
 		const res = await fetch(url, {
-			headers: { ...STB_SERVER_HEADERS, 'User-Info': token }
+			headers: { ...serverHeaders, 'User-Info': token }
 		});
 		const body = Buffer.from(await res.arrayBuffer());
 		const headers: Record<string, string> = {};
@@ -70,61 +71,75 @@ function stbProxy(): Plugin {
 	};
 }
 
-export default defineConfig({
-	plugins: [
-		stbProxy(),
-		sveltekit(),
-		SvelteKitPWA({
-			registerType: 'autoUpdate',
-			manifest: {
-				name: 'Alt STB',
-				short_name: 'AltSTB',
-				description: 'Real-time transit arrivals for București — bus, tram, trolleybus',
-				start_url: '/alt-stb/',
-				display: 'standalone',
-				background_color: '#1a1a2e',
-				theme_color: '#1a1a2e',
-				lang: 'ro',
-				icons: [
-					{
-						src: '/alt-stb/icons/icon-192x192.png',
-						sizes: '192x192',
-						type: 'image/png'
-					},
-					{
-						src: '/alt-stb/icons/icon-512x512.png',
-						sizes: '512x512',
-						type: 'image/png'
-					},
-					{
-						src: '/alt-stb/icons/icon-512x512.png',
-						sizes: '512x512',
-						type: 'image/png',
-						purpose: 'maskable'
-					}
-				]
-			},
-			workbox: {
-				globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2,json}'],
-				runtimeCaching: [
-					{
-						urlPattern: /^https:\/\/info\.stb\.ro\/.*/i,
-						handler: 'NetworkOnly'
-					},
-					{
-						urlPattern: /\/stb-api\/.*/i,
-						handler: 'NetworkOnly'
-					},
-					{
-						urlPattern: /^https:\/\/[a-z]\.basemaps\.cartocdn\.com\/.*/i,
-						handler: 'StaleWhileRevalidate',
-						options: {
-							cacheName: 'map-tiles',
-							expiration: { maxEntries: 500, maxAgeSeconds: 7 * 24 * 60 * 60 }
+export default defineConfig(({ mode }) => {
+	const env = loadEnv(mode, process.cwd(), 'STB_');
+	const appId = env.STB_APP_ID;
+	const appKey = env.STB_APP_KEY;
+
+	if (!appId || !appKey) {
+		console.warn(
+			'Warning: STB_APP_ID and/or STB_APP_KEY not set. ' +
+				'The dev proxy will not be able to authenticate with the STB API. ' +
+				'Copy .env.example to .env and fill in the credentials.'
+		);
+	}
+
+	return {
+		plugins: [
+			stbProxy(appId, appKey),
+			sveltekit(),
+			SvelteKitPWA({
+				registerType: 'autoUpdate',
+				manifest: {
+					name: 'Alt STB',
+					short_name: 'AltSTB',
+					description: 'Real-time transit arrivals for București — bus, tram, trolleybus',
+					start_url: '/alt-stb/',
+					display: 'standalone',
+					background_color: '#1a1a2e',
+					theme_color: '#1a1a2e',
+					lang: 'ro',
+					icons: [
+						{
+							src: '/alt-stb/icons/icon-192x192.png',
+							sizes: '192x192',
+							type: 'image/png'
+						},
+						{
+							src: '/alt-stb/icons/icon-512x512.png',
+							sizes: '512x512',
+							type: 'image/png'
+						},
+						{
+							src: '/alt-stb/icons/icon-512x512.png',
+							sizes: '512x512',
+							type: 'image/png',
+							purpose: 'maskable'
 						}
-					}
-				]
-			}
-		})
-	]
+					]
+				},
+				workbox: {
+					globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2,json}'],
+					runtimeCaching: [
+						{
+							urlPattern: /^https:\/\/info\.stb\.ro\/.*/i,
+							handler: 'NetworkOnly'
+						},
+						{
+							urlPattern: /\/stb-api\/.*/i,
+							handler: 'NetworkOnly'
+						},
+						{
+							urlPattern: /^https:\/\/[a-z]\.basemaps\.cartocdn\.com\/.*/i,
+							handler: 'StaleWhileRevalidate',
+							options: {
+								cacheName: 'map-tiles',
+								expiration: { maxEntries: 500, maxAgeSeconds: 7 * 24 * 60 * 60 }
+							}
+						}
+					]
+				}
+			})
+		]
+	};
 });

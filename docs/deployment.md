@@ -64,6 +64,18 @@ Configured at: [Cloudflare dashboard](https://dash.cloudflare.com/) > Workers & 
 
 Cloudflare auto-created an API token named **"Workers Builds"** (2026-02-15) for the Git integration. This token lets Cloudflare deploy the worker on your behalf. You don't need to manage it — it's visible under Settings > API Token in the worker dashboard.
 
+### STB API secrets
+
+The worker requires `STB_APP_ID` and `STB_APP_KEY` to authenticate with the STB API. These are stored as Cloudflare secrets (not in source code):
+
+```bash
+cd worker
+npx wrangler secret put STB_APP_ID    # Prompts for value
+npx wrangler secret put STB_APP_KEY   # Prompts for value
+```
+
+These only need to be set once (or when rotating credentials). See `.env.example` for the expected variable names.
+
 ## Manual deployment (fallback)
 
 If auto-deploy breaks or you need to deploy outside of Git:
