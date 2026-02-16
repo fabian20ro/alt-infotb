@@ -67,3 +67,15 @@ export async function getLastRefreshTime(): Promise<number> {
 		request.onerror = () => reject(request.error);
 	});
 }
+
+/** Update only the last refresh timestamp without re-saving station data */
+export async function updateLastRefreshTime(): Promise<void> {
+	const db = await openDb();
+	return new Promise((resolve, reject) => {
+		const tx = db.transaction(META_STORE, 'readwrite');
+		const store = tx.objectStore(META_STORE);
+		store.put(Date.now(), 'lastRefresh');
+		tx.oncomplete = () => resolve();
+		tx.onerror = () => reject(tx.error);
+	});
+}
