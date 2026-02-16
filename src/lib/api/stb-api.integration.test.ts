@@ -4,16 +4,20 @@
  * Run with: npm run test:integration
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { STB_SERVER_HEADERS, STB_AUTH, STOP_ID, PROTO_FIELDS } from './constants.js';
+import { createStbServerHeaders, STB_AUTH_PATH, STOP_ID, PROTO_FIELDS } from './constants.js';
 import { ProtoReader, getString, getVarint, getMessages } from './proto.js';
 
 const STB_API_BASE = 'https://info.stb.ro/api/web/v2-6';
 const STB_API_URL = `${STB_API_BASE}/lines/stop?stop_id=${STOP_ID}`;
 
+const APP_ID = process.env.STB_APP_ID ?? '';
+const APP_KEY = process.env.STB_APP_KEY ?? '';
+const STB_SERVER_HEADERS = createStbServerHeaders(APP_ID);
+
 /** Fetch a User-Info auth token from the STB auth endpoint */
 async function fetchAuthToken(): Promise<string> {
-	const res = await fetch(`${STB_API_BASE}${STB_AUTH.AUTH_PATH}`, {
-		headers: { 'App-key': STB_AUTH.APP_KEY, 'App-Id': STB_AUTH.APP_ID }
+	const res = await fetch(`${STB_API_BASE}${STB_AUTH_PATH}`, {
+		headers: { 'App-key': APP_KEY, 'App-Id': APP_ID }
 	});
 	expect(res.status).toBe(200);
 	const json = (await res.json()) as { data: { userInfo: string } };

@@ -26,25 +26,28 @@ export const LINE_COLORS: Record<string, string> = {
 export const LINE_ORDER: string[] = ['7', '27', '47'];
 
 /**
- * STB API authentication and header configuration (server-side only).
- * These headers trigger CORS preflight failures when sent from a browser,
+ * STB API authentication path (server-side only).
+ * Credentials (APP_ID, APP_KEY) must come from environment variables,
+ * not hardcoded in source. See .env.example for required variables.
+ */
+export const STB_AUTH_PATH = '/proxy/user/auth';
+
+/**
+ * Build the headers required by the STB API (server-side only).
+ * These trigger CORS preflight failures when sent from a browser,
  * so they're injected by the Vite dev proxy and Cloudflare Worker instead.
  */
-export const STB_AUTH = {
-	APP_ID: 'b32cc233-00d7-4640-bf90-374572668c30',
-	APP_KEY: 'gcALgRyZHC,qFonZ=Jde',
-	AUTH_PATH: '/proxy/user/auth'
-} as const;
-
-export const STB_SERVER_HEADERS: Record<string, string> = {
-	'App-Id': STB_AUTH.APP_ID,
-	'App-Version': '0.0.0',
-	'Device-Name': 'Chrome',
-	Lang: 'ro',
-	'OS-Type': 'Web',
-	'OS-Version': 'web',
-	Source: 'ro.radcom.smartcity.web'
-};
+export function createStbServerHeaders(appId: string): Record<string, string> {
+	return {
+		'App-Id': appId,
+		'App-Version': '0.0.0',
+		'Device-Name': 'Chrome',
+		Lang: 'ro',
+		'OS-Type': 'Web',
+		'OS-Version': 'web',
+		Source: 'ro.radcom.smartcity.web'
+	};
+}
 
 /**
  * Resolve the API base URL based on environment:

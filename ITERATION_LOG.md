@@ -232,4 +232,31 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-16] Move API credentials from source code to environment variables
+
+**Context:** Security assessment flagged hardcoded STB API credentials (`APP_ID`, `APP_KEY`) in 4 source files plus docs. These credentials were committed to git, exposing them to anyone with repo access.
+
+**What happened:**
+1. **constants.ts:** Replaced `STB_AUTH` (with hardcoded credentials) and `STB_SERVER_HEADERS` with `STB_AUTH_PATH` (just the path string) and `createStbServerHeaders(appId)` (a function that builds headers from a provided appId).
+2. **vite.config.ts:** Switched from importing credentials to using Vite's `loadEnv()` to read `STB_APP_ID` and `STB_APP_KEY` from `.env` files. Passes credentials to the `stbProxy()` plugin as parameters.
+3. **worker/src/index.ts:** Added `Env` interface with `STB_APP_ID` and `STB_APP_KEY` bindings. Worker fetch handler now receives `env` parameter from Cloudflare runtime. Credentials set via `wrangler secret put`.
+4. **scripts/dump-proto.ts, discover-subway-stops.ts:** Added `import 'dotenv/config'` and read credentials from `process.env`. Exit with clear error message if missing.
+5. **Integration test:** Updated to read credentials from `process.env` (vitest loads `.env` automatically).
+6. **docs/api.md:** Replaced all hardcoded credential values with `$STB_APP_ID` / `$STB_APP_KEY` env var references.
+7. **docs/deployment.md:** Added "STB API secrets" section with `wrangler secret put` commands.
+8. **Created `.env`** (gitignored) with actual credential values for local dev.
+9. **Updated `.env.example`** with placeholder entries for `STB_APP_ID` and `STB_APP_KEY`.
+10. **Added `dotenv`** as a dev dependency for scripts.
+
+**Files modified:** `src/lib/api/constants.ts`, `vite.config.ts`, `worker/src/index.ts`, `scripts/dump-proto.ts`, `scripts/discover-subway-stops.ts`, `src/lib/api/stb-api.integration.test.ts`, `.env.example`, `docs/api.md`, `docs/codemap.md`, `docs/deployment.md`, `LESSONS_LEARNED.md`, `package.json`
+**Files created:** `.env` (gitignored)
+
+**Outcome:** Success — 86 unit tests pass, 0 type errors, build succeeds. No hardcoded credentials remain in any tracked files.
+
+**Insight:** When moving secrets to env vars in a multi-runtime project (Vite + Cloudflare Workers + Node scripts), each runtime has its own env loading mechanism: Vite uses `loadEnv()`, Cloudflare Workers use `env` bindings (secrets), and Node scripts need `dotenv`. A shared constants file can export a factory function instead of pre-built objects to avoid needing `process.env` in browser-safe modules.
+
+**Promoted to Lessons Learned:** Yes (updated existing entry about STB auth credentials)
+
+---
+
 <!-- New entries go above this line, most recent first -->

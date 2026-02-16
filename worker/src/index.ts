@@ -1,25 +1,31 @@
 /**
  * Cloudflare Worker proxy for the STB API.
  * Injects required headers (including auth token) that browsers can't send due to CORS.
+ *
+ * Credentials (STB_APP_ID, STB_APP_KEY) must be set as Cloudflare secrets:
+ *   wrangler secret put STB_APP_ID
+ *   wrangler secret put STB_APP_KEY
  */
 
+interface Env {
+	STB_APP_ID: string;
+	STB_APP_KEY: string;
+}
+
 const STB_API_BASE = 'https://info.stb.ro/api/web/v2-6';
+const STB_AUTH_PATH = '/proxy/user/auth';
 
-const STB_AUTH = {
-	APP_ID: 'b32cc233-00d7-4640-bf90-374572668c30',
-	APP_KEY: 'gcALgRyZHC,qFonZ=Jde',
-	AUTH_PATH: '/proxy/user/auth'
-} as const;
-
-const STB_HEADERS: Record<string, string> = {
-	'App-Id': STB_AUTH.APP_ID,
-	'App-Version': '0.0.0',
-	'Device-Name': 'Chrome',
-	'Lang': 'ro',
-	'OS-Type': 'Web',
-	'OS-Version': 'web',
-	'Source': 'ro.radcom.smartcity.web'
-};
+function createStbHeaders(appId: string): Record<string, string> {
+	return {
+		'App-Id': appId,
+		'App-Version': '0.0.0',
+		'Device-Name': 'Chrome',
+		'Lang': 'ro',
+		'OS-Type': 'Web',
+		'OS-Version': 'web',
+		'Source': 'ro.radcom.smartcity.web'
+	};
+}
 
 /** Allowed API paths (prevent open proxy abuse) */
 const ALLOWED_PATHS = ['/lines/stop'];
@@ -50,9 +56,9 @@ function corsHeaders(origin: string | null): Record<string, string> {
 	return headers;
 }
 
-async function fetchAuthToken(): Promise<string> {
-	const res = await fetch(`${STB_API_BASE}${STB_AUTH.AUTH_PATH}`, {
-		headers: { 'App-key': STB_AUTH.APP_KEY, 'App-Id': STB_AUTH.APP_ID }
+async function fetchAuthToken(appId: string, appKey: string): Promise<string> {
+	const res = await fetch(`${STB_API_BASE}${STB_AUTH_PATH}`, {
+		headers: { 'App-key': appKey, 'App-Id': appId }
 	});
 	if (!res.ok) {
 		throw new Error(`Auth failed: ${res.status}`);
@@ -61,14 +67,14 @@ async function fetchAuthToken(): Promise<string> {
 	return json.data.userInfo;
 }
 
-async function proxyToStb(path: string, token: string): Promise<Response> {
+async function proxyToStb(path: string, token: string, stbHeaders: Record<string, string>): Promise<Response> {
 	return fetch(`${STB_API_BASE}${path}`, {
-		headers: { ...STB_HEADERS, 'User-Info': token }
+		headers: { ...stbHeaders, 'User-Info': token }
 	});
 }
 
 export default {
-	async fetch(request: Request): Promise<Response> {
+	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
 		const origin = request.headers.get('Origin');
 
@@ -93,19 +99,21 @@ export default {
 		}
 
 		try {
+			const stbHeaders = createStbHeaders(env.STB_APP_ID);
+
 			// Ensure we have an auth token
 			if (!cachedToken) {
-				cachedToken = await fetchAuthToken();
+				cachedToken = await fetchAuthToken(env.STB_APP_ID, env.STB_APP_KEY);
 			}
 
 			// Forward the request with full path + query string
 			const targetPath = `${apiPath}${url.search}`;
-			let stbResponse = await proxyToStb(targetPath, cachedToken);
+			let stbResponse = await proxyToStb(targetPath, cachedToken, stbHeaders);
 
 			// Token expired — re-authenticate and retry once
 			if (stbResponse.status === 412) {
-				cachedToken = await fetchAuthToken();
-				stbResponse = await proxyToStb(targetPath, cachedToken);
+				cachedToken = await fetchAuthToken(env.STB_APP_ID, env.STB_APP_KEY);
+				stbResponse = await proxyToStb(targetPath, cachedToken, stbHeaders);
 			}
 
 			// Forward the response with CORS headers

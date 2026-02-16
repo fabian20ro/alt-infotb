@@ -115,9 +115,10 @@ docs/
 
 Proxy chain (not in browser bundle):
   vite.config.ts (stbProxy plugin)
-    └── api/constants (STB_SERVER_HEADERS, STB_AUTH)
+    └── api/constants (createStbServerHeaders, STB_AUTH_PATH)
+    └── .env (STB_APP_ID, STB_APP_KEY — not committed)
 
-  worker/src/index.ts (standalone, duplicates config values)
+  worker/src/index.ts (uses Cloudflare secrets: STB_APP_ID, STB_APP_KEY)
 ```
 
 ## Configuration
@@ -129,8 +130,8 @@ All tunable values live in `src/lib/api/constants.ts`:
 | `STOP_ID` | `3570` | Default STB stop ID (Piata Unirii) |
 | `API.BASE` | env-aware | Proxy URL (dev: `/stb-api`, prod: from env var) |
 | `API.TIMEOUT` | `10000` | Request timeout (ms) |
-| `STB_AUTH` | App-Id, App-key, path | Auth endpoint config |
-| `STB_SERVER_HEADERS` | 7 headers | Headers injected by proxy |
+| `STB_AUTH_PATH` | `/proxy/user/auth` | Auth endpoint path |
+| `createStbServerHeaders()` | function(appId) → headers | Headers injected by proxy (credentials from env) |
 | `AUTO_REFRESH_INTERVAL` | `30000` | Auto-refresh period (ms) |
 | `PROTO_FIELDS` | Field numbers | Protobuf schema mapping |
 
