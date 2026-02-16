@@ -1,17 +1,53 @@
 # Deployment
 
-Better STB has two deployed components that auto-deploy independently on push to `main`:
+Alt STB has two deployed components that auto-deploy on push to `main`:
 
 | Component | Hosting | URL | Trigger |
 |---|---|---|---|
 | Static app (frontend) | GitHub Pages | `https://fabian20ro.github.io/alt-stb/` | Any push to `main` |
-| API proxy (worker) | Cloudflare Workers | `https://alt-stb-proxy.fabian20ro.workers.dev` | Push to `main` that changes `worker/*` |
+| API proxy (worker) | Cloudflare Workers | `https://alt-stb-proxy.fabian20ro.workers.dev` | Any push to `main` |
 
-Both deploy automatically. You just push to `main` and everything updates.
+Both deploy from a single GitHub Actions workflow (`.github/workflows/deploy.yml`).
+
+## Secrets management
+
+**All secrets are stored in one place: GitHub repository secrets.**
+
+Go to: [GitHub repo](https://github.com/fabian20ro/alt-stb) > Settings > Secrets and variables > Actions
+
+| Secret name | Purpose | Where it's used |
+|---|---|---|
+| `STB_APP_ID` | STB API app identifier | Worker (Cloudflare secret), local dev (`.env`) |
+| `STB_APP_KEY` | STB API app key | Worker (Cloudflare secret), local dev (`.env`) |
+| `CLOUDFLARE_API_TOKEN` | Deploys the worker via wrangler | GitHub Actions `deploy-worker` job |
+
+### Setting secrets (one-time setup)
+
+1. Get the STB credentials from the official STB web app's JS bundle at `info.stb.ro`
+2. Create a Cloudflare API token at [Cloudflare dashboard](https://dash.cloudflare.com/profile/api-tokens) > Create Token > "Edit Cloudflare Workers" template
+3. Add all three as GitHub repository secrets
+
+### Rotating credentials
+
+When STB changes their API credentials (check `info.stb.ro/main-es2015.*.js`):
+
+1. Extract the new `App-Id` and `App-key` values from the JS bundle
+2. Update the two GitHub secrets (`STB_APP_ID`, `STB_APP_KEY`)
+3. Push any commit (or use "Run workflow" button) — the worker redeploys with new secrets
+4. Update your local `.env` file for dev
+
+That's it. The GitHub Actions workflow pushes the secrets to Cloudflare automatically via `wrangler-action`'s `secrets` parameter.
+
+### Local development
+
+Copy `.env.example` to `.env` and fill in `STB_APP_ID` and `STB_APP_KEY`. These are loaded by:
+- Vite dev proxy (via `loadEnv()`)
+- Scripts (via `dotenv/config`)
+- Integration tests (vitest loads `.env` automatically)
 
 ## Frontend (GitHub Pages)
 
-**Deploys automatically** on every push to `main` via GitHub Actions (`.github/workflows/deploy.yml`).
+**Deploys automatically** on every push to `main` via the `build` + `deploy-frontend` jobs.
 
 Pipeline: `svelte-check` -> `vitest` -> `vite build` -> deploy to GitHub Pages.
 
@@ -34,47 +70,13 @@ If the worker URL ever changes, update `.env.production` and push.
 
 ## Worker (Cloudflare)
 
-**Deploys automatically** via Cloudflare's Git integration. Connected to the `fabian20ro/alt-stb` GitHub repo.
+**Deploys automatically** on every push to `main` via the `deploy-worker` job in GitHub Actions.
 
-### Cloudflare Git integration settings
+The `cloudflare/wrangler-action@v3` action:
+1. Deploys the worker code via `wrangler deploy`
+2. Pushes `STB_APP_ID` and `STB_APP_KEY` as Cloudflare secrets (from GitHub secrets)
 
-Configured at: [Cloudflare dashboard](https://dash.cloudflare.com/) > Workers & Pages > `alt-stb-proxy` > Settings > Build
-
-| Setting | Value |
-|---|---|
-| Git repository | `fabian20ro/alt-stb` |
-| Production branch | `main` |
-| Build command | `npm install` |
-| Deploy command | `npx wrangler deploy` |
-| Root directory | `worker` |
-| Build watch paths | `worker/*` |
-| Build cache | Disabled |
-| Builds for non-production branches | Enabled |
-
-**Build watch paths** is set to `worker/*` so the worker only redeploys when files inside `worker/` change. Pushes that only touch `src/`, `docs/`, etc. do not trigger a worker build.
-
-### How it works
-
-1. You push to `main`
-2. Cloudflare checks if any files in `worker/*` changed
-3. If yes: `cd worker && npm install && npx wrangler deploy`
-4. Worker is live in ~10 seconds, zero downtime
-
-### API token
-
-Cloudflare auto-created an API token named **"Workers Builds"** (2026-02-15) for the Git integration. This token lets Cloudflare deploy the worker on your behalf. You don't need to manage it — it's visible under Settings > API Token in the worker dashboard.
-
-### STB API secrets
-
-The worker requires `STB_APP_ID` and `STB_APP_KEY` to authenticate with the STB API. These are stored as Cloudflare secrets (not in source code):
-
-```bash
-cd worker
-npx wrangler secret put STB_APP_ID    # Prompts for value
-npx wrangler secret put STB_APP_KEY   # Prompts for value
-```
-
-These only need to be set once (or when rotating credentials). See `.env.example` for the expected variable names.
+No separate Cloudflare Git integration needed — everything goes through GitHub Actions.
 
 ## Manual deployment (fallback)
 
@@ -93,6 +95,14 @@ npx wrangler login    # Opens browser to authenticate with Cloudflare
 ```bash
 cd worker
 npm run deploy        # Alias for: npx wrangler deploy
+```
+
+If secrets haven't been set yet via GitHub Actions, set them manually:
+
+```bash
+cd worker
+npx wrangler secret put STB_APP_ID    # Prompts for value
+npx wrangler secret put STB_APP_KEY   # Prompts for value
 ```
 
 ### Test locally before deploying
@@ -137,15 +147,15 @@ Shows request count, error rate, latency, CPU time.
 | Worker returns 502 | STB API down or auth changed | Check `npx wrangler tail` for errors |
 | Worker returns 404 | Path not in whitelist | Only `/lines/stop` is allowed (`ALLOWED_PATHS` in `index.ts`) |
 | Worker returns 405 | Non-GET request | Worker only accepts GET and OPTIONS |
-| Auth 412 loops | STB changed credentials | Re-check `info.stb.ro/main-es2015.*.js` for new `userInfoAppKey` |
+| Auth 412 loops | STB changed credentials | Re-extract from `info.stb.ro/main-es2015.*.js`, update GitHub secrets, push |
 | CORS errors in browser | Origin not in allow list | Add origin to `ALLOWED_ORIGINS` in `worker/src/index.ts` |
 
 ### Deployment issues
 
 | Problem | Cause | Fix |
 |---|---|---|
-| Worker didn't auto-deploy | Files outside `worker/` changed | Expected behavior — only `worker/*` triggers deploy |
-| Worker didn't auto-deploy | Git integration disconnected | Check Cloudflare dashboard > Settings > Build > Git repository |
+| Worker deploy fails in CI | Missing `CLOUDFLARE_API_TOKEN` secret | Add it in GitHub repo settings > Secrets |
+| Worker deploys but auth fails | Missing `STB_APP_ID`/`STB_APP_KEY` secrets | Add them in GitHub repo settings > Secrets |
 | `wrangler deploy` fails locally | Not logged in | Run `npx wrangler login` |
 | Frontend shows old worker URL | `.env.production` not committed | Verify it's tracked in git and has correct URL |
 | Frontend loads but no data | Worker down or URL wrong | Test worker directly: `curl https://alt-stb-proxy.fabian20ro.workers.dev/lines/stop?stop_id=3570` |
@@ -156,10 +166,14 @@ Shows request count, error rate, latency, CPU time.
 # 1. Redeploy worker
 cd worker && npm install && npx wrangler deploy
 
-# 2. Verify worker works
+# 2. Set secrets manually if needed
+npx wrangler secret put STB_APP_ID
+npx wrangler secret put STB_APP_KEY
+
+# 3. Verify worker works
 curl -s -o /dev/null -w "%{http_code}" 'https://alt-stb-proxy.fabian20ro.workers.dev/lines/stop?stop_id=3570'
 
-# 3. Rebuild and redeploy frontend
+# 4. Rebuild and redeploy frontend
 cd .. && npm run build && git push origin main
 ```
 
@@ -167,19 +181,37 @@ cd .. && npm run build && git push origin main
 
 ```
 GitHub repo (push to main)
-    |                    |
-    |                    | (only if worker/* changed)
-    v                    v
-GitHub Actions        Cloudflare Git Build
-    |                    |
-    | npm run build      | cd worker && npm install
-    | (reads .env.prod)  | npx wrangler deploy
-    v                    v
-GitHub Pages          Cloudflare Edge
-(static HTML/JS)      (alt-stb-proxy worker)
-    |                    |
-    |   Browser ------>  |  ------> info.stb.ro
-    |   (no headers)     |  (injects Auth + headers)
+    |
+    v
+GitHub Actions (.github/workflows/deploy.yml)
+    |
+    ├── build job
+    |     npm run check → npm test → npm run build
+    |
+    ├── deploy-frontend job (needs: build)
+    |     Upload to GitHub Pages
+    |     |
+    |     v
+    |   GitHub Pages (static HTML/JS)
+    |
+    └── deploy-worker job (needs: build)
+          wrangler deploy + push secrets
+          |
+          v
+        Cloudflare Edge (alt-stb-proxy worker)
+
+    Browser ──GET──▸ Worker ──GET + headers──▸ info.stb.ro
+             (no custom       (injects App-Id,
+              headers)         User-Info, etc.)
+```
+
+Secrets flow:
+```
+GitHub Secrets (single source of truth)
+    |
+    ├── STB_APP_ID ──▸ wrangler-action ──▸ Cloudflare Worker secret
+    ├── STB_APP_KEY ──▸ wrangler-action ──▸ Cloudflare Worker secret
+    └── CLOUDFLARE_API_TOKEN ──▸ wrangler-action (auth to deploy)
 ```
 
 ## Quick reference
