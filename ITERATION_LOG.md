@@ -206,4 +206,30 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-16] Fix daily update trigger — use 4 AM Romanian time boundary
+
+**Context:** User reported that "Date actualizate" in the drawer still showed "15 feb. 2026, 11:06" on Feb 16. The staleness check used a fixed 24-hour window, so data refreshed at 11:06 wouldn't trigger a new check until 11:06 the next day. User expects a new day to start at 4 AM Romanian time.
+
+**Root cause (two issues):**
+1. `STALE_THRESHOLD_MS = 24h` — a fixed duration doesn't align with calendar days. Data refreshed at 11:06 isn't stale until 11:06 tomorrow, missing the 4 AM morning boundary.
+2. `fetchFreshStations()` always returns `[]` (can't parse GTFS ZIP in browser), so even when the check triggers, the timestamp never updates.
+
+**What happened:**
+1. Replaced the 24h threshold with `isNewRomanianDay(lastRefreshMs)` — uses `Intl.DateTimeFormat` with `timeZone: 'Europe/Bucharest'` to compute a "Romanian day number" where the day boundary is 4 AM, not midnight.
+2. Added `updateLastRefreshTime()` to `db.ts` — updates only the meta timestamp without re-saving all 2710 stations.
+3. In `checkAndRefresh()`, when fresh GTFS data isn't available (empty response), still call `updateLastRefreshTime()` to mark today as verified.
+4. Changed `loadStations()` return type to `{ stations, refreshDone }` so `+page.svelte` can re-read the timestamp after the background check completes.
+5. Wrote 8 tests for `getRomanianDayNumber()` and `isNewRomanianDay()`.
+
+**Files created:** `src/lib/stations/data.test.ts`
+**Files modified:** `src/lib/stations/data.ts`, `src/lib/stations/db.ts`, `src/routes/+page.svelte`
+
+**Outcome:** Success — 86 unit tests pass, 0 type errors.
+
+**Insight:** `Intl.DateTimeFormat.formatToParts()` with `timeZone: 'Europe/Bucharest'` is the correct way to do timezone-aware date math in the browser without a library. The "day number" pattern (floor UTC day, subtract 1 if before boundary hour) is a clean way to compare transit days.
+
+**Promoted to Lessons Learned:** Yes
+
+---
+
 <!-- New entries go above this line, most recent first -->

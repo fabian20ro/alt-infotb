@@ -60,14 +60,15 @@
 		// Start auto-refresh
 		arrivals.toggleAutoRefresh();
 
-		// THREAD B: Load station data
-		loadStations().then((stations) => {
+		// THREAD B: Load station data + update timestamp after background refresh
+		loadStations().then(({ stations, refreshDone }) => {
 			allStations = stations;
-		});
-
-		// THREAD D: Load last data refresh timestamp
-		getLastRefreshTime().then((t) => {
-			lastDataUpdate = t;
+			// Read initial timestamp immediately
+			getLastRefreshTime().then((t) => { lastDataUpdate = t; });
+			// Re-read after background staleness check completes (may have updated it)
+			refreshDone.then(() => {
+				getLastRefreshTime().then((t) => { lastDataUpdate = t; });
+			});
 		});
 
 		// THREAD C: Start GPS
