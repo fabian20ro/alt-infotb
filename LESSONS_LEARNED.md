@@ -71,6 +71,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-14]** package-lock.json is gitignored — The project's `.gitignore` excludes `package-lock.json`. Don't try to `git add` it.
 
+## Timezone & Date Boundaries
+
+**[2026-02-16]** Transit day boundary is 4 AM Romanian time, not midnight or 24h rolling — STB transit schedules reset around 4 AM (last services end, first services start). Use `Intl.DateTimeFormat.formatToParts()` with `timeZone: 'Europe/Bucharest'` to get the hour, then subtract 1 from the day number if hour < 4. This correctly handles DST transitions (EET/EEST) without hardcoding UTC offsets.
+
 ## Process & Workflow
 
 **[2026-02-15]** Romanian time pluralization — "oră" (singular, 1 hour) vs "ore" (plural, 2+ hours). Format: "acum" (<30s), "X min" (1-59), "1 oră, Y min" (60-119), "X ore, Y min" (120+).
