@@ -259,6 +259,27 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-16] Improve PWA installability — iOS support + manifest enhancements
+
+**Context:** User requested PWA installability analysis. The app already had solid PWA infrastructure via `@vite-pwa/sveltekit` (manifest, service worker, Workbox caching), making it installable on Android/desktop. However, iOS "Add to Home Screen" was missing Apple-specific meta tags and touch icon.
+
+**What happened:**
+1. Generated `icon-180x180.png` from the existing 512x512 icon (Pillow resize with LANCZOS).
+2. Added iOS meta tags to `app.html`: `apple-touch-icon`, `apple-mobile-web-app-capable`, `apple-mobile-web-app-title`, `apple-mobile-web-app-status-bar-style`.
+3. Fixed light theme-color mismatch: `settings.svelte.ts` used `#ffffff` for light theme but CSS `--color-bg` is `#f5f5f7`. Updated to match.
+4. Enhanced manifest: added `scope`, `orientation: portrait-primary`, `categories: ['travel', 'utilities']`, and the 180x180 icon entry.
+
+**Files created:** `static/icons/icon-180x180.png`
+**Files modified:** `src/app.html`, `src/lib/stores/settings.svelte.ts`, `vite.config.ts`
+
+**Outcome:** Success — 86 unit tests pass, 0 type errors (svelte-check clean).
+
+**Insight:** iOS Safari doesn't fully respect the web app manifest — it requires proprietary `apple-mobile-web-app-*` meta tags and `apple-touch-icon` link for proper "Add to Home Screen". The dynamic theme-color update was already implemented but had a color mismatch with the CSS theme variables.
+
+**Promoted to Lessons Learned:** No (straightforward PWA config)
+
+---
+
 ### [2026-02-16] Upgrade dependencies to latest available versions
 
 **Context:** Routine dependency upgrade to keep packages current.
