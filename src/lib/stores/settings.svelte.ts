@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'better-stb-settings';
+const STORAGE_KEY = 'alt-stb-settings';
 
 export type Theme = 'light' | 'dark';
 export type Lang = 'ro' | 'en';

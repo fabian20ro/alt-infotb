@@ -1,6 +1,6 @@
 import type { Station } from './types.js';
 
-const DB_NAME = 'better-stb';
+const DB_NAME = 'alt-stb';
 const DB_VERSION = 1;
 const STORE_NAME = 'stations';
 const META_STORE = 'meta';

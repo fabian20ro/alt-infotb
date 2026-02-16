@@ -19,7 +19,7 @@ describe('favorites store', () => {
 
 	it('loads favorites from localStorage', async () => {
 		const station = { id: 3570, name: 'Piata Unirii', description: '', lat: 44.4, lon: 26.1 };
-		localStorage.setItem('better-stb-favorites', JSON.stringify([station]));
+		localStorage.setItem('alt-stb-favorites', JSON.stringify([station]));
 
 		const { createFavoritesStore } = await import('./favorites.svelte.js');
 		const store = createFavoritesStore();
@@ -29,7 +29,7 @@ describe('favorites store', () => {
 
 	it('isFavorite returns correct boolean', async () => {
 		const station = { id: 3570, name: 'Piata Unirii', description: '', lat: 44.4, lon: 26.1 };
-		localStorage.setItem('better-stb-favorites', JSON.stringify([station]));
+		localStorage.setItem('alt-stb-favorites', JSON.stringify([station]));
 
 		const { createFavoritesStore } = await import('./favorites.svelte.js');
 		const store = createFavoritesStore();

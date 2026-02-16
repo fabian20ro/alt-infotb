@@ -4,8 +4,8 @@ Better STB has two deployed components that auto-deploy independently on push to
 
 | Component | Hosting | URL | Trigger |
 |---|---|---|---|
-| Static app (frontend) | GitHub Pages | `https://fabian20ro.github.io/better-stb/` | Any push to `main` |
-| API proxy (worker) | Cloudflare Workers | `https://better-stb-proxy.fabian20ro.workers.dev` | Push to `main` that changes `worker/*` |
+| Static app (frontend) | GitHub Pages | `https://fabian20ro.github.io/alt-stb/` | Any push to `main` |
+| API proxy (worker) | Cloudflare Workers | `https://alt-stb-proxy.fabian20ro.workers.dev` | Push to `main` that changes `worker/*` |
 
 Both deploy automatically. You just push to `main` and everything updates.
 
@@ -21,28 +21,28 @@ The production build reads `VITE_STB_API_BASE` from `.env.production` to know th
 
 ```
 .env.production
-  VITE_STB_API_BASE=https://better-stb-proxy.fabian20ro.workers.dev
+  VITE_STB_API_BASE=https://alt-stb-proxy.fabian20ro.workers.dev
 
     |  baked into the JS bundle at build time
     v
 
 build/_app/immutable/nodes/2.*.js
-  contains: "https://better-stb-proxy.fabian20ro.workers.dev"
+  contains: "https://alt-stb-proxy.fabian20ro.workers.dev"
 ```
 
 If the worker URL ever changes, update `.env.production` and push.
 
 ## Worker (Cloudflare)
 
-**Deploys automatically** via Cloudflare's Git integration. Connected to the `fabian20ro/better-stb` GitHub repo.
+**Deploys automatically** via Cloudflare's Git integration. Connected to the `fabian20ro/alt-stb` GitHub repo.
 
 ### Cloudflare Git integration settings
 
-Configured at: [Cloudflare dashboard](https://dash.cloudflare.com/) > Workers & Pages > `better-stb-proxy` > Settings > Build
+Configured at: [Cloudflare dashboard](https://dash.cloudflare.com/) > Workers & Pages > `alt-stb-proxy` > Settings > Build
 
 | Setting | Value |
 |---|---|
-| Git repository | `fabian20ro/better-stb` |
+| Git repository | `fabian20ro/alt-stb` |
 | Production branch | `main` |
 | Build command | `npm install` |
 | Deploy command | `npx wrangler deploy` |
@@ -104,17 +104,17 @@ cd worker
 npx wrangler tail     # Live log stream
 ```
 
-Or: [Cloudflare dashboard](https://dash.cloudflare.com/) > Workers & Pages > `better-stb-proxy` > Logs
+Or: [Cloudflare dashboard](https://dash.cloudflare.com/) > Workers & Pages > `alt-stb-proxy` > Logs
 
 ### Worker metrics
 
-[Cloudflare dashboard](https://dash.cloudflare.com/) > Workers & Pages > `better-stb-proxy` > Metrics
+[Cloudflare dashboard](https://dash.cloudflare.com/) > Workers & Pages > `alt-stb-proxy` > Metrics
 
 Shows request count, error rate, latency, CPU time.
 
 ### Frontend deploy status
 
-[GitHub Actions](https://github.com/fabian20ro/better-stb/actions) > latest workflow run
+[GitHub Actions](https://github.com/fabian20ro/alt-stb/actions) > latest workflow run
 
 ## Troubleshooting
 
@@ -136,7 +136,7 @@ Shows request count, error rate, latency, CPU time.
 | Worker didn't auto-deploy | Git integration disconnected | Check Cloudflare dashboard > Settings > Build > Git repository |
 | `wrangler deploy` fails locally | Not logged in | Run `npx wrangler login` |
 | Frontend shows old worker URL | `.env.production` not committed | Verify it's tracked in git and has correct URL |
-| Frontend loads but no data | Worker down or URL wrong | Test worker directly: `curl https://better-stb-proxy.fabian20ro.workers.dev/lines/stop?stop_id=3570` |
+| Frontend loads but no data | Worker down or URL wrong | Test worker directly: `curl https://alt-stb-proxy.fabian20ro.workers.dev/lines/stop?stop_id=3570` |
 
 ### Nuclear option: redeploy everything from scratch
 
@@ -145,7 +145,7 @@ Shows request count, error rate, latency, CPU time.
 cd worker && npm install && npx wrangler deploy
 
 # 2. Verify worker works
-curl -s -o /dev/null -w "%{http_code}" 'https://better-stb-proxy.fabian20ro.workers.dev/lines/stop?stop_id=3570'
+curl -s -o /dev/null -w "%{http_code}" 'https://alt-stb-proxy.fabian20ro.workers.dev/lines/stop?stop_id=3570'
 
 # 3. Rebuild and redeploy frontend
 cd .. && npm run build && git push origin main
@@ -164,7 +164,7 @@ GitHub Actions        Cloudflare Git Build
     | (reads .env.prod)  | npx wrangler deploy
     v                    v
 GitHub Pages          Cloudflare Edge
-(static HTML/JS)      (better-stb-proxy worker)
+(static HTML/JS)      (alt-stb-proxy worker)
     |                    |
     |   Browser ------>  |  ------> info.stb.ro
     |   (no headers)     |  (injects Auth + headers)
@@ -179,7 +179,7 @@ GitHub Pages          Cloudflare Edge
 cd worker && npm run deploy
 
 # Test worker
-curl 'https://better-stb-proxy.fabian20ro.workers.dev/lines/stop?stop_id=3570'
+curl 'https://alt-stb-proxy.fabian20ro.workers.dev/lines/stop?stop_id=3570'
 
 # View worker logs
 cd worker && npx wrangler tail

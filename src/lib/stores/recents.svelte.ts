@@ -1,6 +1,6 @@
 import type { Station } from '$lib/stations/types.js';
 
-const STORAGE_KEY = 'better-stb-recents';
+const STORAGE_KEY = 'alt-stb-recents';
 const MAX_RECENTS = 5;
 
 function loadRecents(): Station[] {
