@@ -133,9 +133,9 @@
 		{/if}
 
 		<div class="build-badge">
-			<a href="https://github.com/fabian20ro/better-stb/actions/workflows/deploy.yml"
+			<a href="https://github.com/fabian20ro/alt-stb/actions/workflows/deploy.yml"
 				 target="_blank" rel="noopener noreferrer">
-				<img src="https://github.com/fabian20ro/better-stb/actions/workflows/deploy.yml/badge.svg"
+				<img src="https://github.com/fabian20ro/alt-stb/actions/workflows/deploy.yml/badge.svg"
 						 alt="Build status" height="20" />
 			</a>
 		</div>

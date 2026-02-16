@@ -77,27 +77,27 @@ export default defineConfig({
 		SvelteKitPWA({
 			registerType: 'autoUpdate',
 			manifest: {
-				name: 'Better STB',
-				short_name: 'BetterSTB',
+				name: 'Alt STB',
+				short_name: 'AltSTB',
 				description: 'Real-time transit arrivals for București — bus, tram, trolleybus',
-				start_url: '/better-stb/',
+				start_url: '/alt-stb/',
 				display: 'standalone',
 				background_color: '#1a1a2e',
 				theme_color: '#1a1a2e',
 				lang: 'ro',
 				icons: [
 					{
-						src: '/better-stb/icons/icon-192x192.png',
+						src: '/alt-stb/icons/icon-192x192.png',
 						sizes: '192x192',
 						type: 'image/png'
 					},
 					{
-						src: '/better-stb/icons/icon-512x512.png',
+						src: '/alt-stb/icons/icon-512x512.png',
 						sizes: '512x512',
 						type: 'image/png'
 					},
 					{
-						src: '/better-stb/icons/icon-512x512.png',
+						src: '/alt-stb/icons/icon-512x512.png',
 						sizes: '512x512',
 						type: 'image/png',
 						purpose: 'maskable'

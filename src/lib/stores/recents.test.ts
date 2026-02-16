@@ -23,7 +23,7 @@ describe('recents store', () => {
 			{ id: 2, name: 'B', description: '', lat: 44.4, lon: 26.1 },
 			{ id: 3, name: 'C', description: '', lat: 44.4, lon: 26.1 },
 		];
-		localStorage.setItem('better-stb-recents', JSON.stringify(stations));
+		localStorage.setItem('alt-stb-recents', JSON.stringify(stations));
 
 		const { createRecentsStore } = await import('./recents.svelte.js');
 		const store = createRecentsStore();

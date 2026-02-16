@@ -1,11 +1,11 @@
 # Better STB
 
-[![Build](https://github.com/fabian20ro/better-stb/actions/workflows/deploy.yml/badge.svg)](https://github.com/fabian20ro/better-stb/actions/workflows/deploy.yml)
+[![Build](https://github.com/fabian20ro/alt-stb/actions/workflows/deploy.yml/badge.svg)](https://github.com/fabian20ro/alt-stb/actions/workflows/deploy.yml)
 
 Real-time arrivals for bus, tram, trolleybus, and subway across Bucharest.
 No accounts, no tracking, runs entirely in your browser.
 
-**[Open the live app](https://fabian20ro.github.io/better-stb/)**
+**[Open the live app](https://fabian20ro.github.io/alt-stb/)**
 
 ## Features
 

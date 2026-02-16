@@ -1,7 +1,7 @@
 import type { Station } from '$lib/stations/types.js';
 
-const STORAGE_KEY = 'better-stb-favorites';
-const PINNED_KEY = 'better-stb-pinned';
+const STORAGE_KEY = 'alt-stb-favorites';
+const PINNED_KEY = 'alt-stb-pinned';
 
 function loadFavorites(): Station[] {
 	try {

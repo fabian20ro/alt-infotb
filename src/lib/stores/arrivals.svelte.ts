@@ -102,7 +102,7 @@ export function formatTime(date: Date): string {
 /** Get cached arrivals from localStorage for offline display */
 export function getCachedArrivals(): StationArrivals | null {
 	try {
-		const raw = localStorage.getItem('better-stb-last-arrivals');
+		const raw = localStorage.getItem('alt-stb-last-arrivals');
 		if (!raw) return null;
 		const parsed = JSON.parse(raw);
 		parsed.fetchedAt = new Date(parsed.fetchedAt);
@@ -115,7 +115,7 @@ export function getCachedArrivals(): StationArrivals | null {
 /** Save arrivals to localStorage for offline display */
 export function cacheArrivals(data: StationArrivals): void {
 	try {
-		localStorage.setItem('better-stb-last-arrivals', JSON.stringify(data));
+		localStorage.setItem('alt-stb-last-arrivals', JSON.stringify(data));
 	} catch {
 		// Silently fail if localStorage is full
 	}
