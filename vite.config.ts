@@ -95,11 +95,19 @@ export default defineConfig(({ mode }) => {
 					short_name: 'AltSTB',
 					description: 'Real-time transit arrivals for București — bus, tram, trolleybus',
 					start_url: '/alt-stb/',
+					scope: '/alt-stb/',
 					display: 'standalone',
+					orientation: 'portrait-primary',
+					categories: ['travel', 'utilities'],
 					background_color: '#1a1a2e',
 					theme_color: '#1a1a2e',
 					lang: 'ro',
 					icons: [
+						{
+							src: '/alt-stb/icons/icon-180x180.png',
+							sizes: '180x180',
+							type: 'image/png'
+						},
 						{
 							src: '/alt-stb/icons/icon-192x192.png',
 							sizes: '192x192',
