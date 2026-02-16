@@ -37,7 +37,7 @@ export function createSettingsStore() {
 		document.documentElement.setAttribute('data-theme', t);
 		document.querySelector('meta[name="theme-color"]')?.setAttribute(
 			'content',
-			t === 'dark' ? '#1a1a2e' : '#ffffff'
+			t === 'dark' ? '#1a1a2e' : '#f5f5f7'
 		);
 	}
 
