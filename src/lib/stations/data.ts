@@ -2,8 +2,6 @@ import type { Station } from './types.js';
 import { getStations, saveStations, getLastRefreshTime, updateLastRefreshTime } from './db.js';
 import bundledStations from './stations.json';
 
-const GTFS_URL = 'https://s3.transitpdf.com/files/uran/improved-gtfs-bucuresti.zip';
-
 /** Hour (0-23) in Romanian time after which a new "transit day" begins */
 const DAY_BOUNDARY_HOUR = 4;
 
@@ -82,36 +80,13 @@ export async function loadStations(): Promise<{ stations: Station[]; refreshDone
 	return { stations, refreshDone: Promise.resolve() };
 }
 
-/** Check if station data is stale and refresh in background */
+/**
+ * Check if station data is stale and update the refresh timestamp.
+ * Station data is bundled at build time via scripts/fetch-stations.ts.
+ * Browser-side GTFS refresh is not implemented (requires ZIP parsing).
+ */
 async function checkAndRefresh(): Promise<void> {
 	const lastRefresh = await getLastRefreshTime();
-
 	if (!isNewRomanianDay(lastRefresh)) return;
-
-	// Try to fetch fresh data
-	const fresh = await fetchFreshStations();
-	if (fresh.length > 0) {
-		await saveStations(fresh);
-	} else {
-		// No fresh data available, but mark that we've verified today
-		await updateLastRefreshTime();
-	}
-}
-
-/** Fetch fresh station data from GTFS source */
-async function fetchFreshStations(): Promise<Station[]> {
-	try {
-		const response = await fetch(GTFS_URL);
-		if (!response.ok) return [];
-
-		const blob = await response.blob();
-		// We can't easily parse a ZIP in the browser without a library.
-		// For now, just return empty to skip the refresh.
-		// The bundled data is updated at build time via scripts/fetch-stations.ts.
-		// A future improvement could use a lighter data endpoint.
-		void blob;
-		return [];
-	} catch {
-		return [];
-	}
+	await updateLastRefreshTime();
 }

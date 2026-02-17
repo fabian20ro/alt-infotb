@@ -3,6 +3,16 @@ import { API, PROTO_FIELDS } from './constants.js';
 import { ProtoReader, getString, getVarint, getMessages } from './proto.js';
 import type { StationArrivals, ArrivalInfo } from './types.js';
 
+/** Sort arrivals by line name numerically, falling back to locale comparison */
+function sortByLineName(arrivals: ArrivalInfo[]): void {
+	arrivals.sort((a, b) => {
+		const aNum = parseInt(a.lineName, 10);
+		const bNum = parseInt(b.lineName, 10);
+		if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+		return a.lineName.localeCompare(b.lineName);
+	});
+}
+
 /**
  * Decode the protobuf response from the STB stop endpoint.
  * Reads field 9 repeated sub-messages for arrival times (not fields 6/7/8).
@@ -54,13 +64,7 @@ function decodeStopResponse(data: Uint8Array): StationArrivals {
 		});
 	}
 
-	// Sort by line name numerically
-	arrivals.sort((a, b) => {
-		const aNum = parseInt(a.lineName, 10);
-		const bNum = parseInt(b.lineName, 10);
-		if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
-		return a.lineName.localeCompare(b.lineName);
-	});
+	sortByLineName(arrivals);
 
 	return {
 		stationName,
@@ -90,14 +94,7 @@ async function fetchSingleStop(stopId: number): Promise<StationArrivals> {
 function mergeArrivals(results: StationArrivals[]): StationArrivals {
 	const first = results[0];
 	const allArrivals = results.flatMap((r) => r.arrivals);
-
-	// Sort by line name numerically
-	allArrivals.sort((a, b) => {
-		const aNum = parseInt(a.lineName, 10);
-		const bNum = parseInt(b.lineName, 10);
-		if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
-		return a.lineName.localeCompare(b.lineName);
-	});
+	sortByLineName(allArrivals);
 
 	return {
 		stationName: first.stationName,
