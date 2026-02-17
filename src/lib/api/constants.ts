@@ -7,23 +7,8 @@
  * Lines at this stop: 7, 27, 32, 47 (all TRAM)
  */
 
-export const STATION_NAME = 'Piața Unirii';
-
 /** Stop ID for the STB API */
 export const STOP_ID = 3570;
-
-/** Lines to display on the arrival board */
-export const TRAM_LINES = new Set(['7', '27', '47']);
-
-/** Colors for each tram line badge (STB reports #BE1622 for all trams; we use distinct colors for readability) */
-export const LINE_COLORS: Record<string, string> = {
-	'7': '#e63946',
-	'27': '#457b9d',
-	'47': '#2a9d8f'
-};
-
-/** Display order for lines */
-export const LINE_ORDER: string[] = ['7', '27', '47'];
 
 /**
  * STB API authentication path (server-side only).

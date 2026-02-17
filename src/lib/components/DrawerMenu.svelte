@@ -25,10 +25,6 @@
 		onClose();
 	}
 
-	function handleBackdropClick() {
-		onClose();
-	}
-
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') onClose();
 	}
@@ -37,12 +33,18 @@
 		e.stopPropagation();
 		onTogglePin(stationId);
 	}
+
+	function pinTitle(stationId: number): string {
+		const isPinned = pinnedId === stationId;
+		if (lang === 'ro') return isPinned ? 'Elimină fixarea' : 'Fixează ca stație principală';
+		return isPinned ? 'Unpin station' : 'Pin as startup station';
+	}
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
 {#if open}
-	<div class="backdrop" class:visible={open} onclick={handleBackdropClick} onkeydown={handleKeydown} role="button" tabindex="-1" aria-label="Închide meniul"></div>
+	<div class="backdrop" class:visible={open} onclick={onClose} onkeydown={handleKeydown} role="button" tabindex="-1" aria-label="Închide meniul"></div>
 {/if}
 
 <nav class="drawer" class:open aria-label="Meniu navigare">
@@ -63,9 +65,7 @@
 								class="pin-btn"
 								class:pinned={pinnedId === station.id}
 								onclick={(e) => handlePinClick(e, station.id)}
-								title={pinnedId === station.id
-									? (lang === 'ro' ? 'Elimină fixarea' : 'Unpin station')
-									: (lang === 'ro' ? 'Fixează ca stație principală' : 'Pin as startup station')}
+								title={pinTitle(station.id)}
 							>📌</button>
 						</li>
 					{/each}
