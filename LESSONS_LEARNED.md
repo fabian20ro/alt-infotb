@@ -69,7 +69,9 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-14]** STB API endpoint is `info.stb.ro`, not `info.stbsa.ro` — The older `info.stbsa.ro` domain was used by previous versions of the API. The current v2-6 endpoint is at `info.stb.ro/api/web/v2-6/lines/stop?stop_id=3570`.
 
-**[2026-02-14]** package-lock.json is gitignored — The project's `.gitignore` excludes `package-lock.json`. Don't try to `git add` it.
+**[2026-02-14] Corrected [2026-02-18]** package-lock.json is tracked in git — Despite an earlier note claiming it was gitignored, `package-lock.json` is tracked and must be committed with dependency changes.
+
+**[2026-02-18]** npm `overrides` for transitive vulnerability fixes — When a transitive dependency has a CVE but the direct dependency hasn't updated its semver range, use `"overrides"` in `package.json` to force the patched version. For 0.x versions, caret ranges like `^0.6.0` only allow `>=0.6.0 <0.7.0`, so an override is the only way to get 0.7.x. Example: `@sveltejs/kit` pins `cookie: "^0.6.0"` but the CVE fix requires `>=0.7.0`.
 
 ## Timezone & Date Boundaries
 
