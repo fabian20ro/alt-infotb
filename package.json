@@ -34,5 +34,8 @@
 	"dependencies": {
 		"@vite-pwa/sveltekit": "^1.1.0",
 		"leaflet": "^1.9.4"
+	},
+	"overrides": {
+		"cookie": "^0.7.0"
 	}
 }

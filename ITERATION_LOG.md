@@ -302,4 +302,25 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-18] Fix cookie CVE-2024-47764 via npm overrides
+
+**Context:** Dependabot alert #1 flagged `cookie` < 0.7.0 (transitive dependency via `@sveltejs/kit`) for accepting out-of-bounds characters in cookie name, path, and domain, enabling XSS and cookie injection attacks.
+
+**What happened:**
+1. Investigated the dependency chain: `@sveltejs/kit@2.52.0` depends on `cookie: "^0.6.0"` (which resolves to `>=0.6.0 <0.7.0` per semver caret for 0.x). The latest `@sveltejs/kit` 2.x still uses this range.
+2. Confirmed via [sveltejs/kit#12903](https://github.com/sveltejs/kit/issues/12903) that the SvelteKit team won't upgrade `cookie` in 2.x because stricter validation in 0.7.0 is a breaking change. The fix is deferred to SvelteKit 3.
+3. Added `"overrides": { "cookie": "^0.7.0" }` to `package.json` to force the patched version.
+4. Ran `npm install` — `cookie@0.7.2` installed, `npm audit` reports 0 vulnerabilities.
+5. Verified: type check clean, 86 tests pass, build succeeds.
+
+**Files modified:** `package.json`, `package-lock.json`
+
+**Outcome:** Success — vulnerability patched, all checks pass.
+
+**Insight:** npm `overrides` is the standard workaround when a transitive dependency has a vulnerability but the direct dependency hasn't updated its semver range. For 0.x versions, caret `^0.6.0` only allows patch updates (`<0.7.0`), so the override is necessary.
+
+**Promoted to Lessons Learned:** No (standard npm override pattern)
+
+---
+
 <!-- New entries go above this line, most recent first -->
