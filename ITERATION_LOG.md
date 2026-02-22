@@ -323,4 +323,19 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-22] Update git remote project name from better-stb to alt-stb
+
+**Context:** Repository remote project was renamed from `better-stb` to `alt-stb`.
+
+**What happened:**
+1. Checked current remotes with `git remote -v` and confirmed `origin` pointed to `https://github.com/fabian20ro/better-stb`.
+2. Updated origin URL to the renamed project (`https://github.com/fabian20ro/alt-stb`) via `git remote set-url`.
+3. Verified both fetch and push remotes now resolve to `alt-stb`.
+
+**Outcome:** Success — local git remote is aligned with the renamed GitHub project.
+
+**Promoted to Lessons Learned:** No (environment/repo maintenance task)
+
+---
+
 <!-- New entries go above this line, most recent first -->
