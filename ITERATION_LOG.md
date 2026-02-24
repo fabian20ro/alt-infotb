@@ -338,4 +338,32 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-24] Restructure AI agent config: minimal AGENTS.md + focused sub-agents
+
+**Context:** Applied the "AI Agent Configuration Setup Guide" informed by two research papers: Evaluating AGENTS.md (arxiv 2602.11988) found comprehensive context files reduce success by ~3% and increase cost by 20%+; SkillsBench (arxiv 2602.12670) found focused skills (2-3 modules) outperform comprehensive docs.
+
+**What happened:**
+1. Created `.claude/agents/` directory with 5 focused sub-agents: architect.md, planner.md, ux-expert.md, agent-creator.md, code-simplifier.md.
+2. Rewrote AGENTS.md from 167 lines → ~40 lines. Removed all discoverable content (tech stack table, commands, documentation references, project conventions). Kept only non-discoverable constraints (Svelte 5 runes, protobuf protocol, proxy architecture, E2E serialization, transit day boundary).
+3. Moved UX domain knowledge (mobile-first viewport, map-priority layout, dual theme, bilingual, etc.) from AGENTS.md to `.claude/agents/ux-expert.md`.
+4. Moved inline code-simplifier agent definition from AGENTS.md to `.claude/agents/code-simplifier.md`. Fixed incorrect React references → Svelte 5 patterns.
+5. Added sub-agents table to AGENTS.md referencing all 5 agents.
+6. CLAUDE.md, LESSONS_LEARNED.md, and ITERATION_LOG.md required no structural changes.
+
+**Removed from AGENTS.md (all discoverable from codebase):**
+- Tech stack table (in package.json)
+- Developer experience section (constraints extracted, rest discoverable)
+- UX expertise section (moved to ux-expert.md sub-agent)
+- Documentation references (docs/ directory is self-documenting)
+- Commands section (in package.json scripts)
+- Project conventions (visible in code patterns)
+
+**Outcome:** Success — AGENTS.md reduced from 167 to ~40 lines. All domain knowledge preserved in focused sub-agent files. No content deleted, only relocated.
+
+**Insight:** The key principle is "help the model, don't distract it." Most of what was in AGENTS.md was discoverable from the codebase (package.json, tsconfig, code patterns). Only non-discoverable constraints (runes-only policy, protobuf protocol, proxy architecture) earn their place in the bootstrap file. Domain expertise belongs in focused sub-agents, not the global context file.
+
+**Promoted to Lessons Learned:** No (meta-process restructuring)
+
+---
+
 <!-- New entries go above this line, most recent first -->

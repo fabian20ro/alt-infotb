@@ -1,166 +1,43 @@
 # AGENTS.md
 
-Guidelines for AI agents and contributors working on this codebase.
+> This file provides non-discoverable bootstrap context.
+> If the model can find it in the codebase, it does not belong here.
+> For corrections and patterns, see LESSONS_LEARNED.md.
 
-## Memory & Continuous Learning
+## Constraints
 
-This project maintains a persistent learning system across AI agent sessions.
+- **Svelte 5 runes only** — Use `$state`, `$derived`, `$effect`, `$props()`. Never use legacy `$:` reactive syntax or `export let` for props.
+- **Protobuf, not JSON** — The STB API returns binary protobuf. Use the custom decoder in `src/lib/api/proto.ts`. Do not add protobuf libraries.
+- **Proxy-mediated API access** — The browser never sends custom headers to the STB API directly. All API calls go through a proxy (Vite plugin in dev, Cloudflare Worker in prod) that injects auth headers.
+- **E2E tests: 1 worker only** — Playwright must run with `workers: 1` due to auth token race conditions in the shared dev proxy.
+- **Transit day boundary: 4 AM Romanian time** — Station data staleness checks use `Intl.DateTimeFormat` with `timeZone: 'Europe/Bucharest'`, not midnight or fixed 24h windows.
 
-### Required Workflow
+## Learning System
 
-1. **Start of task:** Read `LESSONS_LEARNED.md` before writing any code
-2. **During work:** Note any surprises, gotchas, or non-obvious discoveries
+This project uses a persistent learning system. Follow this workflow every session:
+
+1. **Start of task:** Read `LESSONS_LEARNED.md` — it contains validated corrections and patterns
+2. **During work:** Note any surprises or non-obvious discoveries
 3. **End of iteration:** Append to `ITERATION_LOG.md` with what happened
-4. **End of iteration:** If the insight is reusable and validated, also add to `LESSONS_LEARNED.md`
-5. **Pattern detection:** If the same issue appears 2+ times in the log, promote it to a lesson
-
-### Files
+4. **If insight is reusable and validated:** Also add to `LESSONS_LEARNED.md`
+5. **If same issue appears 2+ times in log:** Promote to `LESSONS_LEARNED.md`
+6. **If something surprised you:** Flag it to the developer
 
 | File | Purpose | When to Write |
 |------|---------|---------------|
-| [`LESSONS_LEARNED.md`](./LESSONS_LEARNED.md) | Curated, validated, reusable wisdom | End of iteration (if insight is reusable) |
-| [`ITERATION_LOG.md`](./ITERATION_LOG.md) | Raw session journal, append-only | End of every iteration (always) |
+| `LESSONS_LEARNED.md` | Curated, validated wisdom and corrections | When insight is reusable |
+| `ITERATION_LOG.md` | Raw session journal (append-only, never delete) | Every iteration (always) |
 
-### Rules
+Rules: Never delete from ITERATION_LOG. Obsolete lessons go to the Archive section in LESSONS_LEARNED (not deleted). Date-stamp everything YYYY-MM-DD. When in doubt: log it.
 
-- Never delete entries from `ITERATION_LOG.md` — it's append-only
-- In `LESSONS_LEARNED.md`, obsolete lessons go to the Archive section, not deleted
-- Keep entries concise — a future agent scanning 100 entries needs signal, not prose
-- Date-stamp everything in `YYYY-MM-DD` format
-- When in doubt about whether something is worth logging: log it
+## Sub-Agents
 
-## Tech stack
+Specialized agents in `.claude/agents/`. Invoke proactively — don't wait to be asked.
 
-| Layer | Technology | Version |
-|---|---|---|
-| Framework | SvelteKit | 2.x |
-| UI library | Svelte | 5.x (runes syntax: `$state`, `$derived`, `$effect`, `$props`) |
-| Language | TypeScript | 5.x (strict mode) |
-| Build tool | Vite | 7.x |
-| Test runner | Vitest | 4.x |
-| Map | Leaflet | 1.x (lazy-loaded via dynamic `import()`) |
-| PWA | vite-plugin-pwa / @vite-pwa/sveltekit | 1.x |
-| Hosting | GitHub Pages (static adapter) | — |
-| API proxy | Cloudflare Workers | — |
-| E2E testing | Playwright | 1.x |
-| API protocol | Protocol Buffers (custom decoder, no library) | — |
-| Station data | GTFS (ROTI feed, 2710 stops bundled) | — |
-
-## Developer experience required
-
-- **Svelte 5 runes** — The app uses the modern runes API (`$state`, `$derived`, `$effect`, `$props`), not the legacy `$:` reactive syntax. Understand how runes work before modifying stores or components.
-- **TypeScript strict mode** — All code must pass `svelte-check` with strict settings. No `any` types, no implicit returns.
-- **Protobuf wire format** — The STB API returns binary protobuf, not JSON. See `src/lib/api/proto.ts` for the decoder and `docs/api.md` for the schema. Arrival data is in field 9 sub-messages (not fields 6/7/8). See `docs/proto-analysis.md` for evidence.
-- **SvelteKit static adapter** — There is no server. All rendering happens client-side (`ssr = false`, `prerender = true`). API calls go through a proxy (Vite plugin in dev, Cloudflare Worker in prod).
-- **Leaflet** — The map is lazy-loaded via dynamic `import()` after initial render. Leaflet CSS is imported dynamically too. Station markers use custom `DivIcon` (no image assets). Understand Leaflet's `L.map()`, `L.marker()`, `L.tileLayer()` APIs.
-- **Vitest** — Tests live next to source files (`*.test.ts`). Run `npm test` before committing.
-- **Playwright** — E2E tests in `e2e/`. Run `npm run test:e2e` to verify the full app flow. Must run with 1 worker due to auth token race conditions.
-
-## UX expertise
-
-- **Mobile-first** — The primary use case is checking transit times on a phone at the station. All design decisions optimize for a narrow viewport (393x742px primary) held at arm's length.
-- **Map-priority layout** — Split layout: scrollable arrivals panel on top, square Leaflet map on bottom (`height: min(50dvh, 100vw)`). The map never shrinks to accommodate more arrival rows.
-- **Dual theme** — Light and dark themes via CSS custom properties in `app.css`. All colors use `--color-*` variables. Theme is toggled via `data-theme` attribute on `<html>`. Map tiles switch between CartoDB Voyager (light) and Dark Matter (dark).
-- **Bilingual** — Romanian (default) and English. Translation strings in `src/lib/i18n/translations.ts`. Use `t(key)` function for all UI strings.
-- **All transport types** — Bus, tram, trolleybus, subway (M1–M4). Lines sorted numerically. Metro stations use multi-stop fetch+merge via `subway-stops.ts` mapping.
-- **Hamburger drawer** — Left-slide drawer with favorites, recents (max 5, excluding favorites), theme toggle, language toggle, last data update timestamp, and build status badge.
-- **Offline-first PWA** — Cached arrivals display immediately on startup, then refresh from API. Station data cached in IndexedDB with 24h staleness check. Map tiles use StaleWhileRevalidate caching.
-
-## Documentation
-
-Detailed documentation is in the [`docs/`](./docs/) folder:
-
-- **[`docs/architecture.md`](./docs/architecture.md)** — High-level data flow, design decisions, protobuf schema, UI architecture
-- **[`docs/codemap.md`](./docs/codemap.md)** — File-by-file directory listing, module dependency graph, configuration reference
-- **[`docs/api.md`](./docs/api.md)** — STB API endpoint, auth flow, required headers, proxy architecture, curl examples
-- **[`docs/proto-analysis.md`](./docs/proto-analysis.md)** — Protobuf field analysis with evidence from dump script
-- **[`docs/deployment.md`](./docs/deployment.md)** — How to deploy the frontend (GitHub Pages) and worker (Cloudflare)
-
-## Commands
-
-```bash
-# App
-npm install          # Install dependencies
-npm run dev          # Start dev server (with STB API proxy)
-npm run check        # Type check (svelte-check)
-npm test             # Run unit tests (vitest, 78 tests)
-npm run test:integration  # Run integration tests (real API, needs network)
-npm run test:e2e     # Run E2E tests (Playwright, needs dev server)
-npm run build        # Production build (static)
-npm run preview      # Preview production build
-
-# Scripts
-npx tsx scripts/dump-proto.ts [stop_id]    # Dump protobuf fields from live API
-npx tsx scripts/fetch-stations.ts          # Re-extract stations from GTFS
-npx tsx scripts/discover-subway-stops.ts [start] [end]  # Scan for subway stop IDs
-
-# Worker (auto-deploys on push if worker/* changed — see docs/deployment.md)
-cd worker && npm install      # Install worker dependencies (first time only)
-cd worker && npm run dev      # Run worker locally (localhost:8787)
-cd worker && npm run deploy   # Manual deploy (normally not needed)
-```
-
-## Project conventions
-
-- Test files live next to their source: `proto.ts` / `proto.test.ts`
-- All API configuration constants are in `src/lib/api/constants.ts`
-- Station data and geo utilities are in `src/lib/stations/`
-- Stores use Svelte 5 `$state` runes with immutable update patterns
-- Components use Svelte 5 `$props()`, not legacy `export let`
-- CSS is scoped per-component with global variables in `app.css`
-- Leaflet is the only runtime dependency (loaded dynamically, not bundled eagerly)
-- UI strings use `t()` from `src/lib/i18n/index.ts` — never hardcode display text
-
-## Agents
-
-### code-simplifier
-
-**Model:** opus
-**Description:** Simplifies and refines code for clarity, consistency, and maintainability while preserving all functionality. Focuses on recently modified code unless instructed otherwise.
-
-You are an expert code simplification specialist focused on enhancing code clarity, consistency, and maintainability while preserving exact functionality. Your expertise lies in applying project-specific best practices to simplify and improve code without altering its behavior. You prioritize readable, explicit code over overly compact solutions. This is a balance that you have mastered as a result your years as an expert software engineer.
-
-You will analyze recently modified code and apply refinements that:
-
-1. **Preserve Functionality**: Never change what the code does - only how it does it. All original features, outputs, and behaviors must remain intact.
-
-2. **Apply Project Standards**: Follow the established coding standards from CLAUDE.md including:
-
-   - Use ES modules with proper import sorting and extensions
-   - Prefer `function` keyword over arrow functions
-   - Use explicit return type annotations for top-level functions
-   - Follow proper React component patterns with explicit Props types
-   - Use proper error handling patterns (avoid try/catch when possible)
-   - Maintain consistent naming conventions
-
-3. **Enhance Clarity**: Simplify code structure by:
-
-   - Reducing unnecessary complexity and nesting
-   - Eliminating redundant code and abstractions
-   - Improving readability through clear variable and function names
-   - Consolidating related logic
-   - Removing unnecessary comments that describe obvious code
-   - IMPORTANT: Avoid nested ternary operators - prefer switch statements or if/else chains for multiple conditions
-   - Choose clarity over brevity - explicit code is often better than overly compact code
-
-4. **Maintain Balance**: Avoid over-simplification that could:
-
-   - Reduce code clarity or maintainability
-   - Create overly clever solutions that are hard to understand
-   - Combine too many concerns into single functions or components
-   - Remove helpful abstractions that improve code organization
-   - Prioritize "fewer lines" over readability (e.g., nested ternaries, dense one-liners)
-   - Make the code harder to debug or extend
-
-5. **Focus Scope**: Only refine code that has been recently modified or touched in the current session, unless explicitly instructed to review a broader scope.
-
-Your refinement process:
-
-1. Identify the recently modified code sections
-2. Analyze for opportunities to improve elegance and consistency
-3. Apply project-specific best practices and coding standards
-4. Ensure all functionality remains unchanged
-5. Verify the refined code is simpler and more maintainable
-6. Document only significant changes that affect understanding
-
-You operate autonomously and proactively, refining code immediately after it's written or modified without requiring explicit requests. Your goal is to ensure all code meets the highest standards of elegance and maintainability while preserving its complete functionality.
+| Agent | File | Invoke When |
+|-------|------|-------------|
+| Architect | `.claude/agents/architect.md` | System design, scalability, refactoring, ADRs |
+| Planner | `.claude/agents/planner.md` | Complex multi-step features — plan before coding |
+| UX Expert | `.claude/agents/ux-expert.md` | UI components, interaction patterns, accessibility |
+| Agent Creator | `.claude/agents/agent-creator.md` | Need a new specialized agent for a recurring task domain |
+| Code Simplifier | `.claude/agents/code-simplifier.md` | Refine recently modified code for clarity and consistency |
