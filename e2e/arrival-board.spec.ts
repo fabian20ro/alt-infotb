@@ -37,19 +37,37 @@ test.describe('Station Arrivals', () => {
 		await expect(timesContainer).toBeVisible();
 	});
 
-	test('auto-refresh checkbox is shown', async ({ page }) => {
+	test('refreshes on resume signal and continues 20s polling', async ({ page }) => {
+		let stopRequests = 0;
+		page.on('request', (request) => {
+			if (request.url().includes('/stb-api/lines/stop?stop_id=')) {
+				stopRequests += 1;
+			}
+		});
+
 		await page.goto('/');
 
-		// Wait for data to load
+		// Wait for initial arrivals load
 		const direction = page.locator('.direction').first();
 		await expect(direction).toBeVisible({ timeout: 15_000 });
 
-		// Refresh bar with auto-refresh toggle should be visible
-		const refreshBar = page.locator('.refresh-bar');
-		await expect(refreshBar).toBeVisible();
+		const initialCount = stopRequests;
 
-		const autoRefreshCheckbox = page.locator('.auto-refresh input[type="checkbox"]');
-		await expect(autoRefreshCheckbox).toBeVisible();
+		// Polling should run again after 20s
+		await page.waitForTimeout(21_000);
+		expect(stopRequests).toBeGreaterThan(initialCount);
+
+		const beforeFocus = stopRequests;
+		await page.evaluate(() => {
+			window.dispatchEvent(new Event('focus'));
+		});
+
+		// Resume signal should force immediate refresh without waiting 20s
+		await expect.poll(() => stopRequests).toBeGreaterThan(beforeFocus);
+
+		const afterFocus = stopRequests;
+		await page.waitForTimeout(21_000);
+		expect(stopRequests).toBeGreaterThan(afterFocus);
 	});
 
 	test('shows error state when API is unreachable', async ({ page }) => {
@@ -77,7 +95,7 @@ test.describe('Hamburger Drawer', () => {
 		await expect(drawer).not.toHaveClass(/open/);
 
 		// Click the hamburger menu button
-		const menuBtn = page.getByLabel('Meniu');
+		const menuBtn = page.getByRole('button', { name: 'Meniu' });
 		await menuBtn.click();
 
 		// Drawer should be visible
@@ -92,7 +110,7 @@ test.describe('Hamburger Drawer', () => {
 		await page.goto('/');
 
 		// Open drawer
-		const menuBtn = page.getByLabel('Meniu');
+		const menuBtn = page.getByRole('button', { name: 'Meniu' });
 		await menuBtn.click();
 
 		const drawer = page.locator('nav.drawer');
@@ -110,7 +128,7 @@ test.describe('Hamburger Drawer', () => {
 		await page.goto('/');
 
 		// Open drawer
-		const menuBtn = page.getByLabel('Meniu');
+		const menuBtn = page.getByRole('button', { name: 'Meniu' });
 		await menuBtn.click();
 
 		const drawer = page.locator('nav.drawer');
@@ -127,7 +145,7 @@ test.describe('Hamburger Drawer', () => {
 		await page.goto('/');
 
 		// Open drawer
-		const menuBtn = page.getByLabel('Meniu');
+		const menuBtn = page.getByRole('button', { name: 'Meniu' });
 		await menuBtn.click();
 
 		const drawer = page.locator('nav.drawer');
@@ -176,7 +194,7 @@ test.describe('Favorites', () => {
 		await expect(favBtn).toHaveClass(/active/);
 
 		// Open drawer
-		const menuBtn = page.getByLabel('Meniu');
+		const menuBtn = page.getByRole('button', { name: 'Meniu' });
 		await menuBtn.click();
 
 		// Station should appear in favorites section
@@ -232,7 +250,7 @@ test.describe('Layout', () => {
 	test('station header has menu and favorite buttons', async ({ page }) => {
 		await page.goto('/');
 
-		const menuBtn = page.getByLabel('Meniu');
+		const menuBtn = page.getByRole('button', { name: 'Meniu' });
 		await expect(menuBtn).toBeVisible();
 
 		const favBtn = page.locator('.fav-btn');

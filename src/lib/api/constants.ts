@@ -56,8 +56,8 @@ export const API = {
 	HEADERS: {} as Record<string, string>
 } as const;
 
-/** Auto-refresh interval in milliseconds */
-export const AUTO_REFRESH_INTERVAL = 30_000;
+/** Arrivals refresh interval in milliseconds */
+export const ARRIVALS_REFRESH_INTERVAL = 20_000;
 
 /**
  * Protobuf field numbers in the stop response.

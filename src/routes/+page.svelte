@@ -57,8 +57,20 @@
 			arrivals.state.data = cached;
 		}
 
-		// Start auto-refresh
-		arrivals.toggleAutoRefresh();
+		const handleVisibilityChange = () => {
+			if (document.hidden) {
+				arrivals.onHidden();
+			} else {
+				arrivals.onVisible();
+			}
+		};
+
+		const handleFocus = () => {
+			arrivals.onVisible();
+		};
+
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+		window.addEventListener('focus', handleFocus);
 
 		// THREAD B: Load station data + update timestamp after background refresh
 		loadStations().then(({ stations, refreshDone }) => {
@@ -75,6 +87,8 @@
 		geo.startWatching();
 
 		return () => {
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+			window.removeEventListener('focus', handleFocus);
 			arrivals.cleanup();
 			geo.stopWatching();
 		};
@@ -120,9 +134,7 @@
 			arrivals={arrivals.state.data?.arrivals ?? []}
 			loading={arrivals.state.status === 'loading'}
 			error={arrivals.state.error}
-			autoRefreshEnabled={arrivals.autoRefreshEnabled}
 			onRefresh={() => arrivals.refresh()}
-			onToggleAutoRefresh={() => arrivals.toggleAutoRefresh()}
 		/>
 	</div>
 

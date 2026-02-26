@@ -366,4 +366,44 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-02-25] Implement fixed 20s polling with resume refresh guarantee
+
+**Context:** User reported stale data after reopening the app and requested removal of the auto-refresh toggle, with mandatory refresh behavior and race-safe lifecycle handling (pause after 1 minute hidden, always refresh on visible/focus).
+
+**What happened:**
+1. Refactored `src/lib/stores/arrivals.svelte.ts`:
+   - Removed toggle API (`autoRefreshEnabled`, `toggleAutoRefresh`, interval-based checkbox flow).
+   - Added fixed polling interval via `ARRIVALS_REFRESH_INTERVAL = 20_000`.
+   - Added lifecycle methods `onHidden()` and `onVisible()`.
+   - Implemented hidden grace timer (60s) that pauses polling only after the grace window.
+   - Added race controls: single in-flight refresh, `selectionVersion` stale-response guard, queued trailing refresh.
+   - Added duplicate resume signal debounce (`focus` + `visibilitychange`).
+2. Updated `src/routes/+page.svelte`:
+   - Wired `visibilitychange` and `focus` listeners to arrivals lifecycle methods.
+   - Removed toggle startup call and toggle props to `StationArrivals`.
+3. Updated `src/lib/components/StationArrivals.svelte`:
+   - Removed auto-refresh checkbox UI and related props/styles.
+   - Kept loading indicator and retry behavior.
+4. Removed unused component `src/lib/components/RefreshButton.svelte`.
+5. Renamed API constant in `src/lib/api/constants.ts` from `AUTO_REFRESH_INTERVAL` to `ARRIVALS_REFRESH_INTERVAL` (20s).
+6. Added store lifecycle/race tests in `src/lib/stores/arrivals.test.ts`:
+   - 20s polling cadence
+   - pause after hidden >1 minute
+   - immediate resume refresh + continued polling
+   - stale response ignored on station switch
+   - duplicate visible signal debounce
+   - queued trailing refresh when resume occurs during in-flight fetch
+7. Updated E2E file `e2e/arrival-board.spec.ts`:
+   - Removed auto-refresh checkbox assertion.
+   - Added request-count based resume/polling test.
+   - Fixed ambiguous menu selector (`getByLabel('Meniu')`) by targeting the menu button role.
+
+**Outcome:** Partial success — implementation and unit/type checks pass (`npm test`, `npm run check`). Full E2E suite still fails in this environment due missing STB auth credentials (no live arrivals) plus existing live-data coupling in tests.
+
+**Insight:** The in-flight queue + version guard pattern is required to avoid stale overwrite when station changes mid-request while still enforcing exactly one active network request.
+
+**Promoted to Lessons Learned:** No (single-iteration implementation details; no recurring multi-session pattern yet)
+
+---
+
 <!-- New entries go above this line, most recent first -->

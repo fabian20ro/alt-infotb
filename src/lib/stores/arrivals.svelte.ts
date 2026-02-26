@@ -1,7 +1,10 @@
 import { fetchArrivals } from '$lib/api/arrivals.js';
-import { AUTO_REFRESH_INTERVAL, STOP_ID } from '$lib/api/constants.js';
+import { ARRIVALS_REFRESH_INTERVAL, STOP_ID } from '$lib/api/constants.js';
 import type { ArrivalsState, StationArrivals } from '$lib/api/types.js';
 import { resolveStopIds } from '$lib/stations/subway-stops.js';
+
+const HIDDEN_GRACE_PERIOD_MS = 60_000;
+const RESUME_DEBOUNCE_MS = 250;
 
 /** Reactive arrivals state using Svelte 5 runes */
 export function createArrivalsStore() {
@@ -12,57 +15,128 @@ export function createArrivalsStore() {
 	});
 
 	let currentStopIds = $state<number[]>([STOP_ID]);
-	let autoRefreshEnabled = $state(false);
-	let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
+	let pollTimer: ReturnType<typeof setTimeout> | null = null;
+	let hiddenPauseTimer: ReturnType<typeof setTimeout> | null = null;
+	let pollingEnabled = false;
+	let pausedByHiddenTimeout = false;
+	let inFlightRefresh: Promise<boolean> | null = null;
+	let refreshQueued = false;
+	let selectionVersion = 0;
+	let lastVisibleSignalAt = 0;
 
-	async function refresh() {
+	function clearPollTimer() {
+		if (pollTimer) {
+			clearTimeout(pollTimer);
+			pollTimer = null;
+		}
+	}
+
+	function clearHiddenPauseTimer() {
+		if (hiddenPauseTimer) {
+			clearTimeout(hiddenPauseTimer);
+			hiddenPauseTimer = null;
+		}
+	}
+
+	function scheduleNextPoll() {
+		clearPollTimer();
+		if (!pollingEnabled || pausedByHiddenTimeout) return;
+		pollTimer = setTimeout(() => {
+			void refresh();
+		}, ARRIVALS_REFRESH_INTERVAL);
+	}
+
+	function startPolling() {
+		pollingEnabled = true;
+		scheduleNextPoll();
+	}
+
+	function normalizeError(err: unknown): string {
+		return err instanceof Error ? err.message : 'Eroare necunoscută';
+	}
+
+	async function executeRefresh(): Promise<boolean> {
+		const requestVersion = selectionVersion;
+		const requestStopIds = [...currentStopIds];
 		state.status = 'loading';
 		state.error = null;
 
 		try {
-			const data = await fetchArrivals(currentStopIds);
+			const data = await fetchArrivals(requestStopIds);
+			if (requestVersion !== selectionVersion) return false;
 			state.data = data;
 			state.status = 'success';
+			state.error = null;
+			return true;
 		} catch (err) {
-			state.error = err instanceof Error ? err.message : 'Eroare necunoscută';
+			if (requestVersion !== selectionVersion) return false;
+			state.error = normalizeError(err);
 			state.status = 'error';
+			return false;
 		}
+	}
+
+	async function refresh(): Promise<boolean> {
+		if (inFlightRefresh) {
+			refreshQueued = true;
+			return inFlightRefresh;
+		}
+
+		inFlightRefresh = executeRefresh();
+		let result = false;
+		try {
+			result = await inFlightRefresh;
+		} finally {
+			inFlightRefresh = null;
+		}
+
+		if (refreshQueued) {
+			refreshQueued = false;
+			void refresh();
+		} else {
+			scheduleNextPoll();
+		}
+
+		return result;
 	}
 
 	function selectStation(stopId: number) {
+		selectionVersion += 1;
 		currentStopIds = resolveStopIds(stopId);
 		state.data = null;
-		refresh();
+		state.error = null;
+		startPolling();
+		void refresh();
 	}
 
-	function startAutoRefresh() {
-		stopAutoRefresh();
-		autoRefreshEnabled = true;
-		autoRefreshTimer = setInterval(() => {
-			if (!document.hidden) {
-				refresh();
-			}
-		}, AUTO_REFRESH_INTERVAL);
+	function onHidden() {
+		clearHiddenPauseTimer();
+		hiddenPauseTimer = setTimeout(() => {
+			pausedByHiddenTimeout = true;
+			clearPollTimer();
+		}, HIDDEN_GRACE_PERIOD_MS);
 	}
 
-	function stopAutoRefresh() {
-		autoRefreshEnabled = false;
-		if (autoRefreshTimer) {
-			clearInterval(autoRefreshTimer);
-			autoRefreshTimer = null;
-		}
-	}
+	function onVisible() {
+		const now = Date.now();
+		if (now - lastVisibleSignalAt < RESUME_DEBOUNCE_MS) return;
+		lastVisibleSignalAt = now;
 
-	function toggleAutoRefresh() {
-		if (autoRefreshEnabled) {
-			stopAutoRefresh();
-		} else {
-			startAutoRefresh();
-		}
+		clearHiddenPauseTimer();
+		pausedByHiddenTimeout = false;
+
+		if (!pollingEnabled) return;
+		scheduleNextPoll();
+		void refresh();
 	}
 
 	function cleanup() {
-		stopAutoRefresh();
+		selectionVersion += 1;
+		pollingEnabled = false;
+		pausedByHiddenTimeout = false;
+		refreshQueued = false;
+		clearPollTimer();
+		clearHiddenPauseTimer();
 	}
 
 	return {
@@ -72,12 +146,10 @@ export function createArrivalsStore() {
 		get currentStopId() {
 			return currentStopIds[0];
 		},
-		get autoRefreshEnabled() {
-			return autoRefreshEnabled;
-		},
 		refresh,
 		selectStation,
-		toggleAutoRefresh,
+		onHidden,
+		onVisible,
 		cleanup
 	};
 }

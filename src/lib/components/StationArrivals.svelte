@@ -6,12 +6,10 @@
 		arrivals: ArrivalInfo[];
 		loading: boolean;
 		error: string | null;
-		autoRefreshEnabled: boolean;
 		onRefresh: () => void;
-		onToggleAutoRefresh: () => void;
 	}
 
-	let { arrivals, loading, error, autoRefreshEnabled, onRefresh, onToggleAutoRefresh }: Props = $props();
+	let { arrivals, loading, error, onRefresh }: Props = $props();
 
 	let isFirstLoad = $derived(loading && arrivals.length === 0);
 </script>
@@ -42,15 +40,11 @@
 		</div>
 	{/if}
 
-	<div class="refresh-bar">
-		<label class="auto-refresh">
-			<input type="checkbox" checked={autoRefreshEnabled} onchange={onToggleAutoRefresh} />
-			<span>auto-refresh 30s</span>
-		</label>
-		{#if loading}
+	{#if loading}
+		<div class="refresh-bar">
 			<span class="loading-indicator">Se actualizează...</span>
-		{/if}
-	</div>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -107,23 +101,10 @@
 	.refresh-bar {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		justify-content: flex-end;
 		padding: 0.5rem 0;
 		border-top: 1px solid var(--color-border);
 		font-size: 0.8rem;
-	}
-
-	.auto-refresh {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		color: var(--color-text-muted);
-		cursor: pointer;
-		user-select: none;
-	}
-
-	.auto-refresh input[type='checkbox'] {
-		accent-color: var(--color-accent);
 	}
 
 	.loading-indicator {
