@@ -127,7 +127,7 @@ export default defineConfig(({ mode }) => {
 					]
 				},
 				workbox: {
-					globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2,json}'],
+					globPatterns: [],
 					runtimeCaching: [
 						{
 							urlPattern: /^https:\/\/info\.stb\.ro\/.*/i,
@@ -136,6 +136,14 @@ export default defineConfig(({ mode }) => {
 						{
 							urlPattern: /\/stb-api\/.*/i,
 							handler: 'NetworkOnly'
+						},
+						{
+							urlPattern: /\.(?:js|css|html|svg|png|woff|woff2|json)$/i,
+							handler: 'StaleWhileRevalidate',
+							options: {
+								cacheName: 'static-assets',
+								expiration: { maxEntries: 100, maxAgeSeconds: 3 * 60 }
+							}
 						},
 						{
 							urlPattern: /^https:\/\/[a-z]\.basemaps\.cartocdn\.com\/.*/i,
