@@ -1,3 +1,8 @@
+## 2024-05-18 - Prevented Error Message Information Leakage
+**Vulnerability:** The proxy endpoints in `worker/src/index.ts` and `vite.config.ts` were returning the raw error message (`err.message` or `String(err)`) to the client on failure.
+**Learning:** Returning raw stack traces or internal error details to end users can inadvertently leak sensitive information, such as server paths, dependent service URLs, API keys (if logged by tools), and implementation specifics that could be leveraged by an attacker to map out the application architecture.
+**Prevention:** Catch blocks that send HTTP responses should return generic error messages (e.g., `"Internal Server Error"`) instead of exposing the raw error output. Internal errors should be logged securely on the server side instead of forwarded to the client.
+
 ## 2023-10-25 - Information Leakage and CORS Security Enhancements
 **Vulnerability:** The proxy server (both Vite dev and Cloudflare Worker) would return detailed error messages containing internal stack traces and failure details on proxy failure. Additionally, CORS origin validation used broad regex `^http:\/\/localhost(:\d+)?$` and there were no security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy`).
 **Learning:** Returning `err.message` in HTTP responses exposes internal server implementation and failure details to users, violating the principle of "fail securely". CORS matching using Regex can introduce bypasses, and security headers are easily overlooked in proxy architectures.
