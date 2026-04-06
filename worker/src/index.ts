@@ -31,24 +31,31 @@ function createStbHeaders(appId: string): Record<string, string> {
 const ALLOWED_PATHS = ['/lines/stop'];
 
 const ALLOWED_ORIGINS = [
-	'https://fabian20ro.github.io',
-	/^http:\/\/localhost(:\d+)?$/
+	'https://fabian20ro.github.io'
 ];
 
 let cachedToken: string | null = null;
 
 function isOriginAllowed(origin: string | null): boolean {
 	if (!origin) return false;
-	return ALLOWED_ORIGINS.some((allowed) =>
-		typeof allowed === 'string' ? allowed === origin : allowed.test(origin)
-	);
+	if (ALLOWED_ORIGINS.includes(origin)) return true;
+
+	try {
+		const url = new URL(origin);
+		return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+	} catch {
+		return false;
+	}
 }
 
 function corsHeaders(origin: string | null): Record<string, string> {
 	const headers: Record<string, string> = {
 		'Access-Control-Allow-Methods': 'GET, OPTIONS',
 		'Access-Control-Allow-Headers': 'Content-Type',
-		'Access-Control-Max-Age': '86400'
+		'Access-Control-Max-Age': '86400',
+		'X-Content-Type-Options': 'nosniff',
+		'X-Frame-Options': 'DENY',
+		'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none';"
 	};
 	if (origin && isOriginAllowed(origin)) {
 		headers['Access-Control-Allow-Origin'] = origin;
@@ -127,8 +134,9 @@ export default {
 				headers: responseHeaders
 			});
 		} catch (err) {
+			console.error('Proxy error:', err);
 			return new Response(
-				`Proxy error: ${err instanceof Error ? err.message : String(err)}`,
+				'Proxy error: Internal Server Error',
 				{
 					status: 502,
 					headers: { ...corsHeaders(origin), 'Content-Type': 'text/plain' }

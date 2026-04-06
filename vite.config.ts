@@ -59,12 +59,16 @@ function stbProxy(appId: string, appKey: string): Plugin {
 
 					res.writeHead(result.status, {
 						'content-type': result.headers['content-type'] ?? 'application/octet-stream',
-						'access-control-allow-origin': '*'
+						'access-control-allow-origin': '*',
+						'x-content-type-options': 'nosniff',
+						'x-frame-options': 'DENY',
+						'content-security-policy': "default-src 'none'; frame-ancestors 'none';"
 					});
 					res.end(result.body);
 				} catch (err) {
 					res.writeHead(502, { 'content-type': 'text/plain' });
-					res.end(`STB proxy error: ${err instanceof Error ? err.message : String(err)}`);
+					console.error('STB proxy error:', err);
+					res.end('STB proxy error: Internal Server Error');
 				}
 			});
 		}
