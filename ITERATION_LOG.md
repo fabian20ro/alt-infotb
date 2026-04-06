@@ -407,3 +407,7 @@ Each entry should follow this structure:
 ---
 
 <!-- New entries go above this line, most recent first -->
+## 2023-11-20
+*   Added `title` attributes to the "Menu" and "Favorite" icon buttons in `StationHeader.svelte` to provide native hover tooltips.
+*   Added `aria-busy` and `aria-label` to the skeleton loading container in `ArrivalRow.svelte` to improve screen reader feedback.
+*   Added `focus-visible` styling to the retry button in `StationArrivals.svelte` for better keyboard accessibility.
