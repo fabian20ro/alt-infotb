@@ -281,8 +281,8 @@
 
 	.recenter-btn {
 		position: absolute;
-		bottom: 1rem;
-		right: 1rem;
+		top: 5.5rem;
+		right: 10px;
 		z-index: 1000;
 		width: 2.75rem;
 		height: 2.75rem;
