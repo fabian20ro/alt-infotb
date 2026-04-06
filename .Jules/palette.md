@@ -1,0 +1,3 @@
+## 2023-11-20 - Adding Accessibility Attributes and Title Tooltips
+**Learning:** Adding simple accessibility touch points like `aria-busy` and `aria-label` to skeletal loading components can provide significant context for screen readers without changing UI layouts. Similarly, native `title` attributes on SVG-only icon buttons serve as helpful tooltip overlays for mouse users.
+**Action:** When creating new interactive components like loaders or icon-only buttons, consistently add context attributes (`title`, `aria-label`, `aria-busy`) during initial creation to prevent the need for retroactive accessibility passes.

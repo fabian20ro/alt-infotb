@@ -75,23 +75,48 @@ export function findStationsInBounds(
 ): Station[] {
 	const { south, north, west, east } = bounds;
 
-	const inBounds = stations.filter(
-		(s) => s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east
-	);
+	const inBounds: Station[] = [];
+	let selected: Station | null = null;
+	let selectedInBounds = false;
 
-	// Too many stations → zoomed out too far, hide all markers
-	if (inBounds.length > maxCount) {
-		if (selectedId != null) {
-			const selected = stations.find((s) => s.id === selectedId);
-			if (selected) return [selected];
+	// Optimization: Single pass to check bounds, count items, and find selected station.
+	// Avoids multiple array iterations (.filter, .find, .some) and allows early exits.
+	for (let i = 0; i < stations.length; i++) {
+		const s = stations[i];
+		const isSelected = selectedId != null && s.id === selectedId;
+
+		// Fast bounds check
+		if (s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east) {
+			inBounds.push(s);
+			if (isSelected) {
+				selectedInBounds = true;
+				selected = s;
+			}
+		} else if (isSelected) {
+			selected = s;
 		}
-		return [];
+
+		// Early returns when we exceed the cap
+		if (inBounds.length > maxCount) {
+			if (selectedId == null) {
+				return []; // Exceeded cap, no selected item to look for
+			}
+
+			if (selected != null) {
+				return [selected]; // Exceeded cap, already found selected item
+			}
+
+			// We've exceeded the cap but haven't found the selected item yet.
+			// We can stop iterating normally and just look for the selected item.
+			const found = stations.find((x) => x.id === selectedId);
+			return found ? [found] : [];
+		}
 	}
 
 	// Under cap — include selected even if outside bounds
-	if (selectedId != null && !inBounds.some((s) => s.id === selectedId)) {
-		const selected = stations.find((s) => s.id === selectedId);
-		if (selected) return [...inBounds, selected];
+	if (selected != null && !selectedInBounds) {
+		inBounds.push(selected);
 	}
+
 	return inBounds;
 }
