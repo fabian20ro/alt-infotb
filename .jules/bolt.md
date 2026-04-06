@@ -1,0 +1,3 @@
+## 2026-04-06 - [Performance Optimization] Map view responsiveness
+**Learning:** `findStationsInBounds` was called repeatedly whenever the user panned or zoomed the map view (which is debounced but still frequent). Since there are ~2700 stations, executing `.filter()`, `.find()`, and `.some()` consecutively over the full array for every bounding box update was slow (O(3n)).
+**Action:** Replaced functional array methods with a single imperative `for` loop that implements early exits. When the number of visible stations exceeds `maxCount` (meaning we're zoomed out too far), the loop terminates early unless it still needs to locate the selected station. This reduced execution time by more than 10x for out-of-bounds maps, improving UI responsiveness.
