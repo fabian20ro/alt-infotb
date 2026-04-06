@@ -128,7 +128,7 @@ export default {
 			});
 		} catch (err) {
 			return new Response(
-				`Proxy error: ${err instanceof Error ? err.message : String(err)}`,
+				`Proxy error: Internal Server Error`,
 				{
 					status: 502,
 					headers: { ...corsHeaders(origin), 'Content-Type': 'text/plain' }

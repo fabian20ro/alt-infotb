@@ -64,7 +64,7 @@ function stbProxy(appId: string, appKey: string): Plugin {
 					res.end(result.body);
 				} catch (err) {
 					res.writeHead(502, { 'content-type': 'text/plain' });
-					res.end(`STB proxy error: ${err instanceof Error ? err.message : String(err)}`);
+					res.end(`STB proxy error: Internal Server Error`);
 				}
 			});
 		}

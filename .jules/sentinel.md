@@ -1,0 +1,4 @@
+## 2024-05-18 - Prevented Error Message Information Leakage
+**Vulnerability:** The proxy endpoints in `worker/src/index.ts` and `vite.config.ts` were returning the raw error message (`err.message` or `String(err)`) to the client on failure.
+**Learning:** Returning raw stack traces or internal error details to end users can inadvertently leak sensitive information, such as server paths, dependent service URLs, API keys (if logged by tools), and implementation specifics that could be leveraged by an attacker to map out the application architecture.
+**Prevention:** Catch blocks that send HTTP responses should return generic error messages (e.g., `"Internal Server Error"`) instead of exposing the raw error output. Internal errors should be logged securely on the server side instead of forwarded to the client.
