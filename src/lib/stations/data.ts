@@ -10,7 +10,7 @@ const DAY_BOUNDARY_HOUR = 4;
  * A transit day starts at 4 AM Europe/Bucharest, not midnight.
  * Two timestamps with different day numbers means we've crossed a 4 AM boundary.
  */
-export function getRomanianDayNumber(timestampMs: number): number {
+function getRomanianDayNumber(timestampMs: number): number {
 	const parts = new Intl.DateTimeFormat('en-US', {
 		timeZone: 'Europe/Bucharest',
 		year: 'numeric',
