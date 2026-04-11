@@ -198,9 +198,18 @@
 
 	function recenter() {
 		if (!map || !L) return;
+		
 		if (userPosition) {
 			map.setView([userPosition.lat, userPosition.lon], 15, { animate: true });
+			return;
 		}
+		
+		if (userMarker) {
+			map.setView(userMarker.getLatLng(), 15, { animate: true });
+			return;
+		}
+
+		console.warn('[MapView] Recenter failed: no user position or marker');
 	}
 
 	// Set initial view once allStations first populates
@@ -306,6 +315,11 @@
 
 	.recenter-btn:hover {
 		background: var(--color-surface-hover);
+	}
+
+	.recenter-btn:active {
+		transform: scale(0.95);
+		background: var(--color-surface-active);
 	}
 
 	/* Override Leaflet default styles */
