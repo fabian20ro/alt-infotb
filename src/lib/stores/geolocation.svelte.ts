@@ -11,8 +11,23 @@ export interface GeoPosition {
 export function createGeolocationStore() {
 	let position = $state<GeoPosition | null>(null);
 	let error = $state<string | null>(null);
+	let permission = $state<'granted' | 'denied' | 'prompt'>('prompt');
 	let watching = $state(false);
 	let watchId: number | null = null;
+
+	/** Update permission status */
+	async function updatePermissionStatus() {
+		if (!navigator.permissions) return;
+		try {
+			const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+			permission = status.state;
+			status.onchange = () => {
+				permission = status.state;
+			};
+		} catch {
+			// Fallback
+		}
+	}
 
 	/** Load last known position from localStorage */
 	function loadSavedPosition(): GeoPosition | null {
@@ -45,6 +60,8 @@ export function createGeolocationStore() {
 	function startWatching(): void {
 		if (watching || !navigator.geolocation) return;
 
+		updatePermissionStatus();
+
 		// Try saved position first for immediate use
 		const saved = loadSavedPosition();
 		if (saved && !position) {
@@ -64,9 +81,13 @@ export function createGeolocationStore() {
 				position = newPos;
 				error = null;
 				savePosition(newPos);
+				permission = 'granted';
 			},
 			(geoErr) => {
 				error = geoErr.message;
+				if (geoErr.code === geoErr.PERMISSION_DENIED) {
+					permission = 'denied';
+				}
 			},
 			{
 				enableHighAccuracy: true,
@@ -87,6 +108,7 @@ export function createGeolocationStore() {
 	return {
 		get position() { return position; },
 		get error() { return error; },
+		get permission() { return permission; },
 		get watching() { return watching; },
 		getCenter,
 		startWatching,

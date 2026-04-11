@@ -142,6 +142,7 @@
 		{allStations}
 		selectedStationId={selectedStation?.id ?? null}
 		userPosition={geo.position}
+		locationPermission={geo.permission}
 		theme={settings.theme}
 		onStationSelect={selectStation}
 	/>

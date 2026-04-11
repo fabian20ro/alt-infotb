@@ -11,11 +11,12 @@
 		allStations: Station[];
 		selectedStationId: number | null;
 		userPosition: GeoPosition | null;
+		locationPermission: 'granted' | 'denied' | 'prompt';
 		theme: 'light' | 'dark';
 		onStationSelect: (station: Station) => void;
 	}
 
-	let { allStations, selectedStationId, userPosition, theme, onStationSelect }: Props = $props();
+	let { allStations, selectedStationId, userPosition, locationPermission, theme, onStationSelect }: Props = $props();
 
 	let mapContainer: HTMLDivElement;
 	let map: L.Map | null = null;
@@ -199,6 +200,11 @@
 	function recenter() {
 		if (!map || !L) return;
 		
+		if (locationPermission === 'denied') {
+			alert('Accesul la locație este blocat. Vă rugăm să îl activați din setările browserului pentru a folosi această funcție.');
+			return;
+		}
+		
 		if (userPosition) {
 			map.setView([userPosition.lat, userPosition.lon], 15, { animate: true });
 			return;
@@ -253,7 +259,13 @@
 		{/if}
 	</div>
 	{#if loaded}
-		<button class="recenter-btn" onclick={recenter} aria-label="Recentrare" class:has-position={!!userPosition}>
+		<button 
+			class="recenter-btn" 
+			onclick={recenter} 
+			aria-label="Recentrare" 
+			class:has-position={!!userPosition}
+			class:is-denied={locationPermission === 'denied'}
+		>
 			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 				<circle cx="12" cy="12" r="3" />
 				<path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
@@ -310,6 +322,11 @@
 
 	.recenter-btn.has-position {
 		color: var(--color-text);
+		opacity: 1;
+	}
+
+	.recenter-btn.is-denied {
+		color: #ff4444;
 		opacity: 1;
 	}
 
