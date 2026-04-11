@@ -243,8 +243,8 @@
 			</div>
 		{/if}
 	</div>
-	{#if loaded && userPosition}
-		<button class="recenter-btn" onclick={recenter} aria-label="Recentrare">
+	{#if loaded}
+		<button class="recenter-btn" onclick={recenter} aria-label="Recentrare" class:has-position={!!userPosition}>
 			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 				<circle cx="12" cy="12" r="3" />
 				<path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
@@ -281,7 +281,7 @@
 
 	.recenter-btn {
 		position: absolute;
-		top: 5.5rem;
+		top: calc(10px + 64px + 12px); /* 10px (map top) + 64px (zoom controls) + 12px spacing */
 		right: 10px;
 		z-index: 1000;
 		width: 2.75rem;
@@ -289,13 +289,19 @@
 		border-radius: 50%;
 		border: none;
 		background: var(--color-surface);
-		color: var(--color-text);
+		color: var(--color-text-muted);
 		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: background-color 0.15s;
+		transition: background-color 0.15s, color 0.15s;
+		opacity: 0.7;
+	}
+
+	.recenter-btn.has-position {
+		color: var(--color-text);
+		opacity: 1;
 	}
 
 	.recenter-btn:hover {
