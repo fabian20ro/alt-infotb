@@ -411,3 +411,11 @@ Each entry should follow this structure:
 *   Added `title` attributes to the "Menu" and "Favorite" icon buttons in `StationHeader.svelte` to provide native hover tooltips.
 *   Added `aria-busy` and `aria-label` to the skeleton loading container in `ArrivalRow.svelte` to improve screen reader feedback.
 *   Added `focus-visible` styling to the retry button in `StationArrivals.svelte` for better keyboard accessibility.
+
+### [2026-05-05] Remediation pass: docs consistency, parser hardening, token cache, merge logic, DB lifecycle
+
+**Context:** Implemented 5-item remediation plan from static review.
+**What happened:** Updated README disclaimer to match proxy architecture; hardened protobuf length-delimited parsing with explicit `ProtoParseError`; mapped parse failures to `ApiError` in arrivals fetch; improved multi-stop merge to use most-common station metadata and de-duplicate line/direction buckets; changed worker token cache from single global token to App-ID-scoped cache with TTL and retained 412 retry; added IndexedDB close handling around transactions; added tests for malformed protobuf and merge de-dup behavior.
+**Outcome:** Success — unit test suite passes after changes.
+**Insight:** Keeping parse-failure semantics explicit (`ProtoParseError` -> user-safe `ApiError`) improves debuggability without leaking low-level corruption details into UI.
+**Promoted to Lessons Learned:** No

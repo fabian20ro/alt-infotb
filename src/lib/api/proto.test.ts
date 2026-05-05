@@ -130,6 +130,13 @@ describe('ProtoReader', () => {
 		expect(fields.get(7)).toEqual([300]);
 	});
 
+
+	it('throws on truncated length-delimited field', () => {
+		const bytes = new Uint8Array([0x0a, 0x05, 0x41, 0x42]);
+		const reader = new ProtoReader(bytes);
+		expect(() => reader.readAllFields()).toThrow('truncated payload');
+	});
+
 	it('handles empty input', () => {
 		const reader = new ProtoReader(new Uint8Array(0));
 		expect(reader.done).toBe(true);

@@ -165,6 +165,14 @@ describe('fetchArrivals', () => {
 		await expect(fetchArrivals(3570)).rejects.toThrow('Network error');
 	});
 
+
+	it('throws ApiError when protobuf payload is malformed', async () => {
+		const malformed = new Uint8Array([0x0a, 0x05, 0x41]);
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, arrayBuffer: () => Promise.resolve(malformed.buffer) }));
+		const { fetchArrivals } = await import('./arrivals.js');
+		await expect(fetchArrivals(3570)).rejects.toThrow('protobuf corupt');
+	});
+
 	it('filters out unreasonable arrival times (> 7200 seconds)', async () => {
 		const responseData = buildStopResponse([
 			{
@@ -293,6 +301,22 @@ describe('fetchArrivals multi-stop merging', () => {
 
 		// Fetched both stops
 		expect(mockFetch).toHaveBeenCalledTimes(2);
+	});
+
+
+	it('uses most common station metadata and de-duplicates merged lines', async () => {
+		const stop1 = buildStopResponse([{ name: 'M1', id: 1, type: 'SUBWAY', color: '#111', direction: 'D1', arrivals: [{ seconds: 300 }, { seconds: 600 }] }], 'Piata Unirii', 'Addr A');
+		const stop2 = buildStopResponse([{ name: 'M1', id: 1, type: 'SUBWAY', color: '#111', direction: 'D1', arrivals: [{ seconds: 600 }, { seconds: 900 }] }], 'Piata Unirii', 'Addr B');
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			const data = stopId === '9552' ? stop1 : stop2;
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(data.buffer) });
+		}));
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+		expect(result.stationName).toBe('Piata Unirii');
+		expect(result.arrivals).toHaveLength(1);
+		expect(result.arrivals[0].arrivingTimes).toEqual([300, 600, 900]);
 	});
 
 	it('sorts merged arrivals by line name', async () => {

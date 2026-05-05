@@ -34,7 +34,13 @@ const ALLOWED_ORIGINS = [
 	'https://fabian20ro.github.io'
 ];
 
-let cachedToken: string | null = null;
+interface TokenCacheEntry {
+	token: string;
+	fetchedAt: number;
+}
+
+const TOKEN_TTL_MS = 50 * 60 * 1000;
+const tokenCache = new Map<string, TokenCacheEntry>();
 
 function isOriginAllowed(origin: string | null): boolean {
 	if (!origin) return false;
@@ -108,19 +114,23 @@ export default {
 		try {
 			const stbHeaders = createStbHeaders(env.STB_APP_ID);
 
-			// Ensure we have an auth token
-			if (!cachedToken) {
-				cachedToken = await fetchAuthToken(env.STB_APP_ID, env.STB_APP_KEY);
+			// Ensure we have an auth token (cache scoped by App ID)
+			const now = Date.now();
+			const cached = tokenCache.get(env.STB_APP_ID);
+			if (!cached || now - cached.fetchedAt > TOKEN_TTL_MS) {
+				const token = await fetchAuthToken(env.STB_APP_ID, env.STB_APP_KEY);
+				tokenCache.set(env.STB_APP_ID, { token, fetchedAt: now });
 			}
 
 			// Forward the request with full path + query string
 			const targetPath = `${apiPath}${url.search}`;
-			let stbResponse = await proxyToStb(targetPath, cachedToken, stbHeaders);
+			let stbResponse = await proxyToStb(targetPath, tokenCache.get(env.STB_APP_ID)!.token, stbHeaders);
 
 			// Token expired — re-authenticate and retry once
 			if (stbResponse.status === 412) {
-				cachedToken = await fetchAuthToken(env.STB_APP_ID, env.STB_APP_KEY);
-				stbResponse = await proxyToStb(targetPath, cachedToken, stbHeaders);
+				const token = await fetchAuthToken(env.STB_APP_ID, env.STB_APP_KEY);
+				tokenCache.set(env.STB_APP_ID, { token, fetchedAt: Date.now() });
+				stbResponse = await proxyToStb(targetPath, token, stbHeaders);
 			}
 
 			// Forward the response with CORS headers
