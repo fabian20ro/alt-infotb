@@ -10,6 +10,13 @@ export interface ProtoField {
 	value: number | Uint8Array;
 }
 
+export class ProtoParseError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "ProtoParseError";
+	}
+}
+
 export class ProtoReader {
 	private buf: Uint8Array;
 	private pos: number;
@@ -35,6 +42,9 @@ export class ProtoReader {
 		} else if (wireType === 2) {
 			// Length-delimited (string, bytes, or embedded message)
 			const len = this.readVarint();
+			if (len < 0 || this.pos + len > this.buf.length) {
+				throw new ProtoParseError('Invalid length-delimited field: truncated payload');
+			}
 			const value = this.buf.slice(this.pos, this.pos + len);
 			this.pos += len;
 			return { fieldNumber, wireType, value };

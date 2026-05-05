@@ -29,8 +29,8 @@ No accounts, no tracking, runs entirely in your browser.
 ## Data Source Disclaimer
 
 This app consumes publicly available transit data from STB SA / TPBI.
-All transit data is fetched directly by your browser from STB's servers.
-No data is stored, proxied, or redistributed by this application.
+Transit requests are sent from your browser to a lightweight project proxy (Vite middleware in development, Cloudflare Worker in production), which injects the headers required by STB (for example `App-Id` and `User-Info`).
+The proxy relays responses back to the browser and does not persist transit telemetry or user location data.
 Transit data (c) STB SA / TPBI. This project is not affiliated with STB or TPBI.
 
 ## Development

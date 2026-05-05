@@ -1,6 +1,6 @@
 import { apiFetchBinary, ApiError } from './client.js';
 import { API, PROTO_FIELDS } from './constants.js';
-import { ProtoReader, getString, getVarint, getMessages } from './proto.js';
+import { ProtoReader, ProtoParseError, getString, getVarint, getMessages } from './proto.js';
 import type { StationArrivals, ArrivalInfo } from './types.js';
 
 /** Sort arrivals by line name numerically, falling back to locale comparison */
@@ -83,6 +83,9 @@ async function fetchSingleStop(stopId: number): Promise<StationArrivals> {
 		return decodeStopResponse(data);
 	} catch (err) {
 		if (err instanceof ApiError) throw err;
+		if (err instanceof ProtoParseError) {
+			throw new ApiError('Date STB invalide (protobuf corupt)', 0);
+		}
 		throw new ApiError(
 			`Nu am putut contacta STB: ${err instanceof Error ? err.message : String(err)}`,
 			0
@@ -91,15 +94,46 @@ async function fetchSingleStop(stopId: number): Promise<StationArrivals> {
 }
 
 /** Merge multiple StationArrivals into one, combining all lines and re-sorting. */
+function mostCommonNonEmpty(values: string[]): string {
+	const counts = new Map<string, number>();
+	for (const value of values) {
+		if (!value.trim()) continue;
+		counts.set(value, (counts.get(value) ?? 0) + 1);
+	}
+	let best = '';
+	let bestCount = 0;
+	for (const [value, count] of counts) {
+		if (count > bestCount) {
+			best = value;
+			bestCount = count;
+		}
+	}
+	return best;
+}
+
 function mergeArrivals(results: StationArrivals[]): StationArrivals {
-	const first = results[0];
-	const allArrivals = results.flatMap((r) => r.arrivals);
-	sortByLineName(allArrivals);
+	const stationName = mostCommonNonEmpty(results.map((r) => r.stationName)) || results[0].stationName;
+	const address = mostCommonNonEmpty(results.map((r) => r.address)) || results[0].address;
+
+	const byLineKey = new Map<string, ArrivalInfo>();
+	for (const arrival of results.flatMap((r) => r.arrivals)) {
+		const key = `${arrival.lineName}|${arrival.direction}|${arrival.vehicleType}`;
+		const existing = byLineKey.get(key);
+		if (!existing) {
+			byLineKey.set(key, { ...arrival, arrivingTimes: [...arrival.arrivingTimes] });
+			continue;
+		}
+		const mergedTimes = Array.from(new Set([...existing.arrivingTimes, ...arrival.arrivingTimes])).sort((a, b) => a - b);
+		existing.arrivingTimes = mergedTimes.slice(0, 3);
+	}
+
+	const arrivals = Array.from(byLineKey.values());
+	sortByLineName(arrivals);
 
 	return {
-		stationName: first.stationName,
-		address: first.address,
-		arrivals: allArrivals,
+		stationName,
+		address,
+		arrivals,
 		fetchedAt: new Date()
 	};
 }

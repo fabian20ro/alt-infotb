@@ -32,6 +32,9 @@ export async function getStations(): Promise<Station[]> {
 		const store = tx.objectStore(STORE_NAME);
 		const request = store.getAll();
 		request.onsuccess = () => resolve(request.result as Station[]);
+		tx.oncomplete = () => db.close();
+		tx.onerror = () => db.close();
+		tx.onabort = () => db.close();
 		request.onerror = () => reject(request.error);
 	});
 }
@@ -51,8 +54,9 @@ export async function saveStations(stations: Station[]): Promise<void> {
 		}
 		meta.put(Date.now(), 'lastRefresh');
 
-		tx.oncomplete = () => resolve();
-		tx.onerror = () => reject(tx.error);
+		tx.oncomplete = () => { db.close(); resolve(); };
+		tx.onerror = () => { db.close(); reject(tx.error); };
+		tx.onabort = () => db.close();
 	});
 }
 
@@ -64,6 +68,9 @@ export async function getLastRefreshTime(): Promise<number> {
 		const store = tx.objectStore(META_STORE);
 		const request = store.get('lastRefresh');
 		request.onsuccess = () => resolve((request.result as number) ?? 0);
+		tx.oncomplete = () => db.close();
+		tx.onerror = () => db.close();
+		tx.onabort = () => db.close();
 		request.onerror = () => reject(request.error);
 	});
 }
@@ -75,7 +82,8 @@ export async function updateLastRefreshTime(): Promise<void> {
 		const tx = db.transaction(META_STORE, 'readwrite');
 		const store = tx.objectStore(META_STORE);
 		store.put(Date.now(), 'lastRefresh');
-		tx.oncomplete = () => resolve();
-		tx.onerror = () => reject(tx.error);
+		tx.oncomplete = () => { db.close(); resolve(); };
+		tx.onerror = () => { db.close(); reject(tx.error); };
+		tx.onabort = () => db.close();
 	});
 }
