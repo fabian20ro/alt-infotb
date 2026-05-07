@@ -404,6 +404,14 @@ Each entry should follow this structure:
 
 **Promoted to Lessons Learned:** No (single-iteration implementation details; no recurring multi-session pattern yet)
 
+### [2026-05-07] Normalize whitespace in station search queries
+
+**Context:** Search felt brittle when users pasted station names with repeated spaces or odd spacing between words.
+**What happened:** Updated the shared search normalizer to collapse internal whitespace before lowercasing, and added a unit test covering a query like `"  Piata   Unirii  "`.
+**Outcome:** Success — focused Vitest coverage passed for the search suite.
+**Insight:** Query normalization should cover both diacritics and spacing; users often paste imperfect text, and search should still do the obvious thing.
+**Promoted to Lessons Learned:** Yes
+
 ---
 
 <!-- New entries go above this line, most recent first -->

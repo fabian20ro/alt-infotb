@@ -49,6 +49,10 @@ describe('searchStations', () => {
 		expect(results.length).toBeGreaterThanOrEqual(3);
 	});
 
+	it('handles queries with extra internal whitespace', () => {
+		expect(searchStations('  Piata   Unirii  ', stations)[0].name).toBe('Piata Unirii');
+	});
+
 	it('is case insensitive', () => {
 		const results = searchStations('universitate', stations);
 		expect(results[0].name).toBe('Universitate');
