@@ -72,7 +72,9 @@ export class ProtoReader {
 			result |= (byte & 0x7f) << shift;
 			if ((byte & 0x80) === 0) break;
 			shift += 7;
-			if (shift > 35) break; // Safety: max 5 bytes for uint32
+			if (shift > 35) {
+    		throw new ProtoParseError('Varint too long');
+    	}
 		}
 		return result >>> 0; // Unsigned
 	}

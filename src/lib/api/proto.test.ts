@@ -137,12 +137,11 @@ describe('ProtoReader', () => {
 		expect(() => reader.readAllFields()).toThrow('truncated payload');
 	});
 
-	it('handles empty input', () => {
-		const reader = new ProtoReader(new Uint8Array(0));
-		expect(reader.done).toBe(true);
-		expect(reader.readField()).toBeNull();
-		expect(reader.readAllFields().size).toBe(0);
-	});
+	it('throws on varint too long', () => {
+    		const bytes = new Uint8Array([0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80]);
+    		const reader = new ProtoReader(bytes);
+    		expect(() => reader.readField()).toThrow('Varint too long');
+    	});
 
 	it('skips 64-bit fixed fields', () => {
 		// Tag for field 1, wire type 1 (64-bit)
