@@ -36,10 +36,15 @@ Transit data (c) STB SA / TPBI. This project is not affiliated with STB or TPBI.
 ## Development
 
 ```bash
+# Setup environment variables
+cp .env.example .env
+
+# Install dependencies
 npm install
+
+# Run development server
 npm run dev
 ```
-
 ## Test
 
 ```bash
