@@ -30,6 +30,14 @@ export class ProtoReader {
 		return this.pos >= this.buf.length;
 	}
 
+	/**
+	 * Reads the next field from the buffer.
+	 * 
+	 * @returns The parsed field or null if end of buffer.
+	 * - Type 0 (varint): Returns the decoded number.
+	 * - Type 2 (length-delimited): Returns the slice as a Uint8Array.
+	 * - Type 1/5 (fixed-size): Returns the position (index) where the field starts.
+	 */
 	readField(): ProtoField | null {
 		if (this.done) return null;
 		const tag = this.readVarint();
@@ -54,7 +62,7 @@ export class ProtoReader {
 			this.pos += 8;
 			return { fieldNumber, wireType, value };
 		} else if (wireType === 5) {
-			// 32-bit fixed — skip 4 bytes
+			// 30-bit fixed — skip 4 bytes
 			const value = this.pos;
 			this.pos += 4;
 			return { fieldNumber, wireType, value };
@@ -73,8 +81,8 @@ export class ProtoReader {
 			if ((byte & 0x80) === 0) break;
 			shift += 7;
 			if (shift > 35) {
-    		throw new ProtoParseError('Varint too long');
-    	}
+				throw new ProtoParseError('Varint too long');
+			}
 		}
 		return result >>> 0; // Unsigned
 	}
