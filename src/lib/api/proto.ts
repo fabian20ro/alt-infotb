@@ -68,7 +68,7 @@ export class ProtoReader {
 			return { fieldNumber, wireType, value };
 		} else {
 			// Unknown wire type — can't continue
-			return null;
+			throw new ProtoParseError(`Unknown wire type: ${wireType}`);
 		}
 	}
 
