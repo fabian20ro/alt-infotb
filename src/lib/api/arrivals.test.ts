@@ -170,7 +170,7 @@ describe('fetchArrivals', () => {
 		const malformed = new Uint8Array([0x0a, 0x05, 0x41]);
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, arrayBuffer: () => Promise.resolve(malformed.buffer) }));
 		const { fetchArrivals } = await import('./arrivals.js');
-		await expect(fetchArrivals(3570)).rejects.toThrow('protobuf corupt');
+		await expect(fetchArrivals(3570)).rejects.toThrow('protobuf corrupt');
 	});
 
 	it('filters out unreasonable arrival times (> 7200 seconds)', async () => {

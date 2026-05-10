@@ -84,7 +84,7 @@ async function fetchSingleStop(stopId: number): Promise<StationArrivals> {
 	} catch (err) {
 		if (err instanceof ApiError) throw err;
 		if (err instanceof ProtoParseError) {
-			throw new ApiError('Date STB invalide (protobuf corupt)', 0);
+			throw new ApiError('Date STB invalid (protobuf corrupt)', 0);
 		}
 		throw new ApiError(
 			`Nu am putut contacta STB: ${err instanceof Error ? err.message : String(err)}`,
