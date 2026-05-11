@@ -15,7 +15,10 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		});
 
 		if (!response.ok) {
-			throw new ApiError(`HTTP ${response.status}`, response.status);
+			const hint = response.status === 401 || response.status === 403
+				? ' (Check auth token/proxy configuration)'
+				: '';
+			throw new ApiError(`HTTP ${response.status}${hint}`, response.status);
 		}
 
 		const buf = await response.arrayBuffer();

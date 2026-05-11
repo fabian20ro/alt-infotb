@@ -414,6 +414,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-11] Repo sweep: keep tests green during branch audit
+
+**Context:** Ran a one-by-one test sweep across the repos under `/workspace/git` on the current branch.
+**What happened:** Verified `npm test` in `alt-stb` failed, traced the failure to auth/error messaging expectations, and updated `src/lib/api/client.ts` so 401/403 responses include a proxy/auth hint. Re-ran the suite and confirmed it passed.
+**Outcome:** Success — `npm test` passes and the repo is left with only the intended tracked edit.
+**Insight:** Keep HTTP error changes narrow; a small context hint can satisfy the test while preserving the underlying status handling.
+**Promoted to Lessons Learned:** No
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ## 2023-11-20
 *   Added `title` attributes to the "Menu" and "Favorite" icon buttons in `StationHeader.svelte` to provide native hover tooltips.
