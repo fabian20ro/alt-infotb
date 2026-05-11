@@ -434,6 +434,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-11] Add 4 AM Romanian boundary regression for station staleness
+
+**Context:** Station data freshness already depends on the 4 AM Romanian transit-day boundary, but the test suite only covered generic "recent" and "old" timestamps.
+**What happened:** Added a Vitest regression in `src/lib/stations/data.test.ts` that mocks `Date.now()` and checks the boundary around 04:00 Europe/Bucharest local time (03:59 stays previous day, 04:01 stays current day). Verified the targeted test file with `npm test -- src/lib/stations/data.test.ts`.
+**Outcome:** Success — focused test passed. The repository still emits existing TypeScript resolution noise during the patch helper's auto-lint step, but that did not affect the runtime test.
+**Insight:** Direct boundary tests are the best guard for timezone-sensitive logic that depends on both `Date.now()` and `Intl.DateTimeFormat(..., { timeZone: 'Europe/Bucharest' })`.
+**Promoted to Lessons Learned:** No
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ## 2023-11-20
 *   Added `title` attributes to the "Menu" and "Favorite" icon buttons in `StationHeader.svelte` to provide native hover tooltips.
