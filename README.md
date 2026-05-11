@@ -13,7 +13,7 @@ No accounts, no tracking, runs entirely in your browser.
 - Interactive map with GPS-based station discovery
 - Favorites and recent stations
 - Light/dark theme, Romanian/English
-- Installable as PWA
+- Installable as PWA, including iOS Home Screen support
 - Auto-refresh every 30s (optional)
 - Offline support with cached data
 

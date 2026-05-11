@@ -424,6 +424,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-11] Document iOS PWA install support in the README
+
+**Context:** The app already supports Home Screen install on iOS, but the top-level README only said "Installable as PWA".
+**What happened:** Updated the feature list in `README.md` to mention iOS Home Screen support explicitly.
+**Outcome:** Success — documentation now reflects the current installability surface more accurately.
+**Insight:** Small doc mismatches matter when they hide platform support that is already shipped.
+**Promoted to Lessons Learned:** No
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ## 2023-11-20
 *   Added `title` attributes to the "Menu" and "Favorite" icon buttons in `StationHeader.svelte` to provide native hover tooltips.
