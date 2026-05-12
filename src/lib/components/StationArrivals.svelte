@@ -1,25 +1,29 @@
 <script lang="ts">
 	import type { ArrivalInfo } from '$lib/api/types.js';
+	import { translations } from '$lib/i18n/translations.js';
+	import type { Lang } from '$lib/stores/settings.svelte.js';
 	import ArrivalRow from './ArrivalRow.svelte';
 
 	interface Props {
 		arrivals: ArrivalInfo[];
 		loading: boolean;
 		error: string | null;
+		lang: Lang;
 		onRefresh: () => void;
 	}
 
-	let { arrivals, loading, error, onRefresh }: Props = $props();
+	let { arrivals, loading, error, lang, onRefresh }: Props = $props();
 
+	let strings = $derived(translations[lang]);
 	let isFirstLoad = $derived(loading && arrivals.length === 0);
 </script>
 
 <div class="station-arrivals">
 	{#if error && arrivals.length === 0}
 		<div class="error-state">
-			<p class="error-message">Nu am putut contacta STB.</p>
+			<p class="error-message">{strings.errorContact}</p>
 			<p class="error-detail">{error}</p>
-			<button class="retry-btn" onclick={onRefresh}>Încearcă din nou</button>
+			<button class="retry-btn" onclick={onRefresh}>{strings.retry}</button>
 		</div>
 	{:else if isFirstLoad}
 		<div class="arrivals-list">
@@ -31,7 +35,7 @@
 			{/each}
 		</div>
 	{:else if arrivals.length === 0}
-		<p class="no-arrivals">Nicio linie la această stație.</p>
+		<p class="no-arrivals">{strings.noLines}</p>
 	{:else}
 		<div class="arrivals-list">
 			{#each arrivals as arrival (arrival.lineName + arrival.direction)}
@@ -42,7 +46,7 @@
 
 	{#if loading}
 		<div class="refresh-bar">
-			<span class="loading-indicator">Se actualizează...</span>
+			<span class="loading-indicator">{strings.loadingArrivals}</span>
 		</div>
 	{/if}
 </div>

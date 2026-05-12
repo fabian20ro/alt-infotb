@@ -134,6 +134,7 @@
 			arrivals={arrivals.state.data?.arrivals ?? []}
 			loading={arrivals.state.status === 'loading'}
 			error={arrivals.state.error}
+			lang={settings.lang}
 			onRefresh={() => arrivals.refresh()}
 		/>
 	</div>
