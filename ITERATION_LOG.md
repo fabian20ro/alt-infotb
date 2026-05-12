@@ -444,6 +444,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-12] Document the 4 AM transit-day freshness boundary
+
+**Context:** The app already uses the 4 AM Romanian transit-day boundary for station staleness, but the README did not mention that user-facing freshness rule.
+**What happened:** Added a short README feature note that station data freshness follows the 4 AM Romanian transit-day boundary, keeping the docs aligned with the behavior already covered by `src/lib/stations/data.ts` and its regression tests.
+**Outcome:** Success — documentation now explains the freshness boundary that drives station refresh checks.
+**Insight:** When a timezone-sensitive contract is user-visible, a one-line README note can prevent confusion without expanding scope.
+**Promoted to Lessons Learned:** No
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ## 2023-11-20
 *   Added `title` attributes to the "Menu" and "Favorite" icon buttons in `StationHeader.svelte` to provide native hover tooltips.

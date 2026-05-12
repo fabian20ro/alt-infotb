@@ -15,6 +15,7 @@ No accounts, no tracking, runs entirely in your browser.
 - Light/dark theme, Romanian/English
 - Installable as PWA, including iOS Home Screen support
 - Auto-refresh every 30s (optional)
+- Station data freshness follows the 4 AM Romanian transit-day boundary
 - Offline support with cached data
 
 ## Tech Stack
