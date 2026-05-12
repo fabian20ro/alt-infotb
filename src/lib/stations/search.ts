@@ -12,6 +12,7 @@ const DIACRITICS: Record<string, string> = {
 export function normalize(text: string): string {
 	return text
 		.replace(/[ăâîșțşţĂÂÎȘȚŞŢ]/g, (ch) => DIACRITICS[ch] ?? ch)
+		.replace(/[.,;:'"’()\[\]{}!?/\\-]+/g, '')
 		.replace(/\s+/g, ' ')
 		.trim()
 		.toLowerCase();

@@ -31,6 +31,7 @@ describe('searchStations', () => {
 		{ id: 1002, name: 'Piata Romana', description: 'Bd. Magheru', lat: 44.4470, lon: 26.0971 },
 		{ id: 1003, name: 'Eroilor', description: 'Bd. Eroilor', lat: 44.4350, lon: 26.0850 },
 		{ id: 1004, name: 'Stefan cel Mare', description: '', lat: 44.4450, lon: 26.1100 },
+		{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.4300, lon: 26.0900 },
 	];
 
 	it('finds exact name matches', () => {

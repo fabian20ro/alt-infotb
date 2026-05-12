@@ -454,6 +454,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-12] Punctuation-insensitive station search normalization
+
+**Context:** Station search needed to handle abbreviations and punctuation-heavy names like `C.F.R. Progresul` when users type plain `CFR Progresul`.
+**What happened:** Updated the shared station-name normalizer to strip punctuation before matching, added a regression test for `C.F.R. Progresul`, and verified the station search suite plus the broader station unit test set.
+**Outcome:** Success — search now matches punctuation-free queries against punctuation-heavy station names; 37 station tests pass.
+**Insight:** Search normalization should handle both whitespace and punctuation, or common station abbreviations become awkward to find.
+**Promoted to Lessons Learned:** Yes
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ## 2023-11-20
 *   Added `title` attributes to the "Menu" and "Favorite" icon buttons in `StationHeader.svelte` to provide native hover tooltips.

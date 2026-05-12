@@ -54,6 +54,7 @@ move it to the Archive section at the bottom with a date and reason.
 **[2026-02-15]** Multi-stop fetch+merge pattern for metro stations — `fetchArrivals()` accepts `number | number[]`. For arrays, use `Promise.allSettled` (not `Promise.all`) to tolerate partial failures. Merge by concatenating arrivals from all successful fetches and re-sorting. This way, one failing platform doesn't crash the entire station's view.
 
 **[2026-05-07]** Search queries should normalize internal whitespace before matching — Users may paste station names with repeated spaces. Collapse whitespace in the shared normalizer so exact/contains matches still work after trimming and diacritic folding.
+**[2026-05-12]** Station search should ignore punctuation in names and queries — Abbreviations like `C.F.R.` and hyphenated names should normalize to plain alphanumerics so users can search `CFR Progresul` or similar without matching literal punctuation.
 
 ## Testing & Quality
 
