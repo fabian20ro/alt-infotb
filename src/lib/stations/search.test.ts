@@ -29,6 +29,13 @@ describe('normalize', () => {
 		];
 		expect(searchStations('CFR Progresul', punctuationStations)[0].name).toBe('C.F.R. Progresul');
 	});
+
+	it('handles punctuation and extra whitespace together', () => {
+		const punctuationStations: Station[] = [
+			{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.43, lon: 26.09 },
+		];
+		expect(searchStations('  C.F.R.   Progresul  ', punctuationStations)[0].name).toBe('C.F.R. Progresul');
+	});
 });
 
 describe('searchStations', () => {

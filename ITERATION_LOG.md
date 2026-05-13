@@ -484,6 +484,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-13] Lock punctuation-plus-whitespace search regression
+
+**Context:** Search normalization already handled diacritics, punctuation, and internal whitespace, but there was no explicit regression covering a punctuated station query with surrounding extra spaces.
+**What happened:** Added a focused Vitest case for `C.F.R. Progresul` with extra leading/trailing whitespace, verified the search suite, and kept the change test-only. The patch helper's auto-lint step still emitted the repo's pre-existing Vitest/Vite TypeScript resolution noise.
+**Outcome:** Success — the focused search suite passes with 15 tests, and no runtime code changed.
+**Insight:** Even a tiny regression test can pin a useful contract boundary without widening scope; keep the query shape aligned with behavior the normalizer already supports.
+**Promoted to Lessons Learned:** No
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ## 2023-11-20
 *   Added `title` attributes to the "Menu" and "Favorite" icon buttons in `StationHeader.svelte` to provide native hover tooltips.
