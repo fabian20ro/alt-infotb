@@ -474,6 +474,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-13] Document forgiving station search normalization
+
+**Context:** The station-search helper already normalizes Romanian diacritics, punctuation, and extra whitespace, but the user-facing docs did not mention it.
+**What happened:** Updated `README.md` to advertise forgiving station search and clarified the `search.ts` JSDoc so the normalization contract is easier to discover. Ran the focused `src/lib/stations/search.test.ts` Vitest file to confirm the search surface still passes.
+**Outcome:** Success — docs are aligned with the existing search behavior and the focused search suite passed.
+**Insight:** Small docs updates are still worth grounding in the actual contract surface so the README and helper comments stay consistent.
+**Promoted to Lessons Learned:** No
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ## 2023-11-20
 *   Added `title` attributes to the "Menu" and "Favorite" icon buttons in `StationHeader.svelte` to provide native hover tooltips.
