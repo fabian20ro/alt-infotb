@@ -464,6 +464,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-13] Punctuation-insensitive station search regression
+
+**Context:** The shared station search normalizer already strips punctuation, but the tests did not explicitly lock that behavior for abbreviations like `C.F.R. Progresul`.
+**What happened:** Added a regression in `src/lib/stations/search.test.ts` that checks both `normalize('C.F.R. Progresul')` and a punctuation-free query against the punctuated station name. Verified the focused search test file with Vitest.
+**Outcome:** Success — the search suite passes. The patch helper's auto-lint step emitted pre-existing TypeScript module-resolution noise and a `tsc` permission-denied failure, but the runtime test was green.
+**Insight:** If punctuation stripping is part of the search contract, a direct regression test is the cheapest way to keep common abbreviations working.
+**Promoted to Lessons Learned:** No
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ## 2023-11-20
 *   Added `title` attributes to the "Menu" and "Favorite" icon buttons in `StationHeader.svelte` to provide native hover tooltips.

@@ -21,6 +21,14 @@ describe('normalize', () => {
 	it('preserves non-diacritic characters', () => {
 		expect(normalize('abc 123')).toBe('abc 123');
 	});
+
+	it('strips punctuation from station names and queries', () => {
+		expect(normalize('C.F.R. Progresul')).toBe('cfr progresul');
+		const punctuationStations: Station[] = [
+			{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.43, lon: 26.09 },
+		];
+		expect(searchStations('CFR Progresul', punctuationStations)[0].name).toBe('C.F.R. Progresul');
+	});
 });
 
 describe('searchStations', () => {
