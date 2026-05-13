@@ -12,6 +12,7 @@ No accounts, no tracking, runs entirely in your browser.
 - Real-time arrivals for all 2,710 STB stations (bus, tram, trolleybus, subway M1–M4)
 - Interactive map with GPS-based station discovery
 - Favorites and recent stations
+- Station search tolerates Romanian diacritics, punctuation, and extra whitespace
 - Light/dark theme, Romanian/English
 - Installable as PWA, including iOS Home Screen support
 - Auto-refresh every 30s (optional)

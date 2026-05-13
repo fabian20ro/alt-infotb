@@ -18,7 +18,7 @@ export function normalize(text: string): string {
 		.toLowerCase();
 }
 
-/** Fuzzy search stations by name. Returns matches sorted by relevance. */
+/** Fuzzy search stations by name. Normalizes diacritics, punctuation, and whitespace before scoring. Returns matches sorted by relevance. */
 export function searchStations(
 	query: string,
 	stations: readonly Station[],
