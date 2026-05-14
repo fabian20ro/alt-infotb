@@ -494,6 +494,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-14] Sync README and codemap with fixed 20s auto-refresh
+
+**Context:** Top-level docs still described the old optional 30s auto-refresh copy, while the runtime now uses a fixed 20s polling interval.
+**What happened:** Updated `README.md` to describe fixed 20s auto-refresh and `docs/codemap.md` to rename the constant entry to `ARRIVALS_REFRESH_INTERVAL = 20000`, matching `src/lib/api/constants.ts` and the arrivals store.
+**Outcome:** Success — user-facing and internal docs now match the current polling contract.
+**Insight:** Small constant-name drift is worth fixing in both public README copy and code maps so the docs don't preserve a stale behavior label.
+**Promoted to Lessons Learned:** No
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ### [2026-05-14] Document map marker cap and selected-station pinning
 

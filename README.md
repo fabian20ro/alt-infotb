@@ -16,7 +16,7 @@ No accounts, no tracking, runs entirely in your browser.
 - Station search tolerates Romanian diacritics, punctuation, and extra whitespace
 - Light/dark theme, Romanian/English
 - Installable as PWA, including iOS Home Screen support
-- Auto-refresh every 30s (optional)
+- Fixed auto-refresh every 20s
 - Station data freshness follows the 4 AM Romanian transit-day boundary
 - Offline support with cached data
 

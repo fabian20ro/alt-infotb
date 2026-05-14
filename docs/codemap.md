@@ -132,7 +132,7 @@ All tunable values live in `src/lib/api/constants.ts`:
 | `API.TIMEOUT` | `10000` | Request timeout (ms) |
 | `STB_AUTH_PATH` | `/proxy/user/auth` | Auth endpoint path |
 | `createStbServerHeaders()` | function(appId) → headers | Headers injected by proxy (credentials from env) |
-| `AUTO_REFRESH_INTERVAL` | `30000` | Auto-refresh period (ms) |
+| `ARRIVALS_REFRESH_INTERVAL` | `20000` | Auto-refresh period (ms) |
 | `PROTO_FIELDS` | Field numbers | Protobuf schema mapping |
 
 ## Test structure
