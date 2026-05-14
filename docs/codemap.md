@@ -19,7 +19,6 @@ src/
 │   │   ├── stb-api.integration.test.ts  Real API integration tests (network)
 │   │   └── types.ts                TypeScript interfaces
 │   ├── components/
-│   │   ├── ArrivalBoard.svelte     Legacy board (kept for reference)
 │   │   ├── ArrivalRow.svelte       Single line row (badge, direction, times)
 │   │   ├── DrawerMenu.svelte       Hamburger drawer (favorites, recents, settings)
 │   │   ├── LastUpdated.svelte      "actualizat: HH:MM" footer text

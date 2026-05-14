@@ -504,6 +504,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-14] Sync codemap with current component tree
+
+**Context:** `docs/codemap.md` still listed a legacy `ArrivalBoard.svelte` component that no longer exists in `src/lib/components/`.
+**What happened:** Removed the stale `ArrivalBoard.svelte` row from the codemap so the documented component tree matches the live file list.
+**Outcome:** Success — the codemap no longer advertises a deleted component.
+**Insight:** Codemap docs need the same deletion hygiene as source code; verify the actual directory contents before keeping legacy rows.
+**Promoted to Lessons Learned:** No
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ### [2026-05-14] Sync architecture and codemap with current arrivals loading UI
 
