@@ -495,6 +495,16 @@ Each entry should follow this structure:
 ---
 
 <!-- New entries go above this line, most recent first -->
+### [2026-05-14] Document map marker cap and selected-station pinning
+
+**Context:** The map viewport already limits visible markers to keep rendering useful, but the README did not mention the 100-marker cap or the rule that the selected station stays visible.
+**What happened:** Updated the README feature list to mention the 100-marker viewport cap and the selected-station pinning behavior already implemented in `src/lib/components/MapView.svelte` and covered by `src/lib/stations/geo.test.ts`.
+**Outcome:** Success — the user-facing docs now reflect the map's current visibility contract.
+**Insight:** Small UI caps are easy to miss in high-level docs; if they affect what users can see, call them out explicitly.
+**Promoted to Lessons Learned:** No
+
+---
+
 ## 2023-11-20
 *   Added `title` attributes to the "Menu" and "Favorite" icon buttons in `StationHeader.svelte` to provide native hover tooltips.
 *   Added `aria-busy` and `aria-label` to the skeleton loading container in `ArrivalRow.svelte` to improve screen reader feedback.
