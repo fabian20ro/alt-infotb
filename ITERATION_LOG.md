@@ -505,6 +505,15 @@ Each entry should follow this structure:
 ---
 
 <!-- New entries go above this line, most recent first -->
+### [2026-05-14] Sync architecture and codemap with current arrivals loading UI
+
+**Context:** The docs still referred to a deleted `RefreshButton.svelte`, described the arrival strip as an auto-refresh bar, and said station freshness was checked on a 24h window. The runtime now uses a loading bar in `StationArrivals.svelte` and a 4 AM Romanian transit-day boundary for station freshness.
+**What happened:** Updated `docs/codemap.md` to remove the stale `RefreshButton.svelte` entry and expand the `StationArrivals.svelte` description. Updated `docs/architecture.md` so the UI sketch says `loading bar` and the station cache section reflects the 4 AM Romanian day boundary.
+**Outcome:** Success — the docs now match the current component tree and station freshness contract.
+**Insight:** When a component disappears, codemap-style documentation is easy to leave behind; verify the live file list before assuming the tree still matches.
+**Promoted to Lessons Learned:** Yes
+
+---
 ### [2026-05-14] Document map marker cap and selected-station pinning
 
 **Context:** The map viewport already limits visible markers to keep rendering useful, but the README did not mention the 100-marker cap or the rule that the selected station stays visible.

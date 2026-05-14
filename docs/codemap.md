@@ -24,8 +24,7 @@ src/
 │   │   ├── DrawerMenu.svelte       Hamburger drawer (favorites, recents, settings)
 │   │   ├── LastUpdated.svelte      "actualizat: HH:MM" footer text
 │   │   ├── MapView.svelte          Leaflet map (viewport-based filtering, marker cache, debounce)
-│   │   ├── RefreshButton.svelte    Refresh icon + auto-refresh toggle
-│   │   ├── StationArrivals.svelte  Scrollable arrival list for selected station
+│   │   ├── StationArrivals.svelte  Scrollable arrival list for selected station, retry button, loading bar
 │   │   ├── StationHeader.svelte    Burger menu + station name + favorite button
 │   │   └── map/
 │   │       ├── station-icons.ts    Station marker icons by transport type

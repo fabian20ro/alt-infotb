@@ -56,6 +56,8 @@ move it to the Archive section at the bottom with a date and reason.
 **[2026-05-07]** Search queries should normalize internal whitespace before matching — Users may paste station names with repeated spaces. Collapse whitespace in the shared normalizer so exact/contains matches still work after trimming and diacritic folding.
 **[2026-05-12]** Station search should ignore punctuation in names and queries — Abbreviations like `C.F.R.` and hyphenated names should normalize to plain alphanumerics so users can search `CFR Progresul` or similar without matching literal punctuation.
 
+**[2026-05-14]** Codemap entries should be verified against the actual component file list after deletions — `docs/codemap.md` can lag when a file like `RefreshButton.svelte` is removed, so check `src/lib/components/*.svelte` before syncing the directory tree.
+
 ## Testing & Quality
 
 **[2026-02-14]** Protobuf tests need encoding helpers — Tests for the protobuf decoder require building valid binary messages. Use `encodeVarint`, `encodeStringField`, `encodeVarintField`, and `encodeMessageField` helpers (defined in `proto.test.ts`) to construct test fixtures.
