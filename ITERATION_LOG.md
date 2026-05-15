@@ -524,6 +524,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-15] Document tab-resume refresh behavior in README
+
+**Context:** The runtime already refreshes arrivals immediately when the tab regains focus or visibility, but the top-level README only mentioned the fixed 20s polling cadence.
+**What happened:** Updated the README feature list to say the app auto-refreshes every 20s and also refreshes immediately when returning to the tab, matching the `visibilitychange` and `focus` handlers in `src/routes/+page.svelte`.
+**Outcome:** Success — the user-facing docs now describe the full refresh contract.
+**Insight:** Small docs syncs should capture the full user-visible behavior, not just the periodic timer.
+**Promoted to Lessons Learned:** No
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ### [2026-05-15] Verify Vitest suite count and document runner flag mismatch
 
