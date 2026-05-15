@@ -3,7 +3,7 @@
 [![Build](https://github.com/fabian20ro/alt-stb/actions/workflows/deploy.yml/badge.svg)](https://github.com/fabian20ro/alt-stb/actions/workflows/deploy.yml)
 
 Real-time arrivals for bus, tram, trolleybus, and subway across Bucharest.
-No accounts, no tracking, runs entirely in your browser.
+No accounts, no tracking. The UI runs in your browser; transit requests go through a lightweight proxy for STB auth.
 
 **[Open the live app](https://fabian20ro.github.io/alt-stb/)**
 

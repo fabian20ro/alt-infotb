@@ -534,6 +534,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-15] Clarify proxy boundary in README intro
+
+**Context:** The top-level README said the app "runs entirely in your browser," which blurred the actual proxy boundary used for STB auth requests.
+**What happened:** Updated `README.md` to say the UI runs in the browser while transit requests go through a lightweight proxy, matching the real request path already described elsewhere in the docs.
+**Outcome:** Success — the opening copy is now more accurate about the browser/proxy split.
+**Insight:** Intro copy should match the real network boundary, not just the user-facing UI surface.
+**Promoted to Lessons Learned:** No
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ### [2026-05-15] Document drawer data-update timestamp in README
 
