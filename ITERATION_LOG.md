@@ -514,6 +514,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-05-15] Sync codemap test count with current Vitest suite
+
+**Context:** `docs/codemap.md` still listed the unit test suite as 78 tests, but the live Vitest run had grown.
+**What happened:** Ran `npm test` to verify the current suite size, then updated the codemap's test-structure table to report 94 unit tests.
+**Outcome:** Success — the codemap now matches the current unit-test count.
+**Insight:** When docs record test counts, verify the actual runner output first; small suites drift quickly as coverage grows.
+**Promoted to Lessons Learned:** Yes
+
+---
+
 <!-- New entries go above this line, most recent first -->
 ### [2026-05-14] Sync architecture and codemap with current arrivals loading UI
 

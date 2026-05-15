@@ -66,6 +66,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-15]** Exclude integration and E2E tests from `npm test` — Vitest picks up `*.integration.test.ts` and Playwright's `e2e/` files unless explicitly excluded. Use `--exclude` flags in the test script. Integration tests use a separate vitest config (`vitest.integration.config.ts`).
 
+**[2026-05-15]** Verify actual Vitest output before syncing test-count docs — `docs/codemap.md` test totals can drift as new unit tests are added. Use the live `npm test` summary as the source of truth before updating the documented suite count.
+
 ## Performance & Infrastructure
 
 **[2026-02-14]** CI runs type-check, tests, then build — The GitHub Actions workflow (`deploy.yml`) runs `npm run check`, `npm test`, and `npm run build` in sequence. It also runs on PRs (not just main branch pushes), with deploy only on main/master.
