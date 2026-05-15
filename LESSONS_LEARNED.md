@@ -68,6 +68,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-05-15]** Verify actual Vitest output before syncing test-count docs — `docs/codemap.md` test totals can drift as new unit tests are added. Use the live `npm test` summary as the source of truth before updating the documented suite count.
 
+**[2026-05-15]** Vitest does not accept Jest's `--runInBand` flag — use the repo's plain `npm test` script or Vitest-native concurrency flags instead. Passing Jest-only flags through the npm script fails fast with `Unknown option`, so verify the runner's CLI before reusing muscle memory from another test tool.
+
 ## Performance & Infrastructure
 
 **[2026-02-14]** CI runs type-check, tests, then build — The GitHub Actions workflow (`deploy.yml`) runs `npm run check`, `npm test`, and `npm run build` in sequence. It also runs on PRs (not just main branch pushes), with deploy only on main/master.

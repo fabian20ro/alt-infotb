@@ -525,6 +525,16 @@ Each entry should follow this structure:
 ---
 
 <!-- New entries go above this line, most recent first -->
+### [2026-05-15] Verify Vitest suite count and document runner flag mismatch
+
+**Context:** The codemap lists the unit-test suite count, and the current run needed to confirm whether it still matched the live runner output.
+**What happened:** Ran `npm test` to capture the actual Vitest summary. The suite reported 10 files and 94 passing tests, which already matched `docs/codemap.md`. A follow-up attempt to pass `--runInBand` through the npm test script failed because Vitest does not recognize that Jest flag.
+**Outcome:** Success — the documented test count is still correct, and the runner behavior is now recorded for future runs.
+**Insight:** When reusing test commands, confirm the runner's own CLI; Jest flags do not necessarily translate to Vitest.
+**Promoted to Lessons Learned:** Yes
+
+---
+
 ### [2026-05-14] Sync architecture and codemap with current arrivals loading UI
 
 **Context:** The docs still referred to a deleted `RefreshButton.svelte`, described the arrival strip as an auto-refresh bar, and said station freshness was checked on a 24h window. The runtime now uses a loading bar in `StationArrivals.svelte` and a 4 AM Romanian transit-day boundary for station freshness.
