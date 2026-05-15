@@ -535,6 +535,16 @@ Each entry should follow this structure:
 ---
 
 <!-- New entries go above this line, most recent first -->
+### [2026-05-15] Document drawer data-update timestamp in README
+
+**Context:** The app already shows the last successful station data update time in the drawer, but the top-level README feature list did not mention it.
+**What happened:** Updated `README.md` to add the drawer timestamp to the Features list so the user-facing docs match the visible UI affordance.
+**Outcome:** Success — documentation now reflects the persisted data freshness indicator.
+**Insight:** Small discoverability gaps are easy to miss in docs when the feature lives in a secondary UI surface like the drawer.
+**Promoted to Lessons Learned:** No
+
+---
+
 ### [2026-05-15] Verify Vitest suite count and document runner flag mismatch
 
 **Context:** The codemap lists the unit-test suite count, and the current run needed to confirm whether it still matched the live runner output.

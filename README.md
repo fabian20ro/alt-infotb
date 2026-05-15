@@ -18,6 +18,7 @@ No accounts, no tracking, runs entirely in your browser.
 - Installable as PWA, including iOS Home Screen support
 - Fixed auto-refresh every 20s, with immediate refresh when you return to the tab
 - Station data freshness follows the 4 AM Romanian transit-day boundary
+- Drawer shows the last successful station data update time
 - Offline support with cached data
 
 ## Tech Stack
