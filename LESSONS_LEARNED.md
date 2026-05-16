@@ -55,6 +55,7 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-05-07]** Search queries should normalize internal whitespace before matching — Users may paste station names with repeated spaces. Collapse whitespace in the shared normalizer so exact/contains matches still work after trimming and diacritic folding.
 **[2026-05-12]** Station search should ignore punctuation in names and queries — Abbreviations like `C.F.R.` and hyphenated names should normalize to plain alphanumerics so users can search `CFR Progresul` or similar without matching literal punctuation.
+**[2026-05-16]** Station search should treat dash separators as spaces — ASCII hyphens and typographic dashes in names/queries should become spaces before punctuation stripping, or compounds like `Piața–Unirii — Nord` collapse into a single token and stop matching plain queries.
 
 **[2026-05-14]** Codemap entries should be verified against the actual component file list after deletions — `docs/codemap.md` can lag when a file like `RefreshButton.svelte` is removed, so check `src/lib/components/*.svelte` before syncing the directory tree.
 

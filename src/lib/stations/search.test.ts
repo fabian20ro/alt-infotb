@@ -30,6 +30,14 @@ describe('normalize', () => {
 		expect(searchStations('CFR Progresul', punctuationStations)[0].name).toBe('C.F.R. Progresul');
 	});
 
+	it('strips typographic dashes from station names and queries', () => {
+		expect(normalize('Piața–Unirii — Nord')).toBe('piata unirii nord');
+		const dashStations: Station[] = [
+			{ id: 1006, name: 'Piața–Unirii — Nord', description: '', lat: 44.43, lon: 26.09 },
+		];
+		expect(searchStations('Piata Unirii Nord', dashStations)[0].name).toBe('Piața–Unirii — Nord');
+	});
+
 	it('handles punctuation and extra whitespace together', () => {
 		const punctuationStations: Station[] = [
 			{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.43, lon: 26.09 },

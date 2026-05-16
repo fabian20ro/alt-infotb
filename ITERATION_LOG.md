@@ -545,6 +545,15 @@ Each entry should follow this structure:
 ---
 
 <!-- New entries go above this line, most recent first -->
+### [2026-05-16] Make station search treat dash separators as spaces
+
+**Context:** Users may paste station names with hyphen, en dash, or em dash separators, and the old normalizer removed them entirely, collapsing compound names into a single token.
+**What happened:** Updated `normalize()` to turn ASCII, en, and em dashes into spaces before stripping the rest of the punctuation, added a regression test for a dash-separated station name, and verified the focused search suite plus the full unit test suite.
+**Outcome:** Success — dash-separated names and plain-space queries now match, and `npm test` passes with 95 tests.
+**Insight:** Separator punctuation should preserve word boundaries, not just disappear, or compound names become harder to search.
+**Promoted to Lessons Learned:** Yes
+
+---
 ### [2026-05-15] Document drawer data-update timestamp in README
 
 **Context:** The app already shows the last successful station data update time in the drawer, but the top-level README feature list did not mention it.
