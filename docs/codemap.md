@@ -42,7 +42,7 @@ src/
 │   │   ├── format.test.ts          Tests for format utilities
 │   │   ├── geo.ts                  Haversine distance, nearest stations, viewport bounds filter
 │   │   ├── geo.test.ts             Tests for geo utilities
-│   │   ├── search.ts              Fuzzy search with diacritics stripping
+│   │   ├── search.ts              Fuzzy search with diacritics, punctuation, dash, and whitespace normalization
 │   │   └── search.test.ts         Tests for station search
 │   ├── stores/
 │   │   ├── arrivals.svelte.ts      Arrivals store + time formatters

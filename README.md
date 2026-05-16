@@ -13,7 +13,7 @@ No accounts, no tracking. The UI runs in your browser; transit requests go throu
 - Interactive map with GPS-based station discovery
 - Map caps visible markers at 100 and always keeps the selected station on screen
 - Favorites and recent stations
-- Station search tolerates Romanian diacritics, punctuation, and extra whitespace
+- Station search tolerates Romanian diacritics, punctuation, dash separators, and extra whitespace
 - Light/dark theme, Romanian/English
 - Installable as PWA, including iOS Home Screen support
 - Fixed auto-refresh every 20s, with immediate refresh when you return to the tab

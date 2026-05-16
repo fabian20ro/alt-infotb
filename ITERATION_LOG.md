@@ -545,6 +545,15 @@ Each entry should follow this structure:
 ---
 
 <!-- New entries go above this line, most recent first -->
+### [2026-05-16] Sync station search docs with dash-separator normalization
+
+**Context:** The search helper already normalized Romanian diacritics, punctuation, dash separators, and extra whitespace, but the top-level README and codemap still described the feature more narrowly.
+**What happened:** Updated `README.md` to mention dash separators in the search feature bullet and updated `docs/codemap.md` to describe the full normalization behavior.
+**Outcome:** Success — the user-facing docs now match the search contract implemented in `src/lib/stations/search.ts` and covered by `src/lib/stations/search.test.ts`.
+**Insight:** When normalization grows beyond a single category like punctuation, the docs should name every user-visible class of input the helper accepts.
+**Promoted to Lessons Learned:** No
+
+---
 ### [2026-05-16] Make station search treat dash separators as spaces
 
 **Context:** Users may paste station names with hyphen, en dash, or em dash separators, and the old normalizer removed them entirely, collapsing compound names into a single token.
