@@ -21,6 +21,29 @@ describe('normalize', () => {
 	it('preserves non-diacritic characters', () => {
 		expect(normalize('abc 123')).toBe('abc 123');
 	});
+
+	it('strips punctuation from station names and queries', () => {
+		expect(normalize('C.F.R. Progresul')).toBe('cfr progresul');
+		const punctuationStations: Station[] = [
+			{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.43, lon: 26.09 },
+		];
+		expect(searchStations('CFR Progresul', punctuationStations)[0].name).toBe('C.F.R. Progresul');
+	});
+
+	it('strips typographic dashes from station names and queries', () => {
+		expect(normalize('Piața–Unirii — Nord')).toBe('piata unirii nord');
+		const dashStations: Station[] = [
+			{ id: 1006, name: 'Piața–Unirii — Nord', description: '', lat: 44.43, lon: 26.09 },
+		];
+		expect(searchStations('Piata Unirii Nord', dashStations)[0].name).toBe('Piața–Unirii — Nord');
+	});
+
+	it('handles punctuation and extra whitespace together', () => {
+		const punctuationStations: Station[] = [
+			{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.43, lon: 26.09 },
+		];
+		expect(searchStations('  C.F.R.   Progresul  ', punctuationStations)[0].name).toBe('C.F.R. Progresul');
+	});
 });
 
 describe('searchStations', () => {
@@ -31,6 +54,7 @@ describe('searchStations', () => {
 		{ id: 1002, name: 'Piata Romana', description: 'Bd. Magheru', lat: 44.4470, lon: 26.0971 },
 		{ id: 1003, name: 'Eroilor', description: 'Bd. Eroilor', lat: 44.4350, lon: 26.0850 },
 		{ id: 1004, name: 'Stefan cel Mare', description: '', lat: 44.4450, lon: 26.1100 },
+		{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.4300, lon: 26.0900 },
 	];
 
 	it('finds exact name matches', () => {
@@ -47,6 +71,10 @@ describe('searchStations', () => {
 	it('finds partial matches', () => {
 		const results = searchStations('Piata', stations);
 		expect(results.length).toBeGreaterThanOrEqual(3);
+	});
+
+	it('handles queries with extra internal whitespace', () => {
+		expect(searchStations('  Piata   Unirii  ', stations)[0].name).toBe('Piata Unirii');
 	});
 
 	it('is case insensitive', () => {

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { isNewRomanianDay } from './data.js';
 
 describe('isNewRomanianDay', () => {
@@ -16,5 +16,16 @@ describe('isNewRomanianDay', () => {
 		// 48 hours ago is definitely a previous transit day
 		const old = Date.now() - 48 * 60 * 60 * 1000;
 		expect(isNewRomanianDay(old)).toBe(true);
+	});
+
+	it('switches at 4 AM Romanian time across DST-safe local boundaries', () => {
+		const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 4, 11, 1, 30));
+
+		try {
+			expect(isNewRomanianDay(Date.UTC(2026, 4, 11, 0, 59))).toBe(true);
+			expect(isNewRomanianDay(Date.UTC(2026, 4, 11, 1, 1))).toBe(false);
+		} finally {
+			nowSpy.mockRestore();
+		}
 	});
 });

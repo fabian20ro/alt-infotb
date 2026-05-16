@@ -53,6 +53,12 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-15]** Multi-stop fetch+merge pattern for metro stations — `fetchArrivals()` accepts `number | number[]`. For arrays, use `Promise.allSettled` (not `Promise.all`) to tolerate partial failures. Merge by concatenating arrivals from all successful fetches and re-sorting. This way, one failing platform doesn't crash the entire station's view.
 
+**[2026-05-07]** Search queries should normalize internal whitespace before matching — Users may paste station names with repeated spaces. Collapse whitespace in the shared normalizer so exact/contains matches still work after trimming and diacritic folding.
+**[2026-05-12]** Station search should ignore punctuation in names and queries — Abbreviations like `C.F.R.` and hyphenated names should normalize to plain alphanumerics so users can search `CFR Progresul` or similar without matching literal punctuation.
+**[2026-05-16]** Station search should treat dash separators as spaces — ASCII hyphens and typographic dashes in names/queries should become spaces before punctuation stripping, or compounds like `Piața–Unirii — Nord` collapse into a single token and stop matching plain queries.
+
+**[2026-05-14]** Codemap entries should be verified against the actual component file list after deletions — `docs/codemap.md` can lag when a file like `RefreshButton.svelte` is removed, so check `src/lib/components/*.svelte` before syncing the directory tree.
+
 ## Testing & Quality
 
 **[2026-02-14]** Protobuf tests need encoding helpers — Tests for the protobuf decoder require building valid binary messages. Use `encodeVarint`, `encodeStringField`, `encodeVarintField`, and `encodeMessageField` helpers (defined in `proto.test.ts`) to construct test fixtures.
@@ -60,6 +66,10 @@ move it to the Archive section at the bottom with a date and reason.
 **[2026-02-15]** E2E tests must run serially (1 worker) — Playwright tests hit the Vite dev proxy which makes real API calls. Running multiple workers in parallel causes auth token race conditions and 15s timeouts. Set `workers: 1` in `playwright.config.ts`.
 
 **[2026-02-15]** Exclude integration and E2E tests from `npm test` — Vitest picks up `*.integration.test.ts` and Playwright's `e2e/` files unless explicitly excluded. Use `--exclude` flags in the test script. Integration tests use a separate vitest config (`vitest.integration.config.ts`).
+
+**[2026-05-15]** Verify actual Vitest output before syncing test-count docs — `docs/codemap.md` test totals can drift as new unit tests are added. Use the live `npm test` summary as the source of truth before updating the documented suite count.
+
+**[2026-05-15]** Vitest does not accept Jest's `--runInBand` flag — use the repo's plain `npm test` script or Vitest-native concurrency flags instead. Passing Jest-only flags through the npm script fails fast with `Unknown option`, so verify the runner's CLI before reusing muscle memory from another test tool.
 
 ## Performance & Infrastructure
 

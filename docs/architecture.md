@@ -95,9 +95,9 @@ message ArrivalEntry {
 | [=] Station Name           [fav] |  <- StationHeader (48px)
 |   Address subtitle               |
 |----------------------------------|
-|  Scrollable arrival rows         |  <- StationArrivals (flex: 1)
-|  [Line] Direction    Time Time   |     ArrivalRow per line
-|  auto-refresh bar                |
+||  Scrollable arrival rows         |  <- StationArrivals (flex: 1)
+||  [Line] Direction    Time Time   |     ArrivalRow per line
+||  loading bar                     |
 |==================================|
 |          Leaflet Map             |  <- MapView (50dvh)
 |     Station markers + GPS dot    |     Viewport-filtered, 100-marker cap
@@ -136,8 +136,8 @@ First load:
 
 Subsequent loads:
   1. Load from IndexedDB (instant)
-  2. Check if > 24h stale
-  3. Background refresh if stale
+  2. Check if the 4 AM Romanian transit-day boundary has passed
+  3. Background timestamp refresh if stale
 
 Station selection:
   1. Tap map marker → selectStation(station)

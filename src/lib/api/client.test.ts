@@ -37,14 +37,15 @@ describe('apiFetchBinary', () => {
 		expect(options.headers['Device-Name']).toBeUndefined();
 	});
 
-	it('throws ApiError on HTTP error', async () => {
+	it('throws helpful error on 401 or 403', async () => {
 		vi.stubGlobal(
 			'fetch',
-			vi.fn().mockResolvedValue({ ok: false, status: 500 })
+			vi.fn().mockResolvedValue({ ok: false, status: 401 })
 		);
 
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(ApiError);
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow('HTTP 500');
+		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
+			'HTTP 401 (Check auth token/proxy configuration)'
+		);
 	});
 
 	it('throws ApiError on network failure', async () => {

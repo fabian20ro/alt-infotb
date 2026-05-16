@@ -404,9 +404,204 @@ Each entry should follow this structure:
 
 **Promoted to Lessons Learned:** No (single-iteration implementation details; no recurring multi-session pattern yet)
 
+### [2026-05-07] Normalize whitespace in station search queries
+
+**Context:** Search felt brittle when users pasted station names with repeated spaces or odd spacing between words.
+**What happened:** Updated the shared search normalizer to collapse internal whitespace before lowercasing, and added a unit test covering a query like `"  Piata   Unirii  "`.
+**Outcome:** Success — focused Vitest coverage passed for the search suite.
+**Insight:** Query normalization should cover both diacritics and spacing; users often paste imperfect text, and search should still do the obvious thing.
+**Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-05-11] Repo sweep: keep tests green during branch audit
+
+**Context:** Ran a one-by-one test sweep across the repos under `/workspace/git` on the current branch.
+**What happened:** Verified `npm test` in `alt-stb` failed, traced the failure to auth/error messaging expectations, and updated `src/lib/api/client.ts` so 401/403 responses include a proxy/auth hint. Re-ran the suite and confirmed it passed.
+**Outcome:** Success — `npm test` passes and the repo is left with only the intended tracked edit.
+**Insight:** Keep HTTP error changes narrow; a small context hint can satisfy the test while preserving the underlying status handling.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-05-11] Document iOS PWA install support in the README
+
+**Context:** The app already supports Home Screen install on iOS, but the top-level README only said "Installable as PWA".
+**What happened:** Updated the feature list in `README.md` to mention iOS Home Screen support explicitly.
+**Outcome:** Success — documentation now reflects the current installability surface more accurately.
+**Insight:** Small doc mismatches matter when they hide platform support that is already shipped.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-05-11] Add 4 AM Romanian boundary regression for station staleness
+
+**Context:** Station data freshness already depends on the 4 AM Romanian transit-day boundary, but the test suite only covered generic "recent" and "old" timestamps.
+**What happened:** Added a Vitest regression in `src/lib/stations/data.test.ts` that mocks `Date.now()` and checks the boundary around 04:00 Europe/Bucharest local time (03:59 stays previous day, 04:01 stays current day). Verified the targeted test file with `npm test -- src/lib/stations/data.test.ts`.
+**Outcome:** Success — focused test passed. The repository still emits existing TypeScript resolution noise during the patch helper's auto-lint step, but that did not affect the runtime test.
+**Insight:** Direct boundary tests are the best guard for timezone-sensitive logic that depends on both `Date.now()` and `Intl.DateTimeFormat(..., { timeZone: 'Europe/Bucharest' })`.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-05-12] Document the 4 AM transit-day freshness boundary
+
+**Context:** The app already uses the 4 AM Romanian transit-day boundary for station staleness, but the README did not mention that user-facing freshness rule.
+**What happened:** Added a short README feature note that station data freshness follows the 4 AM Romanian transit-day boundary, keeping the docs aligned with the behavior already covered by `src/lib/stations/data.ts` and its regression tests.
+**Outcome:** Success — documentation now explains the freshness boundary that drives station refresh checks.
+**Insight:** When a timezone-sensitive contract is user-visible, a one-line README note can prevent confusion without expanding scope.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-05-12] Punctuation-insensitive station search normalization
+
+**Context:** Station search needed to handle abbreviations and punctuation-heavy names like `C.F.R. Progresul` when users type plain `CFR Progresul`.
+**What happened:** Updated the shared station-name normalizer to strip punctuation before matching, added a regression test for `C.F.R. Progresul`, and verified the station search suite plus the broader station unit test set.
+**Outcome:** Success — search now matches punctuation-free queries against punctuation-heavy station names; 37 station tests pass.
+**Insight:** Search normalization should handle both whitespace and punctuation, or common station abbreviations become awkward to find.
+**Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-05-13] Punctuation-insensitive station search regression
+
+**Context:** The shared station search normalizer already strips punctuation, but the tests did not explicitly lock that behavior for abbreviations like `C.F.R. Progresul`.
+**What happened:** Added a regression in `src/lib/stations/search.test.ts` that checks both `normalize('C.F.R. Progresul')` and a punctuation-free query against the punctuated station name. Verified the focused search test file with Vitest.
+**Outcome:** Success — the search suite passes. The patch helper's auto-lint step emitted pre-existing TypeScript module-resolution noise and a `tsc` permission-denied failure, but the runtime test was green.
+**Insight:** If punctuation stripping is part of the search contract, a direct regression test is the cheapest way to keep common abbreviations working.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-05-13] Document forgiving station search normalization
+
+**Context:** The station-search helper already normalizes Romanian diacritics, punctuation, and extra whitespace, but the user-facing docs did not mention it.
+**What happened:** Updated `README.md` to advertise forgiving station search and clarified the `search.ts` JSDoc so the normalization contract is easier to discover. Ran the focused `src/lib/stations/search.test.ts` Vitest file to confirm the search surface still passes.
+**Outcome:** Success — docs are aligned with the existing search behavior and the focused search suite passed.
+**Insight:** Small docs updates are still worth grounding in the actual contract surface so the README and helper comments stay consistent.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-05-13] Lock punctuation-plus-whitespace search regression
+
+**Context:** Search normalization already handled diacritics, punctuation, and internal whitespace, but there was no explicit regression covering a punctuated station query with surrounding extra spaces.
+**What happened:** Added a focused Vitest case for `C.F.R. Progresul` with extra leading/trailing whitespace, verified the search suite, and kept the change test-only. The patch helper's auto-lint step still emitted the repo's pre-existing Vitest/Vite TypeScript resolution noise.
+**Outcome:** Success — the focused search suite passes with 15 tests, and no runtime code changed.
+**Insight:** Even a tiny regression test can pin a useful contract boundary without widening scope; keep the query shape aligned with behavior the normalizer already supports.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-05-14] Sync README and codemap with fixed 20s auto-refresh
+
+**Context:** Top-level docs still described the old optional 30s auto-refresh copy, while the runtime now uses a fixed 20s polling interval.
+**What happened:** Updated `README.md` to describe fixed 20s auto-refresh and `docs/codemap.md` to rename the constant entry to `ARRIVALS_REFRESH_INTERVAL = 20000`, matching `src/lib/api/constants.ts` and the arrivals store.
+**Outcome:** Success — user-facing and internal docs now match the current polling contract.
+**Insight:** Small constant-name drift is worth fixing in both public README copy and code maps so the docs don't preserve a stale behavior label.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-05-14] Sync codemap with current component tree
+
+**Context:** `docs/codemap.md` still listed a legacy `ArrivalBoard.svelte` component that no longer exists in `src/lib/components/`.
+**What happened:** Removed the stale `ArrivalBoard.svelte` row from the codemap so the documented component tree matches the live file list.
+**Outcome:** Success — the codemap no longer advertises a deleted component.
+**Insight:** Codemap docs need the same deletion hygiene as source code; verify the actual directory contents before keeping legacy rows.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-05-15] Sync codemap test count with current Vitest suite
+
+**Context:** `docs/codemap.md` still listed the unit test suite as 78 tests, but the live Vitest run had grown.
+**What happened:** Ran `npm test` to verify the current suite size, then updated the codemap's test-structure table to report 94 unit tests.
+**Outcome:** Success — the codemap now matches the current unit-test count.
+**Insight:** When docs record test counts, verify the actual runner output first; small suites drift quickly as coverage grows.
+**Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-05-15] Document tab-resume refresh behavior in README
+
+**Context:** The runtime already refreshes arrivals immediately when the tab regains focus or visibility, but the top-level README only mentioned the fixed 20s polling cadence.
+**What happened:** Updated the README feature list to say the app auto-refreshes every 20s and also refreshes immediately when returning to the tab, matching the `visibilitychange` and `focus` handlers in `src/routes/+page.svelte`.
+**Outcome:** Success — the user-facing docs now describe the full refresh contract.
+**Insight:** Small docs syncs should capture the full user-visible behavior, not just the periodic timer.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-05-15] Clarify proxy boundary in README intro
+
+**Context:** The top-level README said the app "runs entirely in your browser," which blurred the actual proxy boundary used for STB auth requests.
+**What happened:** Updated `README.md` to say the UI runs in the browser while transit requests go through a lightweight proxy, matching the real request path already described elsewhere in the docs.
+**Outcome:** Success — the opening copy is now more accurate about the browser/proxy split.
+**Insight:** Intro copy should match the real network boundary, not just the user-facing UI surface.
+**Promoted to Lessons Learned:** No
+
 ---
 
 <!-- New entries go above this line, most recent first -->
+### [2026-05-16] Sync station search docs with dash-separator normalization
+
+**Context:** The search helper already normalized Romanian diacritics, punctuation, dash separators, and extra whitespace, but the top-level README and codemap still described the feature more narrowly.
+**What happened:** Updated `README.md` to mention dash separators in the search feature bullet and updated `docs/codemap.md` to describe the full normalization behavior.
+**Outcome:** Success — the user-facing docs now match the search contract implemented in `src/lib/stations/search.ts` and covered by `src/lib/stations/search.test.ts`.
+**Insight:** When normalization grows beyond a single category like punctuation, the docs should name every user-visible class of input the helper accepts.
+**Promoted to Lessons Learned:** No
+
+---
+### [2026-05-16] Make station search treat dash separators as spaces
+
+**Context:** Users may paste station names with hyphen, en dash, or em dash separators, and the old normalizer removed them entirely, collapsing compound names into a single token.
+**What happened:** Updated `normalize()` to turn ASCII, en, and em dashes into spaces before stripping the rest of the punctuation, added a regression test for a dash-separated station name, and verified the focused search suite plus the full unit test suite.
+**Outcome:** Success — dash-separated names and plain-space queries now match, and `npm test` passes with 95 tests.
+**Insight:** Separator punctuation should preserve word boundaries, not just disappear, or compound names become harder to search.
+**Promoted to Lessons Learned:** Yes
+
+---
+### [2026-05-15] Document drawer data-update timestamp in README
+
+**Context:** The app already shows the last successful station data update time in the drawer, but the top-level README feature list did not mention it.
+**What happened:** Updated `README.md` to add the drawer timestamp to the Features list so the user-facing docs match the visible UI affordance.
+**Outcome:** Success — documentation now reflects the persisted data freshness indicator.
+**Insight:** Small discoverability gaps are easy to miss in docs when the feature lives in a secondary UI surface like the drawer.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-05-15] Verify Vitest suite count and document runner flag mismatch
+
+**Context:** The codemap lists the unit-test suite count, and the current run needed to confirm whether it still matched the live runner output.
+**What happened:** Ran `npm test` to capture the actual Vitest summary. The suite reported 10 files and 94 passing tests, which already matched `docs/codemap.md`. A follow-up attempt to pass `--runInBand` through the npm test script failed because Vitest does not recognize that Jest flag.
+**Outcome:** Success — the documented test count is still correct, and the runner behavior is now recorded for future runs.
+**Insight:** When reusing test commands, confirm the runner's own CLI; Jest flags do not necessarily translate to Vitest.
+**Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-05-14] Sync architecture and codemap with current arrivals loading UI
+
+**Context:** The docs still referred to a deleted `RefreshButton.svelte`, described the arrival strip as an auto-refresh bar, and said station freshness was checked on a 24h window. The runtime now uses a loading bar in `StationArrivals.svelte` and a 4 AM Romanian transit-day boundary for station freshness.
+**What happened:** Updated `docs/codemap.md` to remove the stale `RefreshButton.svelte` entry and expand the `StationArrivals.svelte` description. Updated `docs/architecture.md` so the UI sketch says `loading bar` and the station cache section reflects the 4 AM Romanian day boundary.
+**Outcome:** Success — the docs now match the current component tree and station freshness contract.
+**Insight:** When a component disappears, codemap-style documentation is easy to leave behind; verify the live file list before assuming the tree still matches.
+**Promoted to Lessons Learned:** Yes
+
+---
+### [2026-05-14] Document map marker cap and selected-station pinning
+
+**Context:** The map viewport already limits visible markers to keep rendering useful, but the README did not mention the 100-marker cap or the rule that the selected station stays visible.
+**What happened:** Updated the README feature list to mention the 100-marker viewport cap and the selected-station pinning behavior already implemented in `src/lib/components/MapView.svelte` and covered by `src/lib/stations/geo.test.ts`.
+**Outcome:** Success — the user-facing docs now reflect the map's current visibility contract.
+**Insight:** Small UI caps are easy to miss in high-level docs; if they affect what users can see, call them out explicitly.
+**Promoted to Lessons Learned:** No
+
+---
+
 ## 2023-11-20
 *   Added `title` attributes to the "Menu" and "Favorite" icon buttons in `StationHeader.svelte` to provide native hover tooltips.
 *   Added `aria-busy` and `aria-label` to the skeleton loading container in `ArrivalRow.svelte` to improve screen reader feedback.

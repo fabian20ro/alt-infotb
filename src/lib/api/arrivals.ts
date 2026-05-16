@@ -84,7 +84,7 @@ async function fetchSingleStop(stopId: number): Promise<StationArrivals> {
 	} catch (err) {
 		if (err instanceof ApiError) throw err;
 		if (err instanceof ProtoParseError) {
-			throw new ApiError('Date STB invalide (protobuf corupt)', 0);
+			throw new ApiError('Date STB invalid (protobuf corrupt)', 0);
 		}
 		throw new ApiError(
 			`Nu am putut contacta STB: ${err instanceof Error ? err.message : String(err)}`,
@@ -102,12 +102,12 @@ function mostCommonNonEmpty(values: string[]): string {
 	}
 	let best = '';
 	let bestCount = 0;
-	for (const [value, count] of counts) {
+	counts.forEach((count, value) => {
 		if (count > bestCount) {
 			best = value;
 			bestCount = count;
 		}
-	}
+	});
 	return best;
 }
 
@@ -147,10 +147,6 @@ function mergeArrivals(results: StationArrivals[]): StationArrivals {
  */
 export async function fetchArrivals(stopIds: number | number[]): Promise<StationArrivals> {
 	const ids = Array.isArray(stopIds) ? stopIds : [stopIds];
-
-	if (ids.length === 1) {
-		return fetchSingleStop(ids[0]);
-	}
 
 	const settled = await Promise.allSettled(ids.map(fetchSingleStop));
 	const successes = settled

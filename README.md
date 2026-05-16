@@ -3,7 +3,7 @@
 [![Build](https://github.com/fabian20ro/alt-stb/actions/workflows/deploy.yml/badge.svg)](https://github.com/fabian20ro/alt-stb/actions/workflows/deploy.yml)
 
 Real-time arrivals for bus, tram, trolleybus, and subway across Bucharest.
-No accounts, no tracking, runs entirely in your browser.
+No accounts, no tracking. The UI runs in your browser; transit requests go through a lightweight proxy for STB auth.
 
 **[Open the live app](https://fabian20ro.github.io/alt-stb/)**
 
@@ -11,10 +11,14 @@ No accounts, no tracking, runs entirely in your browser.
 
 - Real-time arrivals for all 2,710 STB stations (bus, tram, trolleybus, subway M1–M4)
 - Interactive map with GPS-based station discovery
+- Map caps visible markers at 100 and always keeps the selected station on screen
 - Favorites and recent stations
+- Station search tolerates Romanian diacritics, punctuation, dash separators, and extra whitespace
 - Light/dark theme, Romanian/English
-- Installable as PWA
-- Auto-refresh every 30s (optional)
+- Installable as PWA, including iOS Home Screen support
+- Fixed auto-refresh every 20s, with immediate refresh when you return to the tab
+- Station data freshness follows the 4 AM Romanian transit-day boundary
+- Drawer shows the last successful station data update time
 - Offline support with cached data
 
 ## Tech Stack
@@ -36,10 +40,15 @@ Transit data (c) STB SA / TPBI. This project is not affiliated with STB or TPBI.
 ## Development
 
 ```bash
+# Setup environment variables
+cp .env.example .env
+
+# Install dependencies
 npm install
+
+# Run development server
 npm run dev
 ```
-
 ## Test
 
 ```bash

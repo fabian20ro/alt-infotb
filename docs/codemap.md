@@ -19,13 +19,11 @@ src/
 │   │   ├── stb-api.integration.test.ts  Real API integration tests (network)
 │   │   └── types.ts                TypeScript interfaces
 │   ├── components/
-│   │   ├── ArrivalBoard.svelte     Legacy board (kept for reference)
 │   │   ├── ArrivalRow.svelte       Single line row (badge, direction, times)
 │   │   ├── DrawerMenu.svelte       Hamburger drawer (favorites, recents, settings)
 │   │   ├── LastUpdated.svelte      "actualizat: HH:MM" footer text
 │   │   ├── MapView.svelte          Leaflet map (viewport-based filtering, marker cache, debounce)
-│   │   ├── RefreshButton.svelte    Refresh icon + auto-refresh toggle
-│   │   ├── StationArrivals.svelte  Scrollable arrival list for selected station
+│   │   ├── StationArrivals.svelte  Scrollable arrival list for selected station, retry button, loading bar
 │   │   ├── StationHeader.svelte    Burger menu + station name + favorite button
 │   │   └── map/
 │   │       ├── station-icons.ts    Station marker icons by transport type
@@ -44,7 +42,7 @@ src/
 │   │   ├── format.test.ts          Tests for format utilities
 │   │   ├── geo.ts                  Haversine distance, nearest stations, viewport bounds filter
 │   │   ├── geo.test.ts             Tests for geo utilities
-│   │   ├── search.ts              Fuzzy search with diacritics stripping
+│   │   ├── search.ts              Fuzzy search with diacritics, punctuation, dash, and whitespace normalization
 │   │   └── search.test.ts         Tests for station search
 │   ├── stores/
 │   │   ├── arrivals.svelte.ts      Arrivals store + time formatters
@@ -132,13 +130,13 @@ All tunable values live in `src/lib/api/constants.ts`:
 | `API.TIMEOUT` | `10000` | Request timeout (ms) |
 | `STB_AUTH_PATH` | `/proxy/user/auth` | Auth endpoint path |
 | `createStbServerHeaders()` | function(appId) → headers | Headers injected by proxy (credentials from env) |
-| `AUTO_REFRESH_INTERVAL` | `30000` | Auto-refresh period (ms) |
+| `ARRIVALS_REFRESH_INTERVAL` | `20000` | Auto-refresh period (ms) |
 | `PROTO_FIELDS` | Field numbers | Protobuf schema mapping |
 
 ## Test structure
 
 | Script | What it runs | Tests | Network? |
 |---|---|---|---|
-| `npm test` | Unit tests (vitest) | 78 | No |
+| `npm test` | Unit tests (vitest) | 95 | No |
 | `npm run test:integration` | Real STB API calls (vitest) | 6 | Yes |
 | `npm run test:e2e` | Playwright browser tests | varies | Yes (via proxy) |

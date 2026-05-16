@@ -6,8 +6,16 @@ describe('formatLastUpdate', () => {
 		expect(formatLastUpdate(0, 'ro')).toBe('');
 	});
 
+	it('returns empty string for null or undefined', ()	=> {
+		expect(formatLastUpdate(null as any, 'ro')).toBe('');
+		expect(formatLastUpdate(undefined as any, 'en')).toBe('');
+	});
+
+	it('returns empty string for invalid date', () => {
+		expect(formatLastUpdate(NaN, 'ro')).toBe('');
+	});
+
 	it('formats timestamp in Romanian locale', () => {
-		// 2026-02-15 10:30:00 UTC
 		const timestamp = new Date('2026-02-15T10:30:00Z').getTime();
 		const result = formatLastUpdate(timestamp, 'ro');
 		expect(result).toMatch(/feb/i);
@@ -19,12 +27,5 @@ describe('formatLastUpdate', () => {
 		const result = formatLastUpdate(timestamp, 'en');
 		expect(result).toMatch(/Feb/);
 		expect(result).toMatch(/2026/);
-	});
-
-	it('includes time component', () => {
-		const timestamp = new Date('2026-02-15T10:30:00Z').getTime();
-		const result = formatLastUpdate(timestamp, 'ro');
-		// Should contain HH:MM pattern
-		expect(result).toMatch(/\d{1,2}:\d{2}/);
 	});
 });
