@@ -12,8 +12,11 @@ const DIACRITICS: Record<string, string> = {
 export function normalize(text: string): string {
 	return text
 		.replace(/[ăâîșțşţĂÂÎȘȚŞŢ]/g, (ch) => DIACRITICS[ch] ?? ch)
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.replace(/\./g, '')
 		.replace(/[\-–—]+/g, ' ')
-		.replace(/[.,;:'"’()\[\]{}!?/\\&+_]+/g, ' ')
+		.replace(/[,;:'"’()\[\]{}!?/\\&+_]+/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim()
 		.toLowerCase();

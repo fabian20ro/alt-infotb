@@ -614,3 +614,13 @@ Each entry should follow this structure:
 **Outcome:** Success — unit test suite passes after changes.
 **Insight:** Keeping parse-failure semantics explicit (`ProtoParseError` -> user-safe `ApiError`) improves debuggability without leaking low-level corruption details into UI.
 **Promoted to Lessons Learned:** No
+
+---
+
+### [2026-05-17] Harden station search for decomposed Unicode diacritics
+
+**Context:** Compound Autopilot selected a small, testable improvement around station-search normalization.
+**What happened:** Added coverage for pasted Romanian names that use decomposed Unicode combining marks, then extended `normalize()` to apply Unicode NFD decomposition and strip combining marks while preserving existing acronym punctuation behavior such as `C.F.R.` -> `cfr`.
+**Outcome:** Success — focused station-search tests, full unit tests, and Svelte type checks passed.
+**Insight:** Normalize decomposed Unicode after the explicit Romanian/cedilla map, and keep period stripping separate from punctuation-to-space replacement so acronym searches keep matching.
+**Promoted to Lessons Learned:** Yes

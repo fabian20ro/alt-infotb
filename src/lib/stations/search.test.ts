@@ -18,6 +18,11 @@ describe('normalize', () => {
 		expect(normalize('Ţepeş')).toBe('tepes');
 	});
 
+	it('handles decomposed Unicode diacritics from pasted text', () => {
+		expect(normalize('S\u0326tefan cel Mare')).toBe('stefan cel mare');
+		expect(normalize('T\u0326epes\u0326')).toBe('tepes');
+	});
+
 	it('preserves non-diacritic characters', () => {
 		expect(normalize('abc 123')).toBe('abc 123');
 	});
