@@ -13,7 +13,7 @@ export function normalize(text: string): string {
 	return text
 		.replace(/[ăâîșțşţĂÂÎȘȚŞŢ]/g, (ch) => DIACRITICS[ch] ?? ch)
 		.replace(/[\-–—]+/g, ' ')
-		.replace(/[.,;:'"’()\[\]{}!?/\\]+/g, '')
+		.replace(/[.,;:'"’()\[\]{}!?/\\&+_]+/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim()
 		.toLowerCase();
