@@ -37,6 +37,11 @@ describe('normalize', () => {
 		expect(searchStations('CFR Progresul', punctuationStations)[0].name).toBe('C.F.R. Progresul');
 	});
 
+	it('handles complex punctuation and brackets', () => {
+		expect(normalize('Station [Alpha] (Beta)!')).toBe('station alpha beta');
+		expect(normalize('{Test} & More')).toBe('test more');
+	});
+
 	it('strips typographic dashes from station names and queries', () => {
 		expect(normalize('Piața–Unirii — Nord')).toBe('piata unirii nord');
 		const dashStations: Station[] = [
