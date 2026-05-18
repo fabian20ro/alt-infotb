@@ -21,6 +21,8 @@ describe('normalize', () => {
 	it('handles decomposed Unicode diacritics from pasted text', () => {
 		expect(normalize('S\u0326tefan cel Mare')).toBe('stefan cel mare');
 		expect(normalize('T\u0326epes\u0326')).toBe('tepes');
+        // Add test for decomposed S-comma (s + \u0327)
+        expect(normalize('S\u0327tefan')).toBe('stefan');
 	});
 
 	it('preserves non-diacritic characters', () => {
