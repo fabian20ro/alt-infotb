@@ -34,9 +34,9 @@ export class ProtoReader {
 	 * Reads the next field from the buffer.
 	 * 
 	 * @returns The parsed field or null if end of buffer.
-	 * - Type 0 (varint): Returns the decoded number.
-	 * - Type 2 (length-delimited): Returns the slice as a Uint8Array.
-	 * - Type 1/5 (fixed-size): Returns the position (index) where the field starts.
+	 * - Type 0 (varint): Returns the decoded number in `value`.
+	 * - Type 2 (length-delimited): Returns the slice as a Uint8Array in `value`.
+	 * - Type 1/5 (fixed-size): Returns the position (index) of the field start in `value` to allow skipping.
 	 */
 	readField(): ProtoField | null {
 		if (this.done) return null;
