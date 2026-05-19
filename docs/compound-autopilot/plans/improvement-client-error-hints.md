@@ -7,13 +7,13 @@ Enhance `apiFetchBinary` to provide more specific error hints for known status c
 The STB API uses a proxy that retries on 412 errors, but the client's error message could be even more helpful for debugging if it explicitly identifies this scenario.
 
 ## Tasks
-- [ ] **Task 1: Update `src/lib/api/client.ts`**
+- [x] **Task 1: Update `src/lib/api/client.ts`**
     - Add HTTP 412 to the hint logic.
     - Expected behavior: `HTTP 412 (Token expired, check proxy retry)`
-- [ ] **Task 2: Update `src/lib/api/client.test.ts`**
+- [x] **Task 2: Update `src/lib/api/client.test.ts`**
     - Add a test case for HTTP 412 response.
     - Verify the error message contains the new hint.
-- [ ] **Task 3: Verification**
+- [x] **Task 3: Verification**
     - Run `npm test -- src/lib/api/client.test.ts`.
 
 ## Definition of Done
