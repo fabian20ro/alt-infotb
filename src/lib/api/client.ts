@@ -17,6 +17,8 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		if (!response.ok) {
 			const hint = response.status === 401 || response.status === 403
 				? ' (Check auth token/proxy configuration)'
+				: response.status === 412
+				? ' (Token expired, check proxy retry)'
 				: '';
 			throw new ApiError(`HTTP ${response.status}${hint}`, response.status);
 		}

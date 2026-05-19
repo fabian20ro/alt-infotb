@@ -18,16 +18,29 @@ describe('normalize', () => {
 		expect(normalize('Ţepeş')).toBe('tepes');
 	});
 
+	it('handles decomposed Unicode diacritics from pasted text', () => {
+		expect(normalize('S\u0326tefan cel Mare')).toBe('stefan cel mare');
+		expect(normalize('T\u0326epes\u0326')).toBe('tepes');
+        // Add test for decomposed S-comma (s + \u0327)
+        expect(normalize('S\u0327tefan')).toBe('stefan');
+	});
+
 	it('preserves non-diacritic characters', () => {
 		expect(normalize('abc 123')).toBe('abc 123');
 	});
 
 	it('strips punctuation from station names and queries', () => {
 		expect(normalize('C.F.R. Progresul')).toBe('cfr progresul');
+		expect(normalize('Station & More + Extra')).toBe('station more extra');
 		const punctuationStations: Station[] = [
 			{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.43, lon: 26.09 },
 		];
 		expect(searchStations('CFR Progresul', punctuationStations)[0].name).toBe('C.F.R. Progresul');
+	});
+
+	it('handles complex punctuation and brackets', () => {
+		expect(normalize('Station [Alpha] (Beta)!')).toBe('station alpha beta');
+		expect(normalize('{Test} & More')).toBe('test more');
 	});
 
 	it('strips typographic dashes from station names and queries', () => {

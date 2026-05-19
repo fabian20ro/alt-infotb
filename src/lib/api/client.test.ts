@@ -48,6 +48,17 @@ describe('apiFetchBinary', () => {
 		);
 	});
 
+	it('throws helpful error on 412', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 412 })
+		);
+
+		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
+			'HTTP 412 (Token expired, check proxy retry)'
+		);
+	});
+
 	it('throws ApiError on network failure', async () => {
 		vi.stubGlobal(
 			'fetch',

@@ -34,9 +34,9 @@ export class ProtoReader {
 	 * Reads the next field from the buffer.
 	 * 
 	 * @returns The parsed field or null if end of buffer.
-	 * - Type 0 (varint): Returns the decoded number.
-	 * - Type 2 (length-delimited): Returns the slice as a Uint8Array.
-	 * - Type 1/5 (fixed-size): Returns the position (index) where the field starts.
+	 * - Type 0 (varint): Returns the decoded number in `value`.
+	 * - Type 2 (length-delimited): Returns the slice as a Uint8Array in `value`.
+	 * - Type 1/5 (fixed-size): Returns the position (index) of the field start in `value` to allow skipping.
 	 */
 	readField(): ProtoField | null {
 		if (this.done) return null;
@@ -50,7 +50,7 @@ export class ProtoReader {
 		} else if (wireType === 2) {
 			// Length-delimited (string, bytes, or embedded message)
 			const len = this.readVarint();
-			if (len < 0 || this.pos + len > this.buf.length) {
+			if (this.pos + len > this.buf.length) {
 				throw new ProtoParseError('Invalid length-delimited field: truncated payload');
 			}
 			const value = this.buf.slice(this.pos, this.pos + len);
@@ -58,11 +58,17 @@ export class ProtoReader {
 			return { fieldNumber, wireType, value };
 		} else if (wireType === 1) {
 			// 64-bit fixed — skip 8 bytes
+			if (this.pos + 8 > this.buf.length) {
+				throw new ProtoParseError('Invalid 64-bit fixed field: truncated payload');
+			}
 			const value = this.pos;
 			this.pos += 8;
 			return { fieldNumber, wireType, value };
 		} else if (wireType === 5) {
 			// 30-bit fixed — skip 4 bytes
+			if (this.pos + 4 > this.buf.length) {
+				throw new ProtoParseError('Invalid 32-bit fixed field: truncated payload');
+			}
 			const value = this.pos;
 			this.pos += 4;
 			return { fieldNumber, wireType, value };

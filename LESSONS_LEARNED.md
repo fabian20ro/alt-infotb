@@ -59,6 +59,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-05-14]** Codemap entries should be verified against the actual component file list after deletions — `docs/codemap.md` can lag when a file like `RefreshButton.svelte` is removed, so check `src/lib/components/*.svelte` before syncing the directory tree.
 
+**[2026-05-17]** Unicode normalization should strip decomposed combining marks after the Romanian character map — Pasted station names can encode Romanian letters as base letters plus combining marks (for example `S\u0326`). Apply `normalize('NFD')` and remove `\u0300-\u036f` after the explicit `ă/ș/ț/ş/ţ` map, and keep period removal separate so acronym searches like `C.F.R.` still normalize to `cfr`.
+
 ## Testing & Quality
 
 **[2026-02-14]** Protobuf tests need encoding helpers — Tests for the protobuf decoder require building valid binary messages. Use `encodeVarint`, `encodeStringField`, `encodeVarintField`, and `encodeMessageField` helpers (defined in `proto.test.ts`) to construct test fixtures.
