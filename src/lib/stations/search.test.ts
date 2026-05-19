@@ -31,6 +31,7 @@ describe('normalize', () => {
 
 	it('strips punctuation from station names and queries', () => {
 		expect(normalize('C.F.R. Progresul')).toBe('cfr progresul');
+		expect(normalize('Station & More + Extra')).toBe('station more extra');
 		const punctuationStations: Station[] = [
 			{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.43, lon: 26.09 },
 		];
