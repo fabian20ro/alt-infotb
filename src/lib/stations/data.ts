@@ -5,20 +5,22 @@ import bundledStations from './stations.json';
 /** Hour (0-23) in Romanian time after which a new "transit day" begins */
 const DAY_BOUNDARY_HOUR = 4;
 
+/** Formatter for Romanian timezone-aware date extraction */
+const ROMANIAN_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+	timeZone: 'Europe/Bucharest',
+	year: 'numeric',
+	month: '2-digit',
+	day: '2-digit',
+	hour: '2-digit',
+	hour12: false
+});
+
 /**
  * Compute the "Romanian day number" for a timestamp.
  * A transit day starts at 4 AM Europe/Bucharest, not midnight.
- * Two timestamps with different day numbers means we've crossed a 4 AM boundary.
  */
 function getRomanianDayNumber(timestampMs: number): number {
-	const parts = new Intl.DateTimeFormat('en-US', {
-		timeZone: 'Europe/Bucharest',
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-		hour: '2-digit',
-		hour12: false
-	}).formatToParts(new Date(timestampMs));
+	const parts = ROMANIAN_DATE_FORMATTER.formatToParts(new Date(timestampMs));
 
 	const year = parseInt(parts.find((p) => p.type === 'year')!.value);
 	const month = parseInt(parts.find((p) => p.type === 'month')!.value);
