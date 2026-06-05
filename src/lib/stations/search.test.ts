@@ -70,12 +70,18 @@ describe('searchStations', () => {
 		{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.4300, lon: 26.0900 },
 	];
 
-	it('finds exact name matches', () => {
-		const results = searchStations('Universitate', stations);
-		expect(results[0].name).toBe('Universitate');
-	});
+		it('finds exact name matches', () => {
+			const results = searchStations('Universitate', stations);
+			expect(results[0].name).toBe('Universitate');
+		});
 
-	it('finds matches ignoring diacritics', () => {
+        it('finds matches with exact score 100', () => {
+            const results = searchStations('Piata Unirii', stations);
+            // Check if the first result is indeed an exact match
+            expect(results[0].name).toBe('Piata Unirii');
+        });
+
+		it('finds partial matches', () => {
 		const results = searchStations('Stefan', stations);
 		expect(results).toHaveLength(1);
 		expect(results[0].name).toBe('Stefan cel Mare');
