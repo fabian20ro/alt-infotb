@@ -1,17 +1,9 @@
 import type { Station } from './types.js';
 
 /** Map of Romanian diacritics to ASCII equivalents */
-const DIACRITICS: Record<string, string> = {
-	ă: 'a', â: 'a', î: 'i', ș: 's', ț: 't',
-	Ă: 'A', Â: 'A', Î: 'I', Ș: 'S', Ț: 'T',
-	// Legacy encodings sometimes use cedilla variants
-	ş: 's', ţ: 't', Ş :'S', Ţ: 'T'
-};
-
 /** Strip diacritics and normalize for comparison */
 export function normalize(text: string): string {
 	return text
-		.replace(/[ăâîșțşţĂÂÎȘȚŞŢ]/g, (ch) => DIACRITICS[ch] ?? ch)
 		.normalize('NFD')
 		.replace(/[\u0300-\u036f]/g, '')
 		.replace(/\./g, '')
