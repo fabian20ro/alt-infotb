@@ -5,7 +5,7 @@ const DIACRITICS: Record<string, string> = {
 	ă: 'a', â: 'a', î: 'i', ș: 's', ț: 't',
 	Ă: 'A', Â: 'A', Î: 'I', Ș: 'S', Ț: 'T',
 	// Legacy encodings sometimes use cedilla variants
-	ş: 's', ţ: 't', Ş :'S', Ţ: 'T'
+	ş: 's', ţ: 't', Ş: 'S', Ţ: 'T'
 };
 
 /** Strip diacritics and normalize for comparison */
