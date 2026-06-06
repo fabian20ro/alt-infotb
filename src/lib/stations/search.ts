@@ -1,6 +1,5 @@
 import type { Station } from './types.js';
 
-/** Map of Romanian diacritics to ASCII equivalents */
 /** Strip diacritics and normalize for comparison */
 export function normalize(text: string): string {
 	return text
