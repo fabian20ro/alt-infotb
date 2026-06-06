@@ -115,6 +115,16 @@ describe('searchStations', () => {
 		expect(searchStations('Nonexistent Station', stations)).toHaveLength(0);
 	});
 
+	it('handles colon', () => {
+		const stations: Station[] = [{ id: 1, name: 'Station:Name', description: '', lat: 0, lon: 0 }];
+		expect(searchStations('Station Name', stations)).toHaveLength(1);
+	});
+
+	it('handles ampersand', () => {
+		const stations: Station[] = [{ id: 2, name: 'Station & Co', description: '', lat: 0, lon: 0 }];
+		expect(searchStations('Station Co', stations)).toHaveLength(1);
+	});
+
 	it('searches in description too', () => {
 		const results = searchStations('Magheru', stations);
 		expect(results).toHaveLength(1);
