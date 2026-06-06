@@ -59,6 +59,28 @@ describe('apiFetchBinary', () => {
 		);
 	});
 
+	it('throws helpful error on 400', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 400 })
+		);
+
+		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
+			'HTTP 400'
+		);
+	});
+
+	it('throws helpful error on 500', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 500 })
+		);
+
+		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
+			'HTTP 500'
+		);
+	});
+
 	it('throws ApiError on network failure', async () => {
 		vi.stubGlobal(
 			'fetch',
