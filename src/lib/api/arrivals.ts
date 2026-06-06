@@ -96,16 +96,22 @@ async function fetchSingleStop(stopId: number): Promise<StationArrivals> {
 /** Merge multiple StationArrivals into one, combining all lines and re-sorting. */
 function mostCommonNonEmpty(values: string[]): string {
 	const counts = new Map<string, number>();
+	const originalValues = new Map<string, string>();
 	for (const value of values) {
 		if (!value.trim()) continue;
-		counts.set(value, (counts.get(value) ?? 0) + 1);
+		const normalized = value.normalize('NFC');
+		const count = (counts.get(normalized) ?? 0) + 1;
+		counts.set(normalized, count);
+		if (!originalValues.has(normalized)) {
+			originalValues.set(normalized, value);
+		}
 	}
 	let best = '';
 	let bestCount = 0;
-	counts.forEach((count, value) => {
+	counts.forEach((count, normalized) => {
 		if (count > bestCount) {
-			best = value;
 			bestCount = count;
+			best = originalValues.get(normalized)!;
 		}
 	});
 	return best;
