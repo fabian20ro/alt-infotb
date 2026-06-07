@@ -43,6 +43,11 @@ describe('normalize', () => {
 		expect(normalize('{Test} & More')).toBe('test more');
 	});
 
+	it('handles various delimiters and converts them to space', () => {
+		expect(normalize('Station.Name_And-Extra')).toBe('stationname and extra');
+		expect(normalize('Station/Name|Other')).toBe('station name other');
+	});
+
 	it('strips typographic dashes from station names and queries', () => {
 		expect(normalize('Piața–Unirii — Nord')).toBe('piata unirii nord');
 		const dashStations: Station[] = [
