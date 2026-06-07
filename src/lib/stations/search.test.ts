@@ -141,4 +141,15 @@ describe('searchStations', () => {
 		expect(results).toHaveLength(1);
 		expect(results[0].name).toBe('Piata Romana');
 	});
+
+	it('prefers shorter names when multiple matches exist', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Short', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'Short Long Name', description: '', lat: 0, lon: 0 },
+		];
+		const results = searchStations('short', stations);
+		expect(results).toHaveLength(2);
+		expect(results[0].name).toBe('Short');
+		expect(results[1].name).toBe('Short Long Name');
+	});
 });
