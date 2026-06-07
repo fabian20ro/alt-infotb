@@ -22,7 +22,13 @@ describe('normalize', () => {
 		expect(normalize('S\u0326tefan cel Mare')).toBe('stefan cel mare');
 		expect(normalize('T\u0326epes\u0326')).toBe('tepes');
         // Add test for decomposed S-comma (s + \u0327)
-        expect(normalize('S\u0327tefan')).toBe('stefan');
+		expect(normalize('S\u0327tefan')).toBe('stefan');
+		// Add test for T-comma (t + \u0327)
+		expect(normalize('T\u0327epes')).toBe('tepes');
+		// Add test for A-breve (a + \u0303)
+		expect(normalize('A\u0303urela')).toBe('aurela');
+		// Add test for A-circumflex (a + \u0302)
+		expect(normalize('A\u0302releia')).toBe('areleia');
 	});
 
 	it('preserves non-diacritic characters', () => {
