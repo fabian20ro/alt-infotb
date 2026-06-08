@@ -152,4 +152,10 @@ describe('searchStations', () => {
 		expect(results[0].name).toBe('Short');
 		expect(results[1].name).toBe('Short Long Name');
 	});
+
+	it('handles unexpected symbols correctly', () => {
+		expect(normalize('Station@Name')).toBe('station name');
+		expect(normalize('Station$Name')).toBe('station name');
+		expect(normalize('Station*Name')).toBe('station name');
+	});
 });
