@@ -1,0 +1,11 @@
+# Run Report - alt-stb
+- **Run ID:** a567c506-d850-4bcd-88c2-dcc0980003d8
+- **Project:** alt-stb
+- **Lane:** test-discovery
+- **Value Reason:** Added new test cases for `searchStations` to ensure `maxResults` and diacritics are handled correctly.
+- **Posture Freshness:** Old (expired)
+- **Maturity Evidence:** Feature-ready
+- **Verification:** All tests passed (npm test)
+- **Commit:** e83bb19
+- **Qualitative Outcome:** completed
+- **Repo Ended Clean:** yes
