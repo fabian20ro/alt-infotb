@@ -93,6 +93,11 @@ describe('findStationsInBounds', () => {
 		expect(result).toHaveLength(0);
 	});
 
+	it('returns empty array when maxCount is exceeded and no selectedId is provided', () => {
+		const result = findStationsInBounds(bounds, stations, 1);
+		expect(result).toHaveLength(0);
+	});
+
 	it('returns only selected station when over cap', () => {
 		const result = findStationsInBounds(bounds, stations, 2, 1);
 		expect(result).toHaveLength(1);

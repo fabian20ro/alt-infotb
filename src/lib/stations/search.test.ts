@@ -22,7 +22,13 @@ describe('normalize', () => {
 		expect(normalize('S\u0326tefan cel Mare')).toBe('stefan cel mare');
 		expect(normalize('T\u0326epes\u0326')).toBe('tepes');
         // Add test for decomposed S-comma (s + \u0327)
-        expect(normalize('S\u0327tefan')).toBe('stefan');
+		expect(normalize('S\u0327tefan')).toBe('stefan');
+		// Add test for T-comma (t + \u0327)
+		expect(normalize('T\u0327epes')).toBe('tepes');
+		// Add test for A-breve (a + \u0303)
+		expect(normalize('A\u0303urela')).toBe('aurela');
+		// Add test for A-circumflex (a + \u0302)
+		expect(normalize('A\u0302releia')).toBe('areleia');
 	});
 
 	it('preserves non-diacritic characters', () => {
@@ -30,17 +36,22 @@ describe('normalize', () => {
 	});
 
 	it('strips punctuation from station names and queries', () => {
-		expect(normalize('C.F.R. Progresul')).toBe('cfr progresul');
+		expect(normalize('C.F.R. Progresul')).toBe('c f r progresul');
 		expect(normalize('Station & More + Extra')).toBe('station more extra');
 		const punctuationStations: Station[] = [
 			{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.43, lon: 26.09 },
 		];
-		expect(searchStations('CFR Progresul', punctuationStations)[0].name).toBe('C.F.R. Progresul');
+		expect(searchStations('C.F.R. Progresul', punctuationStations)[0].name).toBe('C.F.R. Progresul');
 	});
 
 	it('handles complex punctuation and brackets', () => {
 		expect(normalize('Station [Alpha] (Beta)!')).toBe('station alpha beta');
 		expect(normalize('{Test} & More')).toBe('test more');
+	});
+
+	it('handles various delimiters and converts them to space', () => {
+		expect(normalize('Station.Name_And-Extra')).toBe('station name and extra');
+		expect(normalize('Station/Name|Other')).toBe('station name other');
 	});
 
 	it('strips typographic dashes from station names and queries', () => {
@@ -129,5 +140,22 @@ describe('searchStations', () => {
 		const results = searchStations('Magheru', stations);
 		expect(results).toHaveLength(1);
 		expect(results[0].name).toBe('Piata Romana');
+	});
+
+	it('prefers shorter names when multiple matches exist', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Short', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'Short Long Name', description: '', lat: 0, lon: 0 },
+		];
+		const results = searchStations('short', stations);
+		expect(results).toHaveLength(2);
+		expect(results[0].name).toBe('Short');
+		expect(results[1].name).toBe('Short Long Name');
+	});
+
+	it('handles unexpected symbols correctly', () => {
+		expect(normalize('Station@Name')).toBe('station name');
+		expect(normalize('Station$Name')).toBe('station name');
+		expect(normalize('Station*Name')).toBe('station name');
 	});
 });
