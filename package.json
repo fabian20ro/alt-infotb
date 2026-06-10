@@ -33,7 +33,6 @@
 		"vitest": "^4.1.0"
 	},
 	"dependencies": {
-		"@rollup/rollup-linux-arm64-gnu": "^4.61.1",
 		"@vite-pwa/sveltekit": "^1.1.0",
 		"leaflet": "^1.9.4"
 	},
