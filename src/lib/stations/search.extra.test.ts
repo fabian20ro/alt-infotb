@@ -5,6 +5,8 @@ import type { Station } from './types.js';
 describe('searchStations', () => {
 	const stations: Station[] = [
 		{ id: 1, name: 'A', description: 'This is a description', lat: 0, lon: 0 },
+		{ id: 2, name: 'Piata Unirii', description: 'Central hub', lat: 44, lon: 26 },
+		{ id: 3, name: 'Piata Romana', description: 'Another hub', lat: 44, lon: 26 },
 	];
 
 	it('finds matches where query is in description', () => {
@@ -20,5 +22,15 @@ describe('searchStations', () => {
 		// If we search something that only matches description:
 		const results2 = searchStations('Is a description', stations);
 		expect(results2).toHaveLength(1);
+	});
+
+	it('respects maxResults', () => {
+		const results = searchStations('Piata', stations, 2);
+		expect(results).toHaveLength(2);
+	});
+
+	it('respects maxResults with 1', () => {
+		const results = searchStations('Piata', stations, 1);
+		expect(results).toHaveLength(1);
 	});
 });
