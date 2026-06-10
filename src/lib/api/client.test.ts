@@ -105,6 +105,16 @@ describe('apiFetchBinary', () => {
 	});
 });
 
+describe('apiFetchBinary Timeout', () => {
+	it('throws ApiError on TimeoutError', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockRejectedValue(new DOMException('The operation timed out', 'TimeoutError'))
+		);
+		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow('Request timeout');
+	});
+});
+
 describe('ApiError', () => {
 	it('has name and status properties', () => {
 		const err = new ApiError('test error', 404);
