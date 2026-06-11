@@ -5,13 +5,10 @@ import { API } from './constants.js';
  * The API returns Protocol Buffers, so we read as ArrayBuffer.
  */
 export async function apiFetchBinary(url: string): Promise<Uint8Array> {
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), API.TIMEOUT);
-
 	try {
 		const response = await fetch(url, {
 			headers: API.HEADERS,
-			signal: controller.signal
+			signal: AbortSignal.timeout(API.TIMEOUT)
 		});
 
 		if (!response.ok) {
@@ -19,6 +16,12 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 				? ' (Check auth token/proxy configuration)'
 				: response.status === 412
 				? ' (Token expired, check proxy retry)'
+				: response.status === 400
+				? ' (Bad Request)'
+				: response.status === 429
+				? ' (Too many requests)'
+				: response.status === 500
+				? ' (Internal Server Error)'
 				: '';
 			throw new ApiError(`HTTP ${response.status}${hint}`, response.status);
 		}
@@ -27,15 +30,13 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		return new Uint8Array(buf);
 	} catch (err) {
 		if (err instanceof ApiError) throw err;
-		if (err instanceof DOMException && err.name === 'AbortError') {
+		if (err instanceof DOMException && (err.name === 'AbortError' || err.name === 'TimeoutError')) {
 			throw new ApiError('Request timeout', 0);
 		}
 		throw new ApiError(
 			err instanceof TypeError ? 'Network error (CORS or connectivity)' : String(err),
 			0
 		);
-	} finally {
-		clearTimeout(timeout);
 	}
 }
 

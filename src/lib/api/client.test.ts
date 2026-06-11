@@ -66,7 +66,18 @@ describe('apiFetchBinary', () => {
 		);
 
 		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
-			'HTTP 400'
+			'HTTP 400 (Bad Request)'
+		);
+	});
+
+	it('throws helpful error on 429', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 429 })
+		);
+
+		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
+			'HTTP 429 (Too many requests)'
 		);
 	});
 
@@ -77,7 +88,7 @@ describe('apiFetchBinary', () => {
 		);
 
 		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
-			'HTTP 500'
+			'HTTP 500 (Internal Server Error)'
 		);
 	});
 
@@ -101,6 +112,16 @@ describe('apiFetchBinary', () => {
 			)
 		);
 
+		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow('Request timeout');
+	});
+});
+
+describe('apiFetchBinary Timeout', () => {
+	it('throws ApiError on TimeoutError', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockRejectedValue(new DOMException('The operation timed out', 'TimeoutError'))
+		);
 		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow('Request timeout');
 	});
 });

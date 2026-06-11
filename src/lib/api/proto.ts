@@ -83,14 +83,14 @@ export class ProtoReader {
 		let shift = 0;
 		while (this.pos < this.buf.length) {
 			const byte = this.buf[this.pos++];
-			result |= (byte & 0x7f) << shift;
+			result += (byte & 0x7f) * Math.pow(2, shift);
 			if ((byte & 0x80) === 0) break;
 			shift += 7;
 			if (shift > 35) {
 				throw new ProtoParseError('Varint too long');
 			}
 		}
-		return result >>> 0; // Unsigned
+		return result;
 	}
 
 	/** Read all fields into a map of fieldNumber → values */
