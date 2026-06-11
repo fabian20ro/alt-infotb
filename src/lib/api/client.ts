@@ -16,6 +16,12 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 				? ' (Check auth token/proxy configuration)'
 				: response.status === 412
 				? ' (Token expired, check proxy retry)'
+				: response.status === 400
+				? ' (Bad Request)'
+				: response.status === 429
+				? ' (Too many requests)'
+				: response.status === 500
+				? ' (Internal Server Error)'
 				: '';
 			throw new ApiError(`HTTP ${response.status}${hint}`, response.status);
 		}

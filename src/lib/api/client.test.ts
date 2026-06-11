@@ -66,7 +66,7 @@ describe('apiFetchBinary', () => {
 		);
 
 		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
-			'HTTP 400'
+			'HTTP 400 (Bad Request)'
 		);
 	});
 
@@ -77,7 +77,7 @@ describe('apiFetchBinary', () => {
 		);
 
 		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
-			'HTTP 500'
+			'HTTP 500 (Internal Server Error)'
 		);
 	});
 
