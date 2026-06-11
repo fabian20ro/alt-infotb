@@ -70,6 +70,17 @@ describe('apiFetchBinary', () => {
 		);
 	});
 
+	it('throws helpful error on 429', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 429 })
+		);
+
+		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
+			'HTTP 429 (Too many requests)'
+		);
+	});
+
 	it('throws helpful error on 500', async () => {
 		vi.stubGlobal(
 			'fetch',
