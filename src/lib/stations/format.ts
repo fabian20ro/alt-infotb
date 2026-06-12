@@ -1,5 +1,5 @@
 export function formatLastUpdate(timestamp: number | undefined | null, lang: 'ro' | 'en'): string {
-	if (!timestamp || isNaN(new Date(timestamp).getTime())) return '';
+	if (timestamp === undefined || timestamp === null || isNaN(new Date(timestamp).getTime())) return '';
 	const locale = lang === 'ro' ? 'ro-RO' : 'en-US';
 	return new Intl.DateTimeFormat(locale, {
 		day: 'numeric',
