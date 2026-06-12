@@ -68,6 +68,20 @@ describe('normalize', () => {
 		];
 		expect(searchStations('  C.F.R.   Progresul  ', punctuationStations)[0].name).toBe('C.F.R. Progresul');
 	});
+
+	it('finds non-contiguous word matches', () => {
+		const stations: Station[] = [{ id: 1, name: 'Piața Unirii — Nord', description: '', lat: 44.43, lon: 26.09 }];
+		const results = searchStations('unirii nord', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Piața Unirii — Nord');
+	});
+
+	it('finds matches with multiple words and is case insensitive', () => {
+		const stations: Station[] = [{ id: 1, name: 'Bucuresti Nord', description: '', lat: 44, lon: 26 }];
+		const results = searchStations('BUCURESTI nord', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Bucuresti Nord');
+	});
 });
 
 describe('searchStations', () => {
@@ -110,6 +124,11 @@ describe('searchStations', () => {
 	it('respects maxResults', () => {
 		const results = searchStations('Piata', stations, 2);
 		expect(results).toHaveLength(2);
+	});
+
+	it('returns empty when maxResults is 0', () => {
+		const results = searchStations('Piata', stations, 0);
+		expect(results).toHaveLength(0);
 	});
 
 	it('returns empty for empty query', () => {
