@@ -29,3 +29,14 @@ describe('isNewRomanianDay', () => {
 		}
 	});
 });
+
+	it('handles the 4 AM Romanian boundary exactly', () => {
+		const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 4, 11, 1, 0)); // 4:00 AM Bucharest
+		try {
+			expect(isNewRomanianDay(Date.UTC(2026, 4, 11, 0, 59))).toBe(true);
+			expect(isNewRomanianDay(Date.UTC(2026, 4, 11, 1, 1))).toBe(false);
+			expect(isNewRomanianDay(Date.UTC(2026, 4, 11, 1, 0))).toBe(false);
+		} finally {
+			nowSpy.mockRestore();
+		}
+	});
