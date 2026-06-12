@@ -81,6 +81,17 @@ describe('apiFetchBinary', () => {
 		);
 	});
 
+	it('throws helpful error on 404', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 404 })
+		);
+
+		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
+			'HTTP 404'
+		);
+	});
+
 	it('throws helpful error on 500', async () => {
 		vi.stubGlobal(
 			'fetch',
