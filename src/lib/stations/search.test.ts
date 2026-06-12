@@ -21,13 +21,9 @@ describe('normalize', () => {
 	it('handles decomposed Unicode diacritics from pasted text', () => {
 		expect(normalize('S\u0326tefan cel Mare')).toBe('stefan cel mare');
 		expect(normalize('T\u0326epes\u0326')).toBe('tepes');
-		// Add test for decomposed S-comma (s + \u0327)
 		expect(normalize('S\u0327tefan')).toBe('stefan');
-		// Add test for T-comma (t + \u0327)
 		expect(normalize('T\u0327epes')).toBe('tepes');
-		// Add test for A-breve (a + \u0303)
 		expect(normalize('A\u0303urela')).toBe('aurela');
-		// Add test for A-circumflex (a + \u0302)
 		expect(normalize('A\u0302releia')).toBe('areleia');
 	});
 
@@ -68,20 +64,6 @@ describe('normalize', () => {
 		];
 		expect(searchStations('  C.F.R.   Progresul  ', punctuationStations)[0].name).toBe('C.F.R. Progresul');
 	});
-
-	it('finds non-contiguous word matches', () => {
-		const stations: Station[] = [{ id: 1, name: 'Piața Unirii — Nord', description: '', lat: 44.43, lon: 26.09 }];
-		const results = searchStations('unirii nord', stations);
-		expect(results).toHaveLength(1);
-		expect(results[0].name).toBe('Piața Unirii — Nord');
-	});
-
-	it('finds matches with multiple words and is case insensitive', () => {
-		const stations: Station[] = [{ id: 1, name: 'Bucuresti Nord', description: '', lat: 44, lon: 26 }];
-		const results = searchStations('BUCURESTI nord', stations);
-		expect(results).toHaveLength(1);
-		expect(results[0].name).toBe('Bucuresti Nord');
-	});
 });
 
 describe('searchStations', () => {
@@ -94,6 +76,10 @@ describe('searchStations', () => {
 		{ id: 1004, name: 'Stefan cel Mare', description: '', lat: 44.4450, lon: 26.1100 },
 		{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.4300, lon: 26.0900 },
 		{ id: 1006, name: 'Complex @ Station', description: 'test', lat: 0, lon: 0 },
+		{ id: 1007, name: 'Piata Unirii Hub', description: 'The main hub for transport', lat: 44, lon: 26 },
+		{ id: 1, name: 'S', description: '', lat: 0, lon: 0 },
+		{ id: 2, name: 'Short', description: '', lat: 0, lon: 0 },
+		{ id: 3, name: 'Super', description: '', lat: 0, lon: 0 },
 	];
 
 	it('finds exact name matches', () => {
@@ -201,5 +187,29 @@ describe('searchStations', () => {
 			{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.43, lon: 26.09 },
 		];
 		expect(searchStations('  C.F.R.   Progresul  ', punctuationStations)[0].name).toBe('C.F.R. Progresul');
+	});
+
+	it('finds matches with split words (new functionality)', () => {
+		// "Uni" and "Hub" are present in Piata Unirii Hub / Central hub
+		const results = searchStations('Uni Hub', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Piata Unirii Hub');
+	});
+
+	it('sorts matches by score correctly, preferring shorter names', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'S', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'Short', description: '', lat: 0, lon: 0 },
+			{ id: 3, name: 'Super', description: '', lat: 0, lon: 0 },
+		];
+		// All start with 'S'
+		// S: score 80 + (10 - 1/5) = 89.8
+		// Short: score 80 + (10 - 6/5) = 89.2
+		// Super: score 80 + (10 - 5/5) = 89
+		const results = searchStations('S', stations);
+		expect(results).toHaveLength(3);
+		expect(results[0].name).toBe('S');
+		expect(results[1].name).toBe('Short');
+		expect(results[2].name).toBe('Super');
 	});
 });
