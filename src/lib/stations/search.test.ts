@@ -112,6 +112,11 @@ describe('searchStations', () => {
 		expect(results).toHaveLength(2);
 	});
 
+	it('returns empty when maxResults is 0', () => {
+		const results = searchStations('Piata', stations, 0);
+		expect(results).toHaveLength(0);
+	});
+
 	it('returns empty for empty query', () => {
 		expect(searchStations('', stations)).toHaveLength(0);
 		expect(searchStations('  ', stations)).toHaveLength(0);
