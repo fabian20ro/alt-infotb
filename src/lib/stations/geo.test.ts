@@ -22,6 +22,18 @@ describe('findNearestStations', () => {
 		const nearest = findNearestStations(44.05, 26.05, stations, 2);
 		expect(nearest).toHaveLength(2);
 	});
+
+	it('finds multiple nearest stations within a radius', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'A', description: '', lat: 44.0, lon: 26.0 },
+			{ id: 2, name: 'B', description: '', lat: 44.05, lon: 26.05 },
+			{ id: 3, name: 'C', description: '', lat: 44.1, lon: 26.1 },
+		];
+		const nearest = findNearestStations(44.02, 26.02, stations, 2);
+		expect(nearest).toHaveLength(2);
+		expect(nearest[0].id).toBe(1);
+		expect(nearest[1].id).toBe(2);
+	});
 });
 
 describe('findStationsInBounds', () => {
