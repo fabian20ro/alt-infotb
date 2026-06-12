@@ -17,7 +17,7 @@ export function searchStations(
 	stations: readonly Station[],
 	maxResults = 20
 ): Station[] {
-	const normalizedQuery = normalize(query.trim());
+	const normalizedQuery = normalize(query);
 	if (normalizedQuery.length === 0) return [];
 
 	const queryWords = normalizedQuery.split(' ').filter(w => w.length > 0);
