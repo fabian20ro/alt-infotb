@@ -20,6 +20,8 @@ export function searchStations(
 	const normalizedQuery = normalize(query.trim());
 	if (normalizedQuery.length === 0) return [];
 
+	const queryWords = normalizedQuery.split(' ').filter(w => w.length > 0);
+
 	const scored: Array<{ station: Station; score: number }> = [];
 
 	for (const station of stations) {
@@ -47,6 +49,16 @@ export function searchStations(
 		// Description contains query
 		else if (normalizedDesc.includes(normalizedQuery)) {
 			score = 20;
+		}
+
+		// All words present (but not as a contiguous phrase)
+		if (score === 0 && queryWords.length > 1) {
+			const allWordsPresent = queryWords.every(word =>
+				normalizedName.includes(word) || normalizedDesc.includes(word)
+			);
+			if (allWordsPresent) {
+				score = 10;
+			}
 		}
 
 		if (score > 0) {

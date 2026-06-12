@@ -16,12 +16,8 @@ describe('searchStations', () => {
 	});
 
 	it('finds matches where query is in description with low score', () => {
-		const results = searchStations('description', stations);
-		// Based on search.ts: description match score is 20
-		// normalizedName match score is 100
-		// If we search something that only matches description:
-		const results2 = searchStations('Is a description', stations);
-		expect(results2).toHaveLength(1);
+		const results = searchStations('Is a description', stations);
+		expect(results).toHaveLength(1);
 	});
 
 	it('respects maxResults', () => {
@@ -32,5 +28,12 @@ describe('searchStations', () => {
 	it('respects maxResults with 1', () => {
 		const results = searchStations('Piata', stations, 1);
 		expect(results).toHaveLength(1);
+	});
+
+	it('finds matches with split words (new functionality)', () => {
+		// "Uni" and "Hub" are present in Piata Unirii / Central hub
+		const results = searchStations('Uni Hub', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Piata Unirii');
 	});
 });
