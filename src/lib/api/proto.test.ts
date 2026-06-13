@@ -131,6 +131,11 @@ describe('ProtoReader', () => {
 	});
 
 
+	it('throws on unknown wire type', () => {
+		const bytes = new Uint8Array([0x0b]); // field 1, wire type 3
+		const reader = new ProtoReader(bytes);
+		expect(() => reader.readAllFields()).toThrow('Unknown wire type: 3');
+	});
 	it('throws on truncated length-delimited field', () => {
 		const bytes = new Uint8Array([0x0a, 0x05, 0x41, 0x42]);
 		const reader = new ProtoReader(bytes);
