@@ -97,26 +97,13 @@ export function findStationsInBounds(
 		}
 
 		// Early returns when we exceed the cap
-		if (inBounds.length > maxCount) {
-			if (selectedId == null) {
-				return []; // Exceeded cap, no selected item to look for
-			}
-
-			if (selected != null) {
-				return [selected]; // Exceeded cap, already found selected item
-			}
-
-			// We've exceeded the cap but haven't found the selected item yet.
-			// We can stop iterating normally and just look for the selected item.
-			const found = stations.find((x) => x.id === selectedId);
-			return found ? [found] : [];
+		if (inBounds.length >= maxCount && selected !== null) {
+			return [selected];
 		}
 	}
 
-	// Under cap — include selected even if outside bounds
-	if (selected != null && !selectedInBounds) {
-		inBounds.push(selected);
+	if (selected !== null) {
+		return [selected];
 	}
-
-	return inBounds;
+	return inBounds.length > maxCount ? [] : inBounds;
 }
