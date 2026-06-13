@@ -196,6 +196,15 @@ describe('searchStations', () => {
 		expect(results[0].name).toBe('Piata Unirii Hub');
 	});
 
+	it('handles multiple words matching description but not name', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Piata Unirii', description: 'The central hub for travel', lat: 44, lon: 26 },
+		];
+		const results = searchStations('central hub', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Piata Unirii');
+	});
+
 	it('sorts matches by score correctly, preferring shorter names', () => {
 		const stations: Station[] = [
 			{ id: 1, name: 'S', description: '', lat: 0, lon: 0 },
