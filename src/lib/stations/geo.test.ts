@@ -9,6 +9,10 @@ describe('distanceMeters', () => {
 		expect(d).toBeGreaterThan(1100);
 		expect(d).toBeLessThan(1200);
 	});
+
+	it('returns 0 for same coordinates', () => {
+		expect(distanceMeters(44.4, 26.1, 44.4, 26.1)).toBe(0);
+	});
 });
 
 describe('findNearestStations', () => {
@@ -33,6 +37,11 @@ describe('findNearestStations', () => {
 		expect(nearest).toHaveLength(2);
 		expect(nearest[0].id).toBe(1);
 		expect(nearest[1].id).toBe(2);
+	});
+
+	it('returns empty array when no stations match any radius', () => {
+		const nearest = findNearestStations(0, 0, stations, 1);
+		expect(nearest).toHaveLength(0);
 	});
 });
 
