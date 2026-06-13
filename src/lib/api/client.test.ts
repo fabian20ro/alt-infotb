@@ -92,6 +92,20 @@ describe('apiFetchBinary', () => {
 		);
 	});
 
+	it('throws helpful error on 503 or 504', async () => {
+		const cases = [
+			{ status: 503, expected: 'HTTP 503 (Service Unavailable)' },
+			{ status: 504, expected: 'HTTP 504 (Gateway Timeout)' }
+		];
+		for (const { status, expected } of cases) {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({ ok: false, status })
+			);
+			await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(expected);
+		}
+	});
+
 	it('throws helpful error on 500', async () => {
 		vi.stubGlobal(
 			'fetch',

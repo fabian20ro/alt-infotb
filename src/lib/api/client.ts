@@ -20,6 +20,10 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 				? ' (Bad Request)'
 				: response.status === 429
 				? ' (Too many requests)'
+				: response.status === 503
+				? ' (Service Unavailable)'
+				: response.status === 504
+				? ' (Gateway Timeout)'
 				: response.status === 500
 				? ' (Internal Server Error)'
 				: '';
