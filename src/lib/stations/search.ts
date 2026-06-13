@@ -1,12 +1,9 @@
 import type { Station } from './types.js';
 
-/** Strip diacritics and normalize for comparison */
 export function normalize(text: string): string {
 	let res = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-	
-	// Remove dots from acronyms like C.F.R.
-	// We look for a sequence of single letters separated by dots
-	res = res.replace(/\b[a-z]\.(?=[a-z]\.)+[a-z]\.?/gi, (m) => m.replace(/\./g, ''));
+	// Remove dots and spaces from acronyms like C. F. R.
+	res = res.replace(/\b[a-z](?:\.\s*[a-z])+\.?/gi, (m) => m.replace(/[\s\.]/g, ''));
 
 	return res
 		.replace(/[^a-z0-9\s]/gi, ' ')
