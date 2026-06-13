@@ -149,7 +149,6 @@ describe('searchStations', () => {
 		expect(results[0].name).toBe('Station A Part B');
 	});
 
-
 	it('prefers shorter names when multiple matches exist', () => {
 		const stations: Station[] = [
 			{ id: 1, name: 'Short', description: '', lat: 0, lon: 0 },
