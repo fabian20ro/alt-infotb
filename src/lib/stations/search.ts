@@ -2,9 +2,10 @@ import type { Station } from './types.js';
 
 export function normalize(text: string): string {
 	let res = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-	// Remove dots and spaces from acronyms like C. F. R.
-	res = res.replace(/\b[a-z](?:\.\s*[a-z])+\.?/gi, (m) => m.replace(/[\s\.]/g, ''));
-
+	// Handle acronyms like C.F.R. or C. F. R.
+	// Match: start of word, then (dot, optional space, letter) repeated, then optional dot.
+	// We use a lookahead to ensure we don't swallow the space before the next word.
+	res = res.replace(/\b[a-z](?:\.\s*[a-z])+(?=\.?\s|\.?$)/gi, (m) => m.replace(/[\s\.]/g, ''));
 	return res
 		.replace(/[^a-z0-9\s]/gi, ' ')
 		.replace(/\s+/g, ' ')
