@@ -142,10 +142,12 @@ describe('searchStations', () => {
 		expect(results[0].name).toBe('Piata Romana');
 	});
 
-	it('handles punctuation and symbols correctly', () => {
-		const stations: Station[] = [{ id: 3, name: 'Special @ Station', description: '', lat: 0, lon: 0 }];
-		expect(searchStations('special station', stations)[0].name).toBe('Special @ Station');
+	it('finds matches when words are non-contiguous', () => {
+		const stations: Station[] = [{ id: 2000, name: 'Station A Part B', description: '', lat: 0, lon: 0 }];
+		const results = searchStations('Station B', stations);
+		expect(results[0].name).toBe('Station A Part B');
 	});
+
 
 	it('prefers shorter names when multiple matches exist', () => {
 		const stations: Station[] = [
