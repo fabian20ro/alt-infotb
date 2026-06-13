@@ -2,9 +2,13 @@ import type { Station } from './types.js';
 
 /** Strip diacritics and normalize for comparison */
 export function normalize(text: string): string {
-	return text
-		.normalize('NFD')
-		.replace(/[\u0300-\u036f]/g, '')
+	let res = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+	
+	// Remove dots from acronyms like C.F.R.
+	// We look for a sequence of single letters separated by dots
+	res = res.replace(/\b[a-z]\.(?=[a-z]\.)+[a-z]\.?/gi, (m) => m.replace(/\./g, ''));
+
+	return res
 		.replace(/[^a-z0-9\s]/gi, ' ')
 		.replace(/\s+/g, ' ')
 		.trim()

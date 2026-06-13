@@ -31,13 +31,14 @@ describe('normalize', () => {
 		expect(normalize('abc 123')).toBe('abc 123');
 	});
 
-	it('strips punctuation from station names and queries', () => {
-		expect(normalize('C.F.R. Progresul')).toBe('c f r progresul');
-		expect(normalize('Station & More + Extra')).toBe('station more extra');
-		const punctuationStations: Station[] = [
-			{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.43, lon: 26.09 },
-		];
-		expect(searchStations('C.F.R. Progresul', punctuationStations)[0].name).toBe('C.F.R. Progresul');
+	it('handles acronyms like C.F.R.', () => {
+		expect(normalize('C.F.R. Progresul')).toBe('cfr progresul');
+		expect(normalize('S.T.E.F.A.N.')).toBe('stefan');
+	});
+
+	it('handles punctuation and brackets', () => {
+		expect(normalize('Station [Alpha] (Beta)!')).toBe('station alpha beta');
+		expect(normalize('{Test} & More')).toBe('test more');
 	});
 
 	it('handles complex punctuation and brackets', () => {
