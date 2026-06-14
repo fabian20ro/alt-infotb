@@ -21,7 +21,6 @@ const ROMANIAN_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
  */
 function getRomanianDayNumber(timestampMs: number): number {
 	const parts = ROMANIAN_DATE_FORMATTER.formatToParts(new Date(timestampMs));
-
 	const year = parseInt(parts.find((p) => p.type === 'year')!.value);
 	const month = parseInt(parts.find((p) => p.type === 'month')!.value);
 	const day = parseInt(parts.find((p) => p.type === 'day')!.value);
@@ -40,9 +39,9 @@ function getRomanianDayNumber(timestampMs: number): number {
  * Check if a new Romanian transit day has started since the last refresh.
  * A new day begins at 4 AM Europe/Bucharest time.
  */
-export function isNewRomanianDay(lastRefreshMs: number): boolean {
+export function isNewRomanianDay(lastRefreshMs: number, nowMs = Date.now()): boolean {
 	if (!lastRefreshMs) return true;
-	return getRomanianDayNumber(Date.now()) > getRomanianDayNumber(lastRefreshMs);
+	return getRomanianDayNumber(nowMs) > getRomanianDayNumber(lastRefreshMs);
 }
 
 /**
@@ -87,8 +86,8 @@ export async function loadStations(): Promise<{ stations: Station[]; refreshDone
  * Station data is bundled at build time via scripts/fetch-stations.ts.
  * Browser-side GTFS refresh is not implemented (requires ZIP parsing).
  */
-async function checkAndRefresh(): Promise<void> {
+async function checkAndRefresh(nowMs = Date.now()): Promise<void> {
 	const lastRefresh = await getLastRefreshTime();
-	if (!isNewRomanianDay(lastRefresh)) return;
+	if (!isNewRomanianDay(lastRefresh, nowMs)) return;
 	await updateLastRefreshTime();
 }
