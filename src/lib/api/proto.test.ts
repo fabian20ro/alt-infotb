@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ProtoReader, ProtoParseError } from './proto.js';
+import { ProtoReader, ProtoParseError, getVarint, getMessages } from './proto.js';
 
 describe('ProtoReader', () => {
 	it('handles varint (type 0)', () => {
@@ -52,5 +52,21 @@ describe('ProtoReader', () => {
 		const data = new Uint8Array([0x3b, 0x01]); // tag = 0x3b -> field 7, type 3.
 		const reader = new ProtoReader(data);
 		expect(() => reader.readField()).toThrow(ProtoParseError);
+	});
+
+	it('getVarint returns undefined for non-existent field', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		expect(getVarint(fields, 1)).toBeUndefined();
+	});
+
+	it('getMessages returns empty array for non-existent field', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		expect(getMessages(fields, 1)).toEqual([]);
+	});
+
+	it('getMessages filters out non-Uint8Array values', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [1, new Uint8Array([1, 2]), 2]);
+		expect(getMessages(fields, 1)).toEqual([new Uint8Array([1, 2])]);
 	});
 });
