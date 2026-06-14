@@ -41,11 +41,6 @@ describe('normalize', () => {
 		expect(normalize('{Test} & More')).toBe('test more');
 	});
 
-	it('handles complex punctuation and brackets', () => {
-		expect(normalize('Station [Alpha] (Beta)!')).toBe('station alpha beta');
-		expect(normalize('{Test} & More')).toBe('test more');
-	});
-
 	it('handles various delimiters and converts them to space', () => {
 		expect(normalize('Station.Name_And-Extra')).toBe('station name and extra');
 		expect(normalize('Station/Name|Other')).toBe('station name other');
