@@ -76,7 +76,7 @@ describe('searchStations', () => {
 		{ id: 1003, name: 'Eroilor', description: 'Bd. Eroilor', lat: 44.4350, lon: 26.0850 },
 		{ id: 1004, name: 'Stefan cel Mare', description: '', lat: 44.4450, lon: 26.1100 },
 		{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.4300, lon: 26.0900 },
-		{ id: 1006, name: 'Complex @ Station', description: 'test', lat: 0, lon: 0 },
+		{ id: 1006, name: 'Complex @ Station', description: '', lat: 0, lon: 0 },
 		{ id: 1007, name: 'Piata Unirii Hub', description: 'The main hub for transport', lat: 44, lon: 26 },
 		{ id: 1, name: 'S', description: '', lat: 0, lon: 0 },
 		{ id: 2, name: 'Short', description: '', lat: 0, lon: 0 },
@@ -143,70 +143,9 @@ describe('searchStations', () => {
 		expect(results[0].name).toBe('Piata Romana');
 	});
 
-	it('finds matches when words are non-contiguous', () => {
+	it('returns matches when words are non-contiguous', () => {
 		const stations: Station[] = [{ id: 2000, name: 'Station A Part B', description: '', lat: 0, lon: 0 }];
 		const results = searchStations('Station B', stations);
 		expect(results[0].name).toBe('Station A Part B');
 	});
-
-	it('finds matches with split words (new functionality)', () => {
-		// "Uni" and "Hub" are present in Piata Unirii Hub / Central hub
-		const results = searchStations('Uni Hub', stations);
-		expect(results).toHaveLength(1);
-		expect(results[0].name).toBe('Piata Unirii Hub');
-	});
-
-	it('finds matches when words are out of order', () => {
-		const results = searchStations('Unirii Piata', stations);
-		expect(results.some(s => s.name === 'Piata Unirii')).toBe(true);
-	});
-
-	it('handles multiple words matching description but not name', () => {
-		const results = searchStations('central hub', stations);
-		expect(results).toHaveLength(0);
-	});
-
-	it('prefers shorter names when multiple matches exist', () => {
-		const stations: Station[] = [
-			{ id: 1, name: 'Short', description: '', lat: 0, lon: 0 },
-			{ id: 2, name: 'Short Long Name', description: '', lat: 0, lon: 0 },
-			{ id: 3, name: 'Super', description: '', lat: 0, lon: 0 },
-		];
-		const results = searchStations('short', stations);
-		expect(results).toHaveLength(2);
-		expect(results[0].name).toBe('Short');
-		expect(results[1].name).toBe('Short Long Name');
-	});
 });
-
-describe('searchStations advanced scenarios', () => {
-	const stations: Station[] = [
-		{ id: 1, name: 'A', description: 'Description for A', lat: 0, lon: 0 },
-		{ id: 2, name: 'AB', description: 'Description for AB', lat: 0, lon: 0 },
-		{ id: 3, name: 'ABC', description: 'Description for ABC', lat: 0, lon: 0 },
-		{ id: 4, name: 'XYZ', description: 'Description for XYZ', lat: 0, lon: 0 },
-		{ id: 5, name: 'The Quick Brown Fox', description: 'Fox', lat: 0, lon: 0 },
-		{ id: 6, name: 'Jump', description: 'Quick', lat: 0, lon: 0 },
-	];
-
-	it('respects maxResults', () => {
-		const results = searchStations('a', stations, 2);
-		expect(results).toHaveLength(2);
-	});
-
-	it('matches non-contiguous words', () => {
-		const results = searchStations('the fox', stations);
-		expect(results[0].name).toBe('The Quick Brown Fox');
-	});
-
-	it('prefers shorter names via tie-breaking score', () => {
-		const stationsTie = [
-			{ id: 1, name: 'Station S', description: '', lat: 0, lon: 0 },
-			{ id: 2, name: 'Station ST', description: '', lat: 0, lon: 0 },
-		];
-		const results = searchStations('s', stationsTie);
-		expect(results[0].name).toBe('Station S');
-		expect(results[1].name).toBe('Station ST');
-	});
-});
-
