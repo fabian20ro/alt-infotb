@@ -178,3 +178,35 @@ describe('searchStations', () => {
 		expect(results[1].name).toBe('Short Long Name');
 	});
 });
+
+describe('searchStations advanced scenarios', () => {
+	const stations: Station[] = [
+		{ id: 1, name: 'A', description: 'Description for A', lat: 0, lon: 0 },
+		{ id: 2, name: 'AB', description: 'Description for AB', lat: 0, lon: 0 },
+		{ id: 3, name: 'ABC', description: 'Description for ABC', lat: 0, lon: 0 },
+		{ id: 4, name: 'XYZ', description: 'Description for XYZ', lat: 0, lon: 0 },
+		{ id: 5, name: 'The Quick Brown Fox', description: 'Fox', lat: 0, lon: 0 },
+		{ id: 6, name: 'Jump', description: 'Quick', lat: 0, lon: 0 },
+	];
+
+	it('respects maxResults', () => {
+		const results = searchStations('a', stations, 2);
+		expect(results).toHaveLength(2);
+	});
+
+	it('matches non-contiguous words', () => {
+		const results = searchStations('the fox', stations);
+		expect(results[0].name).toBe('The Quick Brown Fox');
+	});
+
+	it('prefers shorter names via tie-breaking score', () => {
+		const stationsTie = [
+			{ id: 1, name: 'Station S', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'Station ST', description: '', lat: 0, lon: 0 },
+		];
+		const results = searchStations('s', stationsTie);
+		expect(results[0].name).toBe('Station S');
+		expect(results[1].name).toBe('Station ST');
+	});
+});
+
