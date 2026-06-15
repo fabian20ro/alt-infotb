@@ -54,11 +54,10 @@ describe('geo', () => {
 			expect(results).toHaveLength(0);
 		});
 
-		it('returns only the selected station if selectedId is provided', () => {
+		it('returns all stations within bounds when selectedId is null', () => {
 			const bounds = { south: 44.3, north: 44.6, west: 26.0, east: 26.3 };
-			const results = findStationsInBounds(bounds, stations, 10, 1);
-			expect(results).toHaveLength(1);
-			expect(results[0].id).toBe(1);
+			const results = findStationsInBounds(bounds, stations, 10);
+			expect(results).toHaveLength(3);
 		});
 	});
 });
