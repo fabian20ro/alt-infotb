@@ -33,6 +33,11 @@ describe('geo', () => {
 			const nearest = findNearestStations(44.4, 26.1, stations, 2);
 			expect(nearest).toHaveLength(2);
 		});
+
+		it('handles count greater than station count', () => {
+			const nearest = findNearestStations(44.4, 26.1, stations, 10);
+			expect(nearest).toHaveLength(4);
+		});
 	});
 
 	describe('findStationsInBounds', () => {
@@ -58,6 +63,26 @@ describe('geo', () => {
 			const bounds = { south: 44.3, north: 44.6, west: 26.0, east: 26.3 };
 			const results = findStationsInBounds(bounds, stations, 10);
 			expect(results).toHaveLength(3);
+		});
+
+		it('returns selected station even if not in bounds', () => {
+			const bounds = { south: 0, north: 1, west: 0, east: 1 };
+			const results = findStationsInBounds(bounds, stations, 10, 1);
+			expect(results).toHaveLength(1);
+			expect(results[0].id).toBe(1);
+		});
+
+		it('returns empty if maxCount is 0 and no selectedId', () => {
+			const bounds = { south: 44.3, north: 44.6, west: 26.0, east: 26.3 };
+			const results = findStationsInBounds(bounds, stations, 0);
+			expect(results).toHaveLength(0);
+		});
+
+		it('returns selected station if maxCount is 0', () => {
+			const bounds = { south: 0, north: 1, west: 0, east: 1 };
+			const results = findStationsInBounds(bounds, stations, 0, 1);
+			expect(results).toHaveLength(1);
+			expect(results[0].id).toBe(1);
 		});
 	});
 });
