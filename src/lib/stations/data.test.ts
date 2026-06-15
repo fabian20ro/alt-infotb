@@ -33,8 +33,6 @@ describe('isNewRomanianDay', () => {
 	});
 
 	it('respects the 4 AM boundary', () => {
-		// 00:00 UTC is 01:00 or 03:00 Bucharest (< 4)
-		// 05:00 UTC is 06:00 or 08:00 Bucharest (> 4)
 		const before = new Date('2026-06-15T00:00:00Z').getTime();
 		const after = new Date('2026-06-15T05:00:00Z').getTime();
 		expect(isNewRomanianDay(before, after)).toBe(true);
