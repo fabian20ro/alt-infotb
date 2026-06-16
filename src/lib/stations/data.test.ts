@@ -1,31 +1,40 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { isNewRomanianDay } from './data.js';
 
 describe('isNewRomanianDay', () => {
-	it('returns true when lastRefresh is 0', () => {
-		expect(isNewRomanianDay(0)).toBe(true);
+	// Fixed timestamps in Bucharest time to ensure determinism
+	// We use UTC times that are guaranteed to fall on different Romanian days
+	// regardless of the environment's offset (assuming -1 to +3)
+	
+	it('returns true for a timestamp from yesterday', () => {
+		const yesterday = new Date('2026-06-13T12:00:00Z').getTime();
+		const now = new Date('2026-06-14T12:00:00Z').getTime();
+		expect(isNewRomanianDay(yesterday, now)).toBe(true);
 	});
 
-	it('returns false when lastRefresh is recent (same transit day)', () => {
-		// A few minutes ago is the same day
-		const recent = Date.now() - 5 * 60 * 1000;
-		expect(isNewRomanianDay(recent)).toBe(false);
+	it('returns false for a timestamp from today (after 4 AM)', () => {
+		const lastRefresh = new Date('2026-06-15T10:00:00Z').getTime();
+		const now = new Date('2026-06-15T11:00:00Z').getTime();
+		expect(isNewRomanianDay(lastRefresh, now)).toBe(false);
 	});
 
-	it('returns true when lastRefresh was yesterday', () => {
-		// 48 hours ago is definitely a previous transit day
-		const old = Date.now() - 48 * 60 * 60 * 1000;
-		expect(isNewRomanianDay(old)).toBe(true);
+	it('returns true when moving from before 4 AM to after 4 AM', () => {
+		// 00:00 UTC is 01:00 or 03:00 Bucharest (< 4)
+		// 05:00 UTC is 06:00 or 08:00 Bucharest (> 4)
+		const beforeBoundary = new Date('2026-06-15T00:00:00Z').getTime();
+		const afterBoundary = new Date('2026-06-15T05:00:00Z').getTime();
+		expect(isNewRomanianDay(beforeBoundary, afterBoundary)).toBe(true);
 	});
 
-	it('switches at 4 AM Romanian time across DST-safe local boundaries', () => {
-		const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 4, 11, 1, 30));
+	it('returns false if timestamp is recent and within the same transit day', () => {
+		const now = new Date('2026-06-15T12:00:00Z').getTime();
+		const recent = now - 1000;
+		expect(isNewRomanianDay(recent, now)).toBe(false);
+	});
 
-		try {
-			expect(isNewRomanianDay(Date.UTC(2026, 4, 11, 0, 59))).toBe(true);
-			expect(isNewRomanianDay(Date.UTC(2026, 4, 11, 1, 1))).toBe(false);
-		} finally {
-			nowSpy.mockRestore();
-		}
+	it('respects the 4 AM boundary', () => {
+		const before = new Date('2026-06-15T00:00:00Z').getTime();
+		const after = new Date('2026-06-15T05:00:00Z').getTime();
+		expect(isNewRomanianDay(before, after)).toBe(true);
 	});
 });

@@ -1,10 +1,12 @@
 import type { Station } from './types.js';
 
-/** Strip diacritics and normalize for comparison */
 export function normalize(text: string): string {
-	return text
-		.normalize('NFD')
-		.replace(/[\u0300-\u036f]/g, '')
+	let res = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+	// Handle acronyms like C.F.R. or C. F. R.
+	// Match: start of word, then (dot, optional space, letter) repeated, then optional dot.
+	// We use a lookahead to ensure we don't swallow the space before the next word.
+	res = res.replace(/\b[a-z](?:[\.\s]+[a-z])+(?=\.?\s|\.?$)/gi, (m) => m.replace(/[\s\.]/g, ''));
+	return res
 		.replace(/[^a-z0-9\s]/gi, ' ')
 		.replace(/\s+/g, ' ')
 		.trim()
@@ -17,7 +19,7 @@ export function searchStations(
 	stations: readonly Station[],
 	maxResults = 20
 ): Station[] {
-	const normalizedQuery = normalize(query.trim());
+	const normalizedQuery = normalize(query);
 	if (normalizedQuery.length === 0) return [];
 
 	const queryWords = normalizedQuery.split(' ').filter(w => w.length > 0);

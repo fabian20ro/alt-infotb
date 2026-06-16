@@ -77,46 +77,29 @@ export function findStationsInBounds(
 
 	const inBounds: Station[] = [];
 	let selected: Station | null = null;
-	let selectedInBounds = false;
 
-	// Optimization: Single pass to check bounds, count items, and find selected station.
-	// Avoids multiple array iterations (.filter, .find, .some) and allows early exits.
 	for (let i = 0; i < stations.length; i++) {
 		const s = stations[i];
 		const isSelected = selectedId != null && s.id === selectedId;
 
-		// Fast bounds check
 		if (s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east) {
 			inBounds.push(s);
 			if (isSelected) {
-				selectedInBounds = true;
 				selected = s;
+				break;
 			}
 		} else if (isSelected) {
 			selected = s;
+			break;
 		}
 
-		// Early returns when we exceed the cap
-		if (inBounds.length > maxCount) {
-			if (selectedId == null) {
-				return []; // Exceeded cap, no selected item to look for
-			}
-
-			if (selected != null) {
-				return [selected]; // Exceeded cap, already found selected item
-			}
-
-			// We've exceeded the cap but haven't found the selected item yet.
-			// We can stop iterating normally and just look for the selected item.
-			const found = stations.find((x) => x.id === selectedId);
-			return found ? [found] : [];
+		if (inBounds.length >= maxCount && selected !== null) {
+			break;
 		}
 	}
 
-	// Under cap — include selected even if outside bounds
-	if (selected != null && !selectedInBounds) {
-		inBounds.push(selected);
+	if (selected !== null) {
+		return [selected];
 	}
-
-	return inBounds;
+	return inBounds.length > maxCount ? [] : inBounds;
 }
