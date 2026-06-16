@@ -36,6 +36,11 @@ describe('normalize', () => {
 		expect(normalize('S.T.E.F.A.N.')).toBe('stefan');
 	});
 
+	it('handles complex acronyms with mixed spacing', () => {
+		expect(normalize('A. B. C. D.')).toBe('abcd');
+		expect(searchStations('A B C D', [{ id: 1, name: 'A. B. C. D.', description: '', lat: 0, lon: 0 }])[0].name).toBe('A. B. C. D.');
+	});
+
 	it('handles punctuation and brackets', () => {
 		expect(normalize('Station [Alpha] (Beta)!')).toBe('station alpha beta');
 		expect(normalize('{Test} & More')).toBe('test more');
