@@ -18,6 +18,7 @@ describe('searchStations', () => {
 	it('finds matches where query is in description with low score', () => {
 		const results = searchStations('Is a description', stations);
 		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('A');
 	});
 
 	it('respects maxResults', () => {
@@ -35,5 +36,14 @@ describe('searchStations', () => {
 		const results = searchStations('Uni Hub', stations);
 		expect(results).toHaveLength(1);
 		expect(results[0].name).toBe('Piata Unirii');
+	});
+
+	it('handles acronyms correctly', () => {
+		const stationsWithAcronym = [
+			{ id: 4, name: 'C.F.R. Station', description: 'Acronym test', lat: 0, lon: 0 }
+		] as Station[];
+		const results = searchStations('cfr', stationsWithAcronym);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('C.F.R. Station');
 	});
 });
