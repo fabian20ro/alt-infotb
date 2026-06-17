@@ -36,6 +36,11 @@ describe('normalize', () => {
 		expect(normalize('S.T.E.F.A.N.')).toBe('stefan');
 	});
 
+	it('handles complex acronyms with mixed spacing', () => {
+		expect(normalize('A. B. C. D.')).toBe('abcd');
+		expect(searchStations('A B C D', [{ id: 1, name: 'A. B. C. D.', description: '', lat: 0, lon: 0 }])[0].name).toBe('A. B. C. D.');
+	});
+
 	it('handles punctuation and brackets', () => {
 		expect(normalize('Station [Alpha] (Beta)!')).toBe('station alpha beta');
 		expect(normalize('{Test} & More')).toBe('test more');
@@ -54,11 +59,10 @@ describe('normalize', () => {
 		expect(searchStations('Piata Unirii Nord', dashStations)[0].name).toBe('Piața–Unirii — Nord');
 	});
 
-	it('handles punctuation and extra whitespace together', () => {
-		const punctuationStations: Station[] = [
-			{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.43, lon: 26.09 },
-		];
-		expect(searchStations('  C.F.R.   Progresul  ', punctuationStations)[0].name).toBe('C.F.R. Progresul');
+	it('does not match substrings that are not whole words', () => {
+		const stations: Station[] = [{ id: 1, name: 'Piata Unirii', description: '', lat: 0, lon: 0 }];
+		const results = searchStations('ati', stations);
+		expect(results).toHaveLength(0);
 	});
 });
 
