@@ -147,4 +147,13 @@ describe('searchStations', () => {
 		const results = searchStations('Station B', stations);
 		expect(results[0].name).toBe('Station A Part B');
 	});
+
+	it('sorts by score (preferring shorter names)', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Very Long Name Station', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'Short Station', description: '', lat: 0, lon: 0 },
+		];
+		const results = searchStations('Station', stations);
+		expect(results[0].name).toBe('Short Station');
+	});
 });
