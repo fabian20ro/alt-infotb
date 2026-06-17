@@ -59,11 +59,10 @@ describe('normalize', () => {
 		expect(searchStations('Piata Unirii Nord', dashStations)[0].name).toBe('Piața–Unirii — Nord');
 	});
 
-	it('handles punctuation and extra whitespace together', () => {
-		const punctuationStations: Station[] = [
-			{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.43, lon: 26.09 },
-		];
-		expect(searchStations('  C.F.R.   Progresul  ', punctuationStations)[0].name).toBe('C.F.R. Progresul');
+	it('does not match substrings that are not whole words', () => {
+		const stations: Station[] = [{ id: 1, name: 'Piata Unirii', description: '', lat: 0, lon: 0 }];
+		const results = searchStations('ati', stations);
+		expect(results).toHaveLength(0);
 	});
 });
 

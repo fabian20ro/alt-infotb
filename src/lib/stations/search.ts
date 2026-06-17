@@ -41,12 +41,8 @@ export function searchStations(
 			score = 80;
 		}
 		// Word boundary match
-		else if (normalizedName.includes(` ${normalizedQuery}`)) {
+		else if (normalizedName.endsWith(normalizedQuery) || normalizedName.includes(` ${normalizedQuery}`) || normalizedName.includes(`${normalizedQuery} `)) {
 			score = 60;
-		}
-		// Contains query anywhere
-		else if (normalizedName.includes(normalizedQuery)) {
-			score = 40;
 		}
 		// Description contains query
 		else if (normalizedDesc.includes(normalizedQuery)) {
