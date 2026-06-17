@@ -75,8 +75,8 @@ describe('geo', () => {
 			expect(results).toHaveLength(3);
 		});
 
-		it('returns selected station even if not in bounds', () => {
-			const bounds = { south: 0, north: 1, west: 0, east: 1 };
+		it('returns selected station even if it is outside the bounds', () => {
+			const bounds = { south: 45, north: 46, west: 27, east: 28 };
 			const results = findStationsInBounds(bounds, stations, 10, 1);
 			expect(results).toHaveLength(1);
 			expect(results[0].id).toBe(1);
