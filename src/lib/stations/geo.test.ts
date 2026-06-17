@@ -38,6 +38,11 @@ describe('geo', () => {
 			const nearest = findNearestStations(44.4, 26.1, stations, 10);
 			expect(nearest).toHaveLength(4);
 		});
+
+		it('handles count=0', () => {
+			const nearest = findNearestStations(44.4, 26.1, stations, 0);
+			expect(nearest).toHaveLength(0);
+		});
 	});
 
 	describe('findStationsInBounds', () => {
