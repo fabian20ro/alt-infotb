@@ -54,6 +54,15 @@ describe('geo', () => {
 			const nearest = findNearestStations(44.4, 26.1, [], 5);
 			expect(nearest).toHaveLength(0);
 		});
+
+		it('finds stations with larger count and distance', () => {
+			const farStations: Station[] = [
+				{ id: 10, name: 'F1', description: '', lat: 44.5, lon: 26.5 },
+				{ id: 11, name: 'F2', description: '', lat: 44.6, lon: 26.6 },
+			];
+			const nearest = findNearestStations(44.4, 26.1, farStations, 2);
+			expect(nearest).toHaveLength(2);
+		});
 	});
 
 	describe('findStationsInBounds', () => {
@@ -102,3 +111,12 @@ describe('geo', () => {
 		});
 	});
 });
+
+		it('finds stations with larger count and distance', () => {
+			const farStations: Station[] = [
+				{ id: 10, name: 'F1', description: '', lat: 45.0, lon: 27.0 },
+				{ id: 11, name: 'F2', description: '', lat: 45.1, lon: 27.1 },
+			];
+			const nearest = findNearestStations(44.4, 26.1, farStations, 2);
+			expect(nearest).toHaveLength(2);
+		});

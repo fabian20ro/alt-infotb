@@ -42,7 +42,7 @@ export function findNearestStations(
 	let radiusDeg = 0.018;
 	let candidates: Station[] = [];
 
-	while (candidates.length < count && radiusDeg < 0.2) {
+	while (candidates.length < count && radiusDeg < 2.0) {
 		candidates = stations.filter(
 			(s) =>
 				Math.abs(s.lat - lat) < radiusDeg &&
