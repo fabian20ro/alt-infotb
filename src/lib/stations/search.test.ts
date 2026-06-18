@@ -64,6 +64,12 @@ describe('normalize', () => {
 		const results = searchStations('ati', stations);
 		expect(results).toHaveLength(0);
 	});
+
+	it('finds matches when query is a substring of a word in the name', () => {
+		const stations: Station[] = [{ id: 1, name: 'Piata Unirii', description: '', lat: 0, lon: 0 }];
+		const results = searchStations('unir', stations);
+		expect(results).toHaveLength(1);
+	});
 });
 
 describe('searchStations', () => {
