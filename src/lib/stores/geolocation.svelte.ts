@@ -31,22 +31,14 @@ export function createGeolocationStore() {
 
 	/** Load last known position from localStorage */
 	function loadSavedPosition(): GeoPosition | null {
-		try {
-			const raw = localStorage.getItem(STORAGE_KEY);
-			if (!raw) return null;
-			return JSON.parse(raw) as GeoPosition;
-		} catch {
-			return null;
-		}
+		// Intentionally do not persist precise geolocation in browser storage.
+		return null;
 	}
 
 	/** Save position to localStorage */
 	function savePosition(pos: GeoPosition): void {
-		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(pos));
-		} catch {
-			// Silently fail
-		}
+		// Intentionally no-op: avoid storing sensitive geolocation in clear text.
+		void pos;
 	}
 
 	/** Get the best available center: GPS > saved > Bucharest default */
