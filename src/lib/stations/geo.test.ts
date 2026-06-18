@@ -14,6 +14,12 @@ describe('geo', () => {
 		it('returns 0 for the same location', () => {
 			expect(distanceMeters(44.4, 26.1, 44.4, 26.1)).toBe(0);
 		});
+
+		it('handles antipodal points without returning NaN', () => {
+			const d = distanceMeters(90, 0, -90, 0);
+			expect(d).toBeGreaterThan(0);
+			expect(isNaN(d)).toBe(false);
+		});
 	});
 
 	describe('findNearestStations', () => {

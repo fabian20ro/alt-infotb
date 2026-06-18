@@ -24,7 +24,7 @@ export function distanceMeters(
 		Math.cos(lat1 * DEG_TO_RAD) *
 			Math.cos(lat2 * DEG_TO_RAD) *
 			Math.sin(dLon / 2) ** 2;
-	return EARTH_RADIUS_M * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+	return EARTH_RADIUS_M * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
 }
 
 /**
