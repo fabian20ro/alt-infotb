@@ -51,11 +51,10 @@ export function searchStations(
 
 		// All words present (but not as a contiguous phrase)
 		if (score === 0 && queryWords.length > 1) {
-			const allWordsPresent = queryWords.every(word =>
-				normalizedName.includes(word) || normalizedDesc.includes(word)
-			);
-			if (allWordsPresent) {
-				score = 10;
+			const nameMatches = queryWords.filter(w => normalizedName.includes(w)).length;
+			const descMatches = queryWords.filter(w => normalizedDesc.includes(w)).length;
+			if (nameMatches + descMatches === queryWords.length) {
+				score = 10 + (nameMatches * 5);
 			}
 		}
 
