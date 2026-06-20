@@ -22,6 +22,13 @@ export function searchStations(
 	const normalizedQuery = normalize(query);
 	if (normalizedQuery.length === 0) return [];
 
+	// Check if query is a numeric ID
+	if (/^\d+$/.test(query.trim())) {
+		const queryId = parseInt(query.trim(), 10);
+		const idMatch = stations.find(s => s.id === queryId);
+		if (idMatch) return [idMatch];
+	}
+
 	const queryWords = normalizedQuery.split(' ').filter(w => w.length > 0);
 
 	const scored: Array<{ station: Station; score: number }> = [];

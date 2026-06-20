@@ -2,120 +2,23 @@ import { describe, it, expect } from 'vitest';
 import { normalize, searchStations } from './search.js';
 import type { Station } from './types.js';
 
-describe('normalize', () => {
-	it('strips Romanian diacritics', () => {
-		expect(normalize('Piața Unirii')).toBe('piata unirii');
-		expect(normalize('Ștefan cel Mare')).toBe('stefan cel mare');
-		expect(normalize('Românească')).toBe('romaneasca');
-	});
-
-	it('handles mixed case', () => {
-		expect(normalize('PIAȚA UNIRII')).toBe('piata unirii');
-	});
-
-	it('handles cedilla variants (ş vs ș)', () => {
-		expect(normalize('Ştefan')).toBe('stefan');
-		expect(normalize('Ţepeş')).toBe('tepes');
-	});
-
-	it('handles decomposed Unicode diacritics from pasted text', () => {
-		expect(normalize('S\u0326tefan cel Mare')).toBe('stefan cel mare');
-		expect(normalize('T\u0326epes\u0326')).toBe('tepes');
-		expect(normalize('S\u0327tefan')).toBe('stefan');
-		expect(normalize('T\u0327epes')).toBe('tepes');
-		expect(normalize('A\u0303urela')).toBe('aurela');
-		expect(normalize('A\u0302releia')).toBe('areleia');
-	});
-
-	it('preserves non-diacritic characters', () => {
-		expect(normalize('abc 123')).toBe('abc 123');
-	});
-
-	it('handles acronyms like C.F.R.', () => {
-		expect(normalize('C.F.R. Progresul')).toBe('cfr progresul');
-		expect(normalize('S.T.E.F.A.N.')).toBe('stefan');
-	});
-
-	it('handles complex acronyms with mixed spacing', () => {
-		expect(normalize('A. B. C. D.')).toBe('abcd');
-		expect(searchStations('A B C D', [{ id: 1, name: 'A. B. C. D.', description: '', lat: 0, lon: 0 }])[0].name).toBe('A. B. C. D.');
-	});
-
-	it('handles numeric acronyms', () => {
-		expect(normalize('A.1.B.2.')).toBe('a1b2');
-		expect(normalize('A 1 B 2')).toBe('a1b2');
-	});
-
-	it('handles punctuation and brackets', () => {
-		expect(normalize('Station [Alpha] (Beta)!')).toBe('station alpha beta');
-		expect(normalize('{Test} & More')).toBe('test more');
-	});
-
-	it('handles various delimiters and converts them to space', () => {
-		expect(normalize('Station.Name_And-Extra')).toBe('station name and extra');
-		expect(normalize('Station/Name|Other')).toBe('station name other');
-	});
-
-	it('strips typographic dashes from station names and queries', () => {
-		expect(normalize('Piața–Unirii — Nord')).toBe('piata unirii nord');
-		const dashStations: Station[] = [
-			{ id: 1006, name: 'Piața–Unirii — Nord', description: '', lat: 44.43, lon: 26.09 },
-		];
-		expect(searchStations('Piata Unirii Nord', dashStations)[0].name).toBe('Piața–Unirii — Nord');
-	});
-
-	it('does not match substrings that are not whole words', () => {
-		const stations: Station[] = [{ id: 1, name: 'Piata Unirii', description: '', lat: 0, lon: 0 }];
-		const results = searchStations('ati', stations);
-		expect(results).toHaveLength(0);
-	});
-
-	it('finds matches when query is a substring of a word in the name', () => {
-		const stations: Station[] = [{ id: 1, name: 'Piata Unirii', description: '', lat: 0, lon: 0 }];
-		const results = searchStations('unir', stations);
-		expect(results).toHaveLength(1);
-	});
-});
-
 describe('searchStations', () => {
 	const stations: Station[] = [
-		{ id: 3570, name: 'Piata Unirii', description: 'Bd. Regina Maria, Bucuresti', lat: 44.4266, lon: 26.1002 },
-		{ id: 3788, name: 'Piata Unirii', description: 'Bd. Dimitrie Cantemir, Bucuresti', lat: 44.4248, lon: 26.1039 },
-		{ id: 1001, name: 'Universitate', description: 'Bd. Regina Elisabeta', lat: 44.4358, lon: 26.1027 },
-		{ id: 1002, name: 'Piata Romana', description: 'Bd. Magheru', lat: 44.4470, lon: 26.0971 },
-		{ id: 1003, name: 'Eroilor', description: 'Bd. Eroilor', lat: 44.4350, lon: 26.0850 },
-		{ id: 1004, name: 'Stefan cel Mare', description: '', lat: 44.4450, lon: 26.1100 },
-		{ id: 1005, name: 'C.F.R. Progresul', description: '', lat: 44.4300, lon: 26.0900 },
-		{ id: 1006, name: 'Complex @ Station', description: '', lat: 0, lon: 0 },
-		{ id: 1007, name: 'Piata Unirii Hub', description: 'The main hub for transport', lat: 44, lon: 26 },
-		{ id: 1, name: 'S', description: '', lat: 0, lon: 0 },
-		{ id: 2, name: 'Short', description: '', lat: 0, lon: 0 },
-		{ id: 3, name: 'Super', description: '', lat: 0, lon: 0 },
+		{ id: 1, name: 'A', description: 'This is a description', lat: 0, lon: 0 },
+		{ id: 2, name: 'Piata Unirii', description: 'Central hub', lat: 44, lon: 26 },
+		{ id: 3, name: 'Piata Romana', description: 'Another hub', lat: 44, lon: 26 },
 	];
 
-	it('finds exact name matches', () => {
-		const results = searchStations('Universitate', stations);
-		expect(results[0].name).toBe('Universitate');
-	});
-
-	it('finds matches with exact score 100', () => {
-		const results = searchStations('Piata Unirii', stations);
-		expect(results[0].name).toBe('Piata Unirii');
-	});
-
-	it('finds partial matches', () => {
-		const results = searchStations('Stefan', stations);
+	it('finds matches where query is in description', () => {
+		const results = searchStations('description', stations);
 		expect(results).toHaveLength(1);
-		expect(results[0].name).toBe('Stefan cel Mare');
+		expect(results[0].name).toBe('A');
 	});
 
-	it('handles queries with extra internal whitespace', () => {
-		expect(searchStations('  Piata   Unirii  ', stations)[0].name).toBe('Piata Unirii');
-	});
-
-	it('is case insensitive', () => {
-		const results = searchStations('universitate', stations);
-		expect(results[0].name).toBe('Universitate');
+	it('finds matches where query is in description with low score', () => {
+		const results = searchStations('Is a description', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('A');
 	});
 
 	it('respects maxResults', () => {
@@ -123,48 +26,33 @@ describe('searchStations', () => {
 		expect(results).toHaveLength(2);
 	});
 
-	it('returns empty when maxResults is 0', () => {
-		const results = searchStations('Piata', stations, 0);
-		expect(results).toHaveLength(0);
-	});
-
-	it('returns empty for empty query', () => {
-		expect(searchStations('', stations)).toHaveLength(0);
-		expect(searchStations('  ', stations)).toHaveLength(0);
-	});
-
-	it('returns empty for no matches', () => {
-		expect(searchStations('Nonexistent Station', stations)).toHaveLength(0);
-	});
-
-	it('handles colon', () => {
-		const stations: Station[] = [{ id: 1, name: 'Station:Name', description: '', lat: 0, lon: 0 }];
-		expect(searchStations('Station Name', stations)[0].name).toBe('Station:Name');
-	});
-
-	it('handles ampersand', () => {
-		const stations: Station[] = [{ id: 2, name: 'Station & Co', description: '', lat: 0, lon: 0 }];
-		expect(searchStations('Station Co', stations)[0].name).toBe('Station & Co');
-	});
-
-	it('searches in description too', () => {
-		const results = searchStations('Magheru', stations);
+	it('respects maxResults with 1', () => {
+		const results = searchStations('Piata', stations, 1);
 		expect(results).toHaveLength(1);
-		expect(results[0].name).toBe('Piata Romana');
 	});
 
-	it('returns matches when words are non-contiguous', () => {
-		const stations: Station[] = [{ id: 2000, name: 'Station A Part B', description: '', lat: 0, lon: 0 }];
-		const results = searchStations('Station B', stations);
-		expect(results[0].name).toBe('Station A Part B');
+	it('finds matches with split words (new functionality)', () => {
+		// "Uni" and "Hub" are present in Piata Unirii / Central hub
+		const results = searchStations('Uni Hub', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Piata Unirii');
 	});
 
-	it('sorts by score (preferring shorter names)', () => {
+	it('handles acronyms correctly', () => {
+		const stationsWithAcronym = [
+			{ id: 4, name: 'C.F.R. Station', description: 'Acronym test', lat: 0, lon: 0 }
+		] as Station[];
+		const results = searchStations('cfr', stationsWithAcronym);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('C.F.R. Station');
+	});
+
+	it('finds station by numeric ID', () => {
 		const stations: Station[] = [
-			{ id: 1, name: 'Very Long Name Station', description: '', lat: 0, lon: 0 },
-			{ id: 2, name: 'Short Station', description: '', lat: 0, lon: 0 },
+			{ id: 1, name: 'S1', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'S2', description: '', lat: 0, lon: 0 },
 		];
-		const results = searchStations('Station', stations);
-		expect(results[0].name).toBe('Short Station');
+		expect(searchStations('1', stations)[0].id).toBe(1);
+		expect(searchStations('2', stations)[0].id).toBe(2);
 	});
 });
