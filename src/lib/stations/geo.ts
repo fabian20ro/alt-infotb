@@ -24,7 +24,7 @@ export function distanceMeters(
 		Math.cos(lat1 * DEG_TO_RAD) *
 			Math.cos(lat2 * DEG_TO_RAD) *
 			Math.sin(dLon / 2) ** 2;
-	return EARTH_RADIUS_M * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+	return EARTH_RADIUS_M * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
 }
 
 /**
@@ -42,7 +42,7 @@ export function findNearestStations(
 	let radiusDeg = 0.018;
 	let candidates: Station[] = [];
 
-	while (candidates.length < count && radiusDeg < 0.2) {
+	while (candidates.length < count && radiusDeg < 2.0) {
 		candidates = stations.filter(
 			(s) =>
 				Math.abs(s.lat - lat) < radiusDeg &&
@@ -75,31 +75,21 @@ export function findStationsInBounds(
 ): Station[] {
 	const { south, north, west, east } = bounds;
 
-	const inBounds: Station[] = [];
-	let selected: Station | null = null;
+	const selected = (selectedId !== null && selectedId !== undefined)
+		? stations.find((s) => s.id === selectedId)
+		: null;
 
-	for (let i = 0; i < stations.length; i++) {
-		const s = stations[i];
-		const isSelected = selectedId != null && s.id === selectedId;
-
-		if (s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east) {
-			inBounds.push(s);
-			if (isSelected) {
-				selected = s;
-				break;
-			}
-		} else if (isSelected) {
-			selected = s;
-			break;
-		}
-
-		if (inBounds.length >= maxCount && selected !== null) {
-			break;
-		}
-	}
-
-	if (selected !== null) {
+	if (selected) {
 		return [selected];
 	}
-	return inBounds.length > maxCount ? [] : inBounds;
+
+	const inBounds = stations.filter(
+		(s) => s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east
+	);
+
+	if (inBounds.length > maxCount) {
+		return [];
+	}
+
+	return inBounds;
 }

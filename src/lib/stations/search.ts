@@ -3,9 +3,8 @@ import type { Station } from './types.js';
 export function normalize(text: string): string {
 	let res = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 	// Handle acronyms like C.F.R. or C. F. R.
-	// Match: start of word, then (dot, optional space, letter) repeated, then optional dot.
-	// We use a lookahead to ensure we don't swallow the space before the next word.
-	res = res.replace(/\b[a-z](?:[\.\s]+[a-z])+(?=\.?\s|\.?$)/gi, (m) => m.replace(/[\s\.]/g, ''));
+	// Match: start of word, then (dot, optional space, letter/number) repeated, then optional dot.
+	res = res.replace(/\b[a-z0-9](?:[\.\s]+[a-z0-9])*[\.\s]*/gi, (m) => m.replace(/[\s\.]/g, ''));
 	return res
 		.replace(/[^a-z0-9\s]/gi, ' ')
 		.replace(/\s+/g, ' ')
@@ -21,6 +20,13 @@ export function searchStations(
 ): Station[] {
 	const normalizedQuery = normalize(query);
 	if (normalizedQuery.length === 0) return [];
+
+	// Check if query is a numeric ID
+	if (/^\d+$/.test(query.trim())) {
+		const queryId = parseInt(query.trim(), 10);
+		const idMatch = stations.find(s => s.id === queryId);
+		if (idMatch) return [idMatch];
+	}
 
 	const queryWords = normalizedQuery.split(' ').filter(w => w.length > 0);
 
@@ -51,11 +57,10 @@ export function searchStations(
 
 		// All words present (but not as a contiguous phrase)
 		if (score === 0 && queryWords.length > 1) {
-			const allWordsPresent = queryWords.every(word =>
-				normalizedName.includes(word) || normalizedDesc.includes(word)
-			);
-			if (allWordsPresent) {
-				score = 10;
+			const nameMatches = queryWords.filter(w => normalizedName.includes(w)).length;
+			const descMatches = queryWords.filter(w => normalizedDesc.includes(w)).length;
+			if (nameMatches + descMatches === queryWords.length) {
+				score = 10 + (nameMatches * 5);
 			}
 		}
 

@@ -40,13 +40,23 @@ describe('isNewRomanianDay', () => {
 
 	it('handles the boundary exactly at 4 AM Bucharest time', () => {
 		// 00:59:59 UTC is 03:59:59 Bucharest (Day N-1)
-		const before = new Date('2026-06-15T00:59:59Z').getTime();
 		// 01:00:00 UTC is 04:00:00 Bucharest (Day N)
+		const before = new Date('2026-06-15T00:59:59Z').getTime();
 		const after = new Date('2026-06-15T01:00:00Z').getTime();
 		expect(isNewRomanianDay(before, after)).toBe(true);
 			
 		// 01:00:01 UTC is 04:00:01 Bucharest (Day N)
 		const after2 = new Date('2026-06-15T01:00:01Z').getTime();
 		expect(isNewRomanianDay(after, after2)).toBe(false);
+	});
+
+	it('returns true for an uninitialized timestamp (0)', () => {
+		const now = new Date('2026-06-15T12:00:00Z').getTime();
+		expect(isNewRomanianDay(0, now)).toBe(true);
+	});
+
+	it('returns false when timestamps are identical', () => {
+		const now = new Date('2026-06-15T12:00:00Z').getTime();
+		expect(isNewRomanianDay(now, now)).toBe(false);
 	});
 });

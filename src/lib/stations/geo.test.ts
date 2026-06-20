@@ -5,7 +5,6 @@ import type { Station } from './types.js';
 describe('geo', () => {
 	describe('distanceMeters', () => {
 		it('calculates distance correctly for a known distance', () => {
-			// Roughly 136m difference for 0.001 deg delta
 			const d = distanceMeters(44.4, 26.1, 44.401, 26.101);
 			expect(d).toBeGreaterThan(100);
 			expect(d).toBeLessThan(200);
@@ -13,6 +12,12 @@ describe('geo', () => {
 
 		it('returns 0 for the same location', () => {
 			expect(distanceMeters(44.4, 26.1, 44.4, 26.1)).toBe(0);
+		});
+
+		it('handles antipodal points without returning NaN', () => {
+			const d = distanceMeters(90, 0, -90, 0);
+			expect(d).toBeGreaterThan(0);
+			expect(isNaN(d)).toBe(false);
 		});
 	});
 
@@ -48,6 +53,15 @@ describe('geo', () => {
 			const nearest = findNearestStations(44.4, 26.1, [], 5);
 			expect(nearest).toHaveLength(0);
 		});
+
+		it('finds stations with larger count and distance', () => {
+			const farStations: Station[] = [
+				{ id: 10, name: 'F1', description: '', lat: 45.0, lon: 27.0 },
+				{ id: 11, name: 'F2', description: '', lat: 45.1, lon: 27.1 },
+			];
+			const nearest = findNearestStations(44.4, 26.1, farStations, 2);
+			expect(nearest).toHaveLength(2);
+		});
 	});
 
 	describe('findStationsInBounds', () => {
@@ -75,8 +89,10 @@ describe('geo', () => {
 			expect(results).toHaveLength(3);
 		});
 
-		it('returns selected station even if not in bounds', () => {
-			const bounds = { south: 0, north: 1, west: 0, east: 1 };
+
+
+		it('returns selected station if it is within bounds', () => {
+			const bounds = { south: 44, north: 45, west: 26, east: 27 };
 			const results = findStationsInBounds(bounds, stations, 10, 1);
 			expect(results).toHaveLength(1);
 			expect(results[0].id).toBe(1);
@@ -89,7 +105,7 @@ describe('geo', () => {
 		});
 
 		it('returns selected station if maxCount is 0', () => {
-			const bounds = { south: 0, north: 1, west: 0, east: 1 };
+			const bounds = { south: 45, north: 46, west: 26.0, east: 26.3 };
 			const results = findStationsInBounds(bounds, stations, 0, 1);
 			expect(results).toHaveLength(1);
 			expect(results[0].id).toBe(1);
