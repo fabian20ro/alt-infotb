@@ -75,31 +75,21 @@ export function findStationsInBounds(
 ): Station[] {
 	const { south, north, west, east } = bounds;
 
-	const inBounds: Station[] = [];
-	let selected: Station | null = null;
+	const selected = (selectedId !== null && selectedId !== undefined)
+		? stations.find((s) => s.id === selectedId)
+		: null;
 
-	for (let i = 0; i < stations.length; i++) {
-		const s = stations[i];
-		const isSelected = selectedId != null && s.id === selectedId;
-
-		if (s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east) {
-			inBounds.push(s);
-			if (isSelected) {
-				selected = s;
-				break;
-			}
-		} else if (isSelected) {
-			selected = s;
-			break;
-		}
-
-		if (inBounds.length >= maxCount && selected !== null) {
-			break;
-		}
-	}
-
-	if (selected !== null) {
+	if (selected) {
 		return [selected];
 	}
-	return inBounds.length > maxCount ? [] : inBounds;
+
+	const inBounds = stations.filter(
+		(s) => s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east
+	);
+
+	if (inBounds.length > maxCount) {
+		return [];
+	}
+
+	return inBounds;
 }

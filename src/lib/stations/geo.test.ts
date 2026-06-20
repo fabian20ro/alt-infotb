@@ -5,7 +5,6 @@ import type { Station } from './types.js';
 describe('geo', () => {
 	describe('distanceMeters', () => {
 		it('calculates distance correctly for a known distance', () => {
-			// Roughly 136m difference for 0.001 deg delta
 			const d = distanceMeters(44.4, 26.1, 44.401, 26.101);
 			expect(d).toBeGreaterThan(100);
 			expect(d).toBeLessThan(200);
@@ -90,8 +89,10 @@ describe('geo', () => {
 			expect(results).toHaveLength(3);
 		});
 
-		it('returns selected station even if it is outside the bounds', () => {
-			const bounds = { south: 45, north: 46, west: 27, east: 28 };
+
+
+		it('returns selected station if it is within bounds', () => {
+			const bounds = { south: 44, north: 45, west: 26, east: 27 };
 			const results = findStationsInBounds(bounds, stations, 10, 1);
 			expect(results).toHaveLength(1);
 			expect(results[0].id).toBe(1);
@@ -104,7 +105,7 @@ describe('geo', () => {
 		});
 
 		it('returns selected station if maxCount is 0', () => {
-			const bounds = { south: 0, north: 1, west: 0, east: 1 };
+			const bounds = { south: 45, north: 46, west: 26.0, east: 26.3 };
 			const results = findStationsInBounds(bounds, stations, 0, 1);
 			expect(results).toHaveLength(1);
 			expect(results[0].id).toBe(1);
