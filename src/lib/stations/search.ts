@@ -4,8 +4,7 @@ export function normalize(text: string): string {
 	let res = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 	// Handle acronyms like C.F.R. or C. F. R.
 	// Match: start of word, then (dot, optional space, letter/number) repeated, then optional dot.
-	// We use a lookahead to ensure we don't swallow the space before the next word.
-	res = res.replace(/\b[a-z0-9](?:[\.\s]+[a-z0-9])*[\.\s]*(?=\s|$)/gi, (m) => m.replace(/[\s\.]/g, ''));
+	res = res.replace(/\b[a-z0-9](?:[\.\s]+[a-z0-9])*[\.\s]*/gi, (m) => m.replace(/[\s\.]/g, ''));
 	return res
 		.replace(/[^a-z0-9\s]/gi, ' ')
 		.replace(/\s+/g, ' ')

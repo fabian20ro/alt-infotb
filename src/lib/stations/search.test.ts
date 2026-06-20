@@ -56,3 +56,27 @@ describe('searchStations', () => {
 		expect(searchStations('2', stations)[0].id).toBe(2);
 	});
 });
+
+describe('normalize', () => {
+	it('removes diacritics', () => {
+		expect(normalize('Piata')).toBe('piata');
+		expect(normalize('Piățã')).toBe('piata');
+	});
+
+	it('handles acronyms with spaces and dots', () => {
+		expect(normalize('C. F. R.')).toBe('cfr');
+		expect(normalize('C.F.R.')).toBe('cfr');
+	});
+
+	it('handles acronyms followed by text without space', () => {
+		expect(normalize('C.F.R.Station')).toBe('cfrstation');
+	});
+
+	it('treats dashes as spaces', () => {
+		expect(normalize('Piata-Unirii')).toBe('piata unirii');
+	});
+
+	it('collapses multiple spaces', () => {
+		expect(normalize('  Too   Many   Spaces  ')).toBe('too many spaces');
+	});
+});
