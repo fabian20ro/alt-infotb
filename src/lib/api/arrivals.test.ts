@@ -173,11 +173,11 @@ describe('fetchArrivals', () => {
 		await expect(fetchArrivals(3570)).rejects.toThrow('protobuf corrupt');
 	});
 
-	it('filters out unreasonable arrival times (> 7200 seconds)', async () => {
+	it('filters arrival times outside the valid range [0, 7200]', async () => {
 		const responseData = buildStopResponse([
 			{
-				name: '27', id: 66, type: 'TRAM', color: '#BE1622', direction: 'Faur',
-				arrivals: [{ seconds: 120 }, { seconds: 99999 }]
+				name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul',
+				arrivals: [{ seconds: -1 }, { seconds: 0 }, { seconds: 7200 }, { seconds: 7201 }]
 			}
 		]);
 
@@ -191,8 +191,8 @@ describe('fetchArrivals', () => {
 
 		const { fetchArrivals } = await import('./arrivals.js');
 		const result = await fetchArrivals(3570);
-		const line27 = result.arrivals.find((a) => a.lineName === '27')!;
-		expect(line27.arrivingTimes).toEqual([120]);
+		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+		expect(line7.arrivingTimes).toEqual([0, 7200]);
 	});
 
 	it('limits to 3 arrival times per line', async () => {
