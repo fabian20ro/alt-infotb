@@ -41,9 +41,9 @@ describe('apiFetchBinary', () => {
 			vi.fn().mockResolvedValue({ ok: false, status: 401 })
 		);
 
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
-			'HTTP 401 (Check auth token/proxy configuration)'
-		);
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow('HTTP 401 (Check auth token/proxy configuration)');
+		await expect(promise).rejects.toMatchObject({ status: 401 });
 	});
 
 	it('throws helpful error on 412', async () => {
@@ -52,9 +52,9 @@ describe('apiFetchBinary', () => {
 			vi.fn().mockResolvedValue({ ok: false, status: 412 })
 		);
 
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
-			'HTTP 412 (Token expired, check proxy retry)'
-		);
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow('HTTP 412 (Token expired, check proxy retry)');
+		await expect(promise).rejects.toMatchObject({ status: 412 });
 	});
 
 	it('throws helpful error on 400', async () => {
@@ -63,9 +63,9 @@ describe('apiFetchBinary', () => {
 			vi.fn().mockResolvedValue({ ok: false, status: 400 })
 		);
 
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
-			'HTTP 400 (Bad Request)'
-		);
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow('HTTP 400 (Bad Request)');
+		await expect(promise).rejects.toMatchObject({ status: 400 });
 	});
 
 	it('throws helpful error on 429', async () => {
@@ -74,9 +74,9 @@ describe('apiFetchBinary', () => {
 			vi.fn().mockResolvedValue({ ok: false, status: 429 })
 		);
 
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
-			'HTTP 429 (Too many requests)'
-		);
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow('HTTP 429 (Too many requests)');
+		await expect(promise).rejects.toMatchObject({ status: 429 });
 	});
 
 	it('throws helpful error on 404', async () => {
@@ -85,9 +85,9 @@ describe('apiFetchBinary', () => {
 			vi.fn().mockResolvedValue({ ok: false, status: 404 })
 		);
 
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
-			'HTTP 404'
-		);
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow('HTTP 404');
+		await expect(promise).rejects.toMatchObject({ status: 404 });
 	});
 
 	it('throws helpful error on 503 or 504', async () => {
@@ -100,7 +100,9 @@ describe('apiFetchBinary', () => {
 				'fetch',
 				vi.fn().mockResolvedValue({ ok: false, status })
 			);
-			await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(expected);
+			const promise = apiFetchBinary('https://info.stb.ro/test');
+			await expect(promise).rejects.toThrow(expected);
+			await expect(promise).rejects.toMatchObject({ status });
 		}
 	});
 
@@ -110,9 +112,9 @@ describe('apiFetchBinary', () => {
 			vi.fn().mockResolvedValue({ ok: false, status: 500 })
 		);
 
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
-			'HTTP 500 (Internal Server Error)'
-		);
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow('HTTP 500 (Internal Server Error)');
+		await expect(promise).rejects.toMatchObject({ status: 500 });
 	});
 
 	it('throws ApiError on network failure', async () => {
@@ -121,10 +123,10 @@ describe('apiFetchBinary', () => {
 			vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
 		);
 
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(ApiError);
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
-			'Network error (CORS or connectivity)'
-		);
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Network error (CORS or connectivity)');
+		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
 	it('throws Network error if arrayBuffer fails', async () => {
@@ -136,9 +138,9 @@ describe('apiFetchBinary', () => {
 			})
 		);
 
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
-			'Network error (CORS or connectivity)'
-		);
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow('Network error (CORS or connectivity)');
+		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
 	it('throws ApiError on timeout', async () => {
@@ -148,19 +150,20 @@ describe('apiFetchBinary', () => {
 				new DOMException('The operation was aborted', 'AbortError')
 			)
 		);
-
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow('Request timeout');
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow('Request timeout');
+		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
-});
-
-describe('apiFetchBinary Timeout', () => {
-	it('throws ApiError on TimeoutError', async () => {
+	it('throws generic error for unhandled status codes', async () => {
 		vi.stubGlobal(
 			'fetch',
-			vi.fn().mockRejectedValue(new DOMException('The operation timed out', 'TimeoutError'))
+			vi.fn().mockResolvedValue({ ok: false, status: 418 })
 		);
-		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow('Request timeout');
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow('HTTP 418');
+		await expect(promise).rejects.toMatchObject({ status: 418 });
 	});
 });
 
