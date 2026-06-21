@@ -173,7 +173,7 @@ describe('apiFetchBinary', () => {
 			'fetch',
 			vi.fn().mockRejectedValue(
 				new DOMException('The operation was aborted', 'TimeoutError')
-		)
+			)
 		);
 		const promise = apiFetchBinary('https://info.stb.ro/test');
 		await expect(promise).rejects.toThrow('Request timeout');
@@ -201,6 +201,17 @@ describe('apiFetchBinary', () => {
 
 		const promise = apiFetchBinary('https://info.stb.ro/test');
 		await expect(promise).rejects.toThrow(/Specific error message/);
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+	});
+
+	it('throws ApiError when url is invalid (empty string)', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+		);
+
+		const promise = apiFetchBinary('');
+		await expect(promise).rejects.toThrow('Network error (CORS or connectivity)');
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 });
