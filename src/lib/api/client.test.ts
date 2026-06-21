@@ -173,7 +173,7 @@ describe('apiFetchBinary', () => {
 			'fetch',
 			vi.fn().mockRejectedValue(
 				new DOMException('The operation was aborted', 'TimeoutError')
-			)
+		)
 		);
 		const promise = apiFetchBinary('https://info.stb.ro/test');
 		await expect(promise).rejects.toThrow('Request timeout');
@@ -189,6 +189,19 @@ describe('apiFetchBinary', () => {
 		const promise = apiFetchBinary('https://info.stb.ro/test');
 		await expect(promise).rejects.toThrow('HTTP 418');
 		await expect(promise).rejects.toMatchObject({ status: 418 });
+	});
+
+	it('throws ApiError for unhandled DOMException', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockRejectedValue(
+				new DOMException('Specific error message', 'CustomError')
+			)
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(/Specific error message/);
+		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 });
 
