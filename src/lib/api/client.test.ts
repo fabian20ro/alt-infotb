@@ -127,6 +127,20 @@ describe('apiFetchBinary', () => {
 		);
 	});
 
+	it('throws Network error if arrayBuffer fails', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.reject(new TypeError('Failed to read buffer'))
+			})
+		);
+
+		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
+			'Network error (CORS or connectivity)'
+		);
+	});
+
 	it('throws ApiError on timeout', async () => {
 		vi.stubGlobal(
 			'fetch',
@@ -137,6 +151,7 @@ describe('apiFetchBinary', () => {
 
 		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow('Request timeout');
 	});
+
 });
 
 describe('apiFetchBinary Timeout', () => {
