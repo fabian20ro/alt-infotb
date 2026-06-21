@@ -35,6 +35,19 @@ describe('apiFetchBinary', () => {
 		expect(options.headers).toEqual(API.HEADERS);
 	});
 
+	it('passes an abort signal to fetch', async () => {
+		const mockFetch = vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
+		});
+		vi.stubGlobal('fetch', mockFetch);
+
+		await apiFetchBinary('https://info.stb.ro/test');
+
+		const [, options] = mockFetch.mock.calls[0];
+		expect(options.signal).toBeInstanceOf(AbortSignal);
+	});
+
 	it('throws helpful error on 401 or 403', async () => {
 		vi.stubGlobal(
 			'fetch',
@@ -148,6 +161,18 @@ describe('apiFetchBinary', () => {
 			'fetch',
 			vi.fn().mockRejectedValue(
 				new DOMException('The operation was aborted', 'AbortError')
+			)
+		);
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow('Request timeout');
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+	});
+
+	it('throws ApiError on TimeoutError', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockRejectedValue(
+				new DOMException('The operation was aborted', 'TimeoutError')
 			)
 		);
 		const promise = apiFetchBinary('https://info.stb.ro/test');
