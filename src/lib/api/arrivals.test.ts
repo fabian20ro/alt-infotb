@@ -391,26 +391,55 @@ describe('fetchArrivals multi-stop merging', () => {
 		await expect(fetchArrivals([9552, 9543])).rejects.toThrow();
 	});
 
-	it('single ID still works as before (backward compat)', async () => {
+	it('sorts line names numerically when possible, then lexicographically', async () => {
 		const responseData = buildStopResponse([
 			{
-				name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul',
-				arrivals: [{ seconds: 120 }]
+				name: '10', id: 10, type: 'BUS', color: '#000', direction: 'D',
+				arrivals: [{ seconds: 100 }]
+			},
+			{
+				name: '2', id: 2, type: 'BUS', color: '#000', direction: 'D',
+				arrivals: [{ seconds: 100 }]
+			},
+			{
+				name: '1', id: 1, type: 'BUS', color: '#000', direction: 'D',
+				arrivals: [{ seconds: 100 }]
+			},
+			{
+				name: 'M2', id: 20, type: 'BUS', color: '#000', direction: 'D',
+				arrivals: [{ seconds: 100 }]
+			},
+			{
+				name: 'M10', id: 100, type: 'BUS', color: '#000', direction: 'D',
+				arrivals: [{ seconds: 100 }]
 			}
 		]);
 
-		vi.stubGlobal(
-			'fetch',
-			vi.fn().mockResolvedValue({
-				ok: true,
-				arrayBuffer: () => Promise.resolve(responseData.buffer)
-			})
-		);
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
 
 		const { fetchArrivals } = await import('./arrivals.js');
 		const result = await fetchArrivals(3570);
+		expect(result.arrivals.map((a) => a.lineName)).toEqual(['1', '2', '10', 'M10', 'M2']);
+	});
 
-		expect(result.arrivals).toHaveLength(1);
-		expect(result.arrivals[0].lineName).toBe('7');
+	it('picks the most frequent station name and address during merge', async () => {
+		const stop1 = buildStopResponse([], 'Station A', 'Address A');
+		const stop2 = buildStopResponse([], 'Station A', 'Address B');
+		const stop3 = buildStopResponse([], 'Station C', 'Address A');
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '1') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			if (stopId === '2') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop3.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([1, 2, 3]);
+		expect(result.stationName).toBe('Station A');
+		expect(result.address).toBe('Address A');
 	});
 });
