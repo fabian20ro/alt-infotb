@@ -24,11 +24,13 @@ describe('searchStations', () => {
 	it('respects maxResults', () => {
 		const results = searchStations('Piata', stations, 2);
 		expect(results).toHaveLength(2);
+		expect(results[0].name).toBe('Piata Unirii');
 	});
 
 	it('respects maxResults with 1', () => {
 		const results = searchStations('Piata', stations, 1);
 		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Piata Unirii');
 	});
 
 	it('finds matches with split words (new functionality)', () => {
@@ -54,6 +56,15 @@ describe('searchStations', () => {
 		];
 		expect(searchStations('1', stations)[0].id).toBe(1);
 		expect(searchStations('2', stations)[0].id).toBe(2);
+	});
+
+	it('matches C.F.R. Station with CFR Station', () => {
+		const stationsWithAcronym = [
+			{ id: 4, name: 'C.F.R. Station', description: 'Acronym test', lat: 0, lon: 0 }
+		] as Station[];
+		const results = searchStations('CFR Station', stationsWithAcronym);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('C.F.R. Station');
 	});
 });
 

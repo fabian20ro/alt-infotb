@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { apiFetchBinary, ApiError } from './client.js';
+import { API } from './constants.js';
 
 describe('apiFetchBinary', () => {
 	beforeEach(() => {
@@ -21,7 +22,7 @@ describe('apiFetchBinary', () => {
 		expect(result).toEqual(mockData);
 	});
 
-	it('does not send custom headers that trigger CORS preflight', async () => {
+	it('uses exactly the headers from API.HEADERS', async () => {
 		const mockFetch = vi.fn().mockResolvedValue({
 			ok: true,
 			arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
@@ -31,10 +32,7 @@ describe('apiFetchBinary', () => {
 		await apiFetchBinary('https://info.stb.ro/test');
 
 		const [, options] = mockFetch.mock.calls[0];
-		expect(options.headers['App-Id']).toBeUndefined();
-		expect(options.headers['Lang']).toBeUndefined();
-		expect(options.headers['Source']).toBeUndefined();
-		expect(options.headers['Device-Name']).toBeUndefined();
+		expect(options.headers).toEqual(API.HEADERS);
 	});
 
 	it('throws helpful error on 401 or 403', async () => {
@@ -129,6 +127,20 @@ describe('apiFetchBinary', () => {
 		);
 	});
 
+	it('throws Network error if arrayBuffer fails', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.reject(new TypeError('Failed to read buffer'))
+			})
+		);
+
+		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow(
+			'Network error (CORS or connectivity)'
+		);
+	});
+
 	it('throws ApiError on timeout', async () => {
 		vi.stubGlobal(
 			'fetch',
@@ -139,6 +151,7 @@ describe('apiFetchBinary', () => {
 
 		await expect(apiFetchBinary('https://info.stb.ro/test')).rejects.toThrow('Request timeout');
 	});
+
 });
 
 describe('apiFetchBinary Timeout', () => {
