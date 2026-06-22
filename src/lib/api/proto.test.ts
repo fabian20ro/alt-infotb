@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ProtoReader, ProtoParseError, getVarint, getMessages } from './proto.js';
+import { ProtoReader, ProtoParseError, getVarint, getMessages, getString, getVarints } from './proto.js';
 
 describe('ProtoReader', () => {
 	it('handles varint (type 0)', () => {
@@ -54,14 +54,47 @@ describe('ProtoReader', () => {
 		expect(() => reader.readField()).toThrow(ProtoParseError);
 	});
 
-	it('getVarint returns undefined for non-existent field', () => {
+	it('readAllFields parses multiple fields correctly', () => {
+		const data = new Uint8Array([
+			0x08, 0x01, // field 1, type 0, value 1
+			0x12, 0x03, 0x61, 0x62, 0x63, // field 2, type 2, value "abc"
+			0x08, 0x02, // field 1, type 0, value 2
+		]);
+		const reader = new ProtoReader(data);
+		const fields = reader.readAllFields();
+		expect(fields.get(1)).toEqual([1, 2]);
+		expect(fields.get(2)).toEqual([new Uint8Array([0x61, 0x62, 0x63])]);
+	});
+
+	it('getVarint returns value or undefined', () => {
 		const fields = new Map<number, Array<number | Uint8Array>>();
+		expect(getVarint(fields, 1)).toBeUndefined();
+		fields.set(1, [1]);
+		expect(getVarint(fields, 1)).toBe(1);
+		fields.set(1, [new Uint8Array([1])]);
 		expect(getVarint(fields, 1)).toBeUndefined();
 	});
 
-	it('getMessages returns empty array for non-existent field', () => {
+	it('getString returns string or undefined', () => {
 		const fields = new Map<number, Array<number | Uint8Array>>();
-		expect(getMessages(fields, 1)).toEqual([]);
+		expect(getString(fields, 1)).toBeUndefined();
+		fields.set(1, [new Uint8Array([0x61, 0x62, 0x63])]);
+		expect(getString(fields, 1)).toBe('abc');
+		fields.set(1, [1]);
+		expect(getString(fields, 1)).toBeUndefined();
+	});
+
+	it('getVarints returns all varint values for a field', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [1, 2, 3]);
+		expect(getVarints(fields, 1)).toEqual([1, 2, 3]);
+		expect(getVarints(fields, 2)).toEqual([]);
+	});
+
+	it('getMessages returns array of Uint8Array for repeated messages', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [new Uint8Array([0x01]), new Uint8Array([0x02])]);
+		expect(getMessages(fields, 1)).toEqual([new Uint8Array([0x01]), new Uint8Array([0x02])]);
 	});
 
 	it('getMessages filters out non-Uint8Array values', () => {
