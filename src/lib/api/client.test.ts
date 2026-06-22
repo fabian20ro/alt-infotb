@@ -181,7 +181,7 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toMatchObject({ status: 418 });
 	});
 
-	it('throws ApiError for unhandled DOMException', async () => {
+	it('throws ApiError for generic Errors', async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn().mockRejectedValue(
@@ -202,6 +202,20 @@ describe('apiFetchBinary', () => {
 
 		const promise = apiFetchBinary('');
 		await expect(promise).rejects.toThrow('Network error (CORS or connectivity)');
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+	});
+
+	it('throws ApiError if arrayBuffer() fails with a non-TypeError Error', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.reject(new Error('Buffer error'))
+			})
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow('Buffer error');
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 });
