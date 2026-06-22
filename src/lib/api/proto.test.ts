@@ -102,4 +102,21 @@ describe('ProtoReader', () => {
 		fields.set(1, [1, new Uint8Array([1, 2]), 2]);
 		expect(getMessages(fields, 1)).toEqual([new Uint8Array([1, 2])]);
 	});
+
+	it('returns null when readField is called with empty buffer', () => {
+		const reader = new ProtoReader(new Uint8Array([]));
+		expect(reader.readField()).toBeNull();
+	});
+
+	it('returns null when readField is called after buffer is exhausted', () => {
+		const reader = new ProtoReader(new Uint8Array([0x08, 0x01]));
+		reader.readField();
+		expect(reader.readField()).toBeNull();
+	});
+
+	it('throws error when varint is too long', () => {
+		const data = new Uint8Array([0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81]);
+		const reader = new ProtoReader(data);
+		expect(() => reader.readField()).toThrow(ProtoParseError);
+	});
 });
