@@ -173,6 +173,11 @@ describe('fetchArrivals', () => {
 		await expect(fetchArrivals(3570)).rejects.toThrow('protobuf corrupt');
 	});
 
+	it('throws when provided with an empty array of stop IDs', async () => {
+		const { fetchArrivals } = await import('./arrivals.js');
+		await expect(fetchArrivals([])).rejects.toThrow('All subway stop fetches failed');
+	});
+
 	it('filters arrival times outside the valid range [0, 7200]', async () => {
 		const responseData = buildStopResponse([
 			{
