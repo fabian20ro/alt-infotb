@@ -156,29 +156,18 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
-	it('throws ApiError on timeout', async () => {
-		vi.stubGlobal(
-			'fetch',
-			vi.fn().mockRejectedValue(
-				new DOMException('The operation was aborted', 'AbortError')
-			)
-		);
-		const promise = apiFetchBinary('https://info.stb.ro/test');
-		await expect(promise).rejects.toThrow('Request timeout');
-		await expect(promise).rejects.toMatchObject({ status: 0 });
-	});
-
-	it('throws ApiError on AbortError', async () => {
-		vi.stubGlobal(
-			'fetch',
-			vi.fn().mockRejectedValue(
-				new DOMException('The operation was aborted', 'AbortError')
-			)
-		);
-
-		const promise = apiFetchBinary('https://info.stb.ro/test');
-		await expect(promise).rejects.toThrow('Request timeout');
-		await expect(promise).rejects.toMatchObject({ status: 0 });
+	it('throws ApiError for AbortError and TimeoutError', async () => {
+		for (const name of ['AbortError', 'TimeoutError'] as const) {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockRejectedValue(
+					new DOMException('The operation was aborted', name)
+				)
+			);
+			const promise = apiFetchBinary('https://info.stb.ro/test');
+			await expect(promise).rejects.toThrow('Request timeout');
+			await expect(promise).rejects.toMatchObject({ status: 0 });
+		}
 	});
 
 	it('throws generic error for unhandled status codes', async () => {
