@@ -168,13 +168,14 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
-	it('throws ApiError on TimeoutError', async () => {
+	it('throws ApiError on AbortError', async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn().mockRejectedValue(
-				new DOMException('The operation was aborted', 'TimeoutError')
+				new DOMException('The operation was aborted', 'AbortError')
 			)
 		);
+
 		const promise = apiFetchBinary('https://info.stb.ro/test');
 		await expect(promise).rejects.toThrow('Request timeout');
 		await expect(promise).rejects.toMatchObject({ status: 0 });
