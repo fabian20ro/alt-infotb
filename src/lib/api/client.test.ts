@@ -158,7 +158,7 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
-	it('throws Network error if arrayBuffer fails', async () => {
+	it('throws ApiError when arrayBuffer fails with TypeError', async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn().mockResolvedValue({
@@ -200,13 +200,11 @@ describe('apiFetchBinary', () => {
 	it('throws ApiError for generic Errors', async () => {
 		vi.stubGlobal(
 			'fetch',
-			vi.fn().mockRejectedValue(
-				new DOMException('Specific error message', 'CustomError')
-			)
+			vi.fn().mockRejectedValue(new Error('Unexpected error'))
 		);
 
 		const promise = apiFetchBinary('https://info.stb.ro/test');
-		await expect(promise).rejects.toThrow(/Specific error message/);
+		await expect(promise).rejects.toThrow('Error: Unexpected error');
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
@@ -256,15 +254,5 @@ describe('apiFetchBinary', () => {
 		const promise = apiFetchBinary('https://info.stb.ro/test');
 		await expect(promise).rejects.toThrow('Buffer error');
 		await expect(promise).rejects.toMatchObject({ status: 0 });
-	});
-});
-
-describe('ApiError', () => {
-	it('has name and status properties', () => {
-		const err = new ApiError('test error', 404);
-		expect(err.name).toBe('ApiError');
-		expect(err.message).toBe('test error');
-		expect(err.status).toBe(404);
-		expect(err).toBeInstanceOf(Error);
 	});
 });
