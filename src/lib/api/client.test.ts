@@ -255,4 +255,17 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toThrow('Buffer error');
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
+
+	it('wraps non-timeout DOMException in ApiError', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockRejectedValue(
+				new DOMException('Some DOM error', 'NotSupportedError')
+			)
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(/Some DOM error/);
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+	});
 });
