@@ -194,6 +194,29 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
+	it('uses API.TIMEOUT for the abort signal', async () => {
+		const abortSignalSpy = vi.spyOn(AbortSignal, 'timeout');
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
+		}));
+
+		await apiFetchBinary('https://info.stb.ro/test');
+
+		expect(abortSignalSpy).toHaveBeenCalledWith(API.TIMEOUT);
+	});
+
+	it('wraps a generic Error in an ApiError', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockRejectedValue(new Error('Unexpected error'))
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow('Error: Unexpected error');
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+	});
+
 	it('throws ApiError when url is invalid (empty string)', async () => {
 		vi.stubGlobal(
 			'fetch',
