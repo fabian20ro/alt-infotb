@@ -22,6 +22,20 @@ describe('apiFetchBinary', () => {
 		expect(result).toEqual(mockData);
 	});
 
+	it('returns empty Uint8Array for 204 No Content', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
+			})
+		);
+
+		const result = await apiFetchBinary('https://info.stb.ro/test');
+		expect(result).toBeInstanceOf(Uint8Array);
+		expect(result.length).toBe(0);
+	});
+
 	it('uses exactly the headers from API.HEADERS', async () => {
 		const mockFetch = vi.fn().mockResolvedValue({
 			ok: true,
@@ -49,14 +63,16 @@ describe('apiFetchBinary', () => {
 	});
 
 	it('throws helpful error on 401 or 403', async () => {
-		vi.stubGlobal(
-			'fetch',
-			vi.fn().mockResolvedValue({ ok: false, status: 401 })
-		);
+		for (const status of [401, 403]) {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({ ok: false, status })
+			);
 
-		const promise = apiFetchBinary('https://info.stb.ro/test');
-		await expect(promise).rejects.toThrow('HTTP 401 (Check auth token/proxy configuration)');
-		await expect(promise).rejects.toMatchObject({ status: 401 });
+			const promise = apiFetchBinary('https://info.stb.ro/test');
+			await expect(promise).rejects.toThrow(`HTTP ${status} (Check auth token/proxy configuration)`);
+			await expect(promise).rejects.toMatchObject({ status });
+		}
 	});
 
 	it('throws helpful error on 412', async () => {
