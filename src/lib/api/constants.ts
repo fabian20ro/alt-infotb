@@ -41,9 +41,9 @@ export function createStbServerHeaders(appId: string): Record<string, string> {
  * - Fallback: direct STB URL (will fail from browser due to CORS/400)
  */
 function resolveApiBase(): string {
-	if (typeof import.meta !== 'undefined' && import.meta.env) {
-		if (import.meta.env.DEV) return '/stb-api';
-		if (import.meta.env.VITE_STB_API_BASE) return import.meta.env.VITE_STB_API_BASE;
+	if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+		if ((import.meta as any).env.DEV) return '/stb-api';
+		if ((import.meta as any).env.VITE_STB_API_BASE) return (import.meta as any).env.VITE_STB_API_BASE;
 	}
 	return 'https://info.stb.ro/api/web/v2-6';
 }
@@ -58,6 +58,8 @@ export const API = {
 
 /** Arrivals refresh interval in milliseconds */
 export const ARRIVALS_REFRESH_INTERVAL = 20_000;
+export const MAX_ARRIVAL_SECONDS = 7200;
+export const MAX_ARRIVALS_PER_LINE = 3;
 
 /**
  * Protobuf field numbers in the stop response.
