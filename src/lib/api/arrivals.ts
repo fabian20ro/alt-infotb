@@ -1,5 +1,5 @@
 import { apiFetchBinary, ApiError } from './client.js';
-import { API, PROTO_FIELDS } from './constants.js';
+import { API, PROTO_FIELDS, MAX_ARRIVAL_SECONDS, MAX_ARRIVALS_PER_LINE } from './constants.js';
 import { ProtoReader, ProtoParseError, getString, getVarint, getMessages } from './proto.js';
 import type { StationArrivals, ArrivalInfo } from './types.js';
 
@@ -47,7 +47,7 @@ function decodeStopResponse(data: Uint8Array): StationArrivals {
 			const arrivalReader = new ProtoReader(arrivalData);
 			const arrivalFields = arrivalReader.readAllFields();
 			const seconds = getVarint(arrivalFields, ARRIVAL.SECONDS);
-			if (seconds !== undefined && seconds >= 0 && seconds <= 7200) {
+			if (seconds !== undefined && seconds >= 0 && seconds <= MAX_ARRIVAL_SECONDS) {
 				times.push(seconds);
 			}
 		}
