@@ -60,9 +60,9 @@ function decodeStopResponse(data: Uint8Array): StationArrivals {
 			vehicleType,
 			color,
 			direction,
-			arrivingTimes: times.slice(0, 3)
+			arrivingTimes: times.slice(0, MAX_ARRIVALS_PER_LINE)
 		});
-	}
+	};
 
 	sortByLineName(arrivals);
 
