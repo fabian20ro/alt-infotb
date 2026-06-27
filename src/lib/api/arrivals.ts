@@ -130,7 +130,7 @@ function mergeArrivals(results: StationArrivals[]): StationArrivals {
 			continue;
 		}
 		const mergedTimes = Array.from(new Set([...existing.arrivingTimes, ...arrival.arrivingTimes])).sort((a, b) => a - b);
-		existing.arrivingTimes = mergedTimes.slice(0, 3);
+		existing.arrivingTimes = mergedTimes.slice(0, MAX_ARRIVALS_PER_LINE);
 	}
 
 	const arrivals = Array.from(byLineKey.values());
