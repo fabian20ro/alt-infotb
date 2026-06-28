@@ -447,4 +447,28 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.stationName).toBe('Station A');
 		expect(result.address).toBe('Address A');
 	});
+
+	it('respects MAX_ARRIVALS_PER_LINE when merging arrivals from multiple stops', async () => {
+		const stop1 = buildStopResponse([
+			{
+				name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul',
+				arrivals: [{ seconds: 10 }, { seconds: 20 }, { seconds: 30 }]
+			}
+		]);
+		const stop2 = buildStopResponse([
+			{
+				name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul',
+				arrivals: [{ seconds: 15 }, { seconds: 25 }, { seconds: 35 }]
+			}
+		]);
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+		expect(line7.arrivingTimes).toEqual([10, 15, 20]);
+	});
 });
