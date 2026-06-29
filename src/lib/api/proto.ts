@@ -117,9 +117,7 @@ export function decodeString(data: Uint8Array): string {
 
 /** Get first varint value for a field number, or undefined */
 export function getVarint(fields: Map<number, Array<number | Uint8Array>>, num: number): number | undefined {
-	const vals = fields.get(num);
-	if (!vals || vals.length === 0) return undefined;
-	const v = vals[0];
+	const v = fields.get(num)?.[0];
 	return typeof v === 'number' ? v : undefined;
 }
 
