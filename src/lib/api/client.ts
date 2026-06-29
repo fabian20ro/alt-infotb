@@ -34,8 +34,9 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		return new Uint8Array(buf);
 	} catch (err) {
 		if (err instanceof ApiError) throw err;
-		if (err instanceof DOMException && (err.name === 'AbortError' || err.name === 'TimeoutError')) {
-			throw new ApiError('Request timeout', 0);
+		if (err instanceof DOMException) {
+			if (err.name === 'AbortError') throw new ApiError('Request aborted', 0);
+			if (err.name === 'TimeoutError') throw new ApiError('Request timeout', 0);
 		}
 		throw new ApiError(
 			err instanceof TypeError ? 'Network error (CORS or connectivity)' : String(err),

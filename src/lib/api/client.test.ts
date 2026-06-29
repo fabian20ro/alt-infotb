@@ -181,7 +181,8 @@ describe('apiFetchBinary', () => {
 				)
 			);
 			const promise = apiFetchBinary('https://info.stb.ro/test');
-			await expect(promise).rejects.toThrow('Request timeout');
+			const expectedError = name === 'AbortError' ? 'Request aborted' : 'Request timeout';
+			await expect(promise).rejects.toThrow(expectedError);
 			await expect(promise).rejects.toMatchObject({ status: 0 });
 		}
 	});
