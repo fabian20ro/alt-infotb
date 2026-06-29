@@ -471,4 +471,21 @@ describe('fetchArrivals multi-stop merging', () => {
 		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
 		expect(line7.arrivingTimes).toEqual([10, 15, 20]);
 	});
+
+	it('sorts line names numerically even when provided out of order', async () => {
+		const responseData = buildStopResponse([
+			{ name: '2', id: 2, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 100 }] },
+			{ name: '10', id: 10, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 100 }] },
+			{ name: '1', id: 1, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 100 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals.map((a) => a.lineName)).toEqual(['1', '2', '10']);
+	});
 });
