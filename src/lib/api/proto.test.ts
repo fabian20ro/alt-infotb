@@ -115,7 +115,13 @@ describe('ProtoReader', () => {
 	});
 
 	it('throws error when varint is too long', () => {
-		const data = new Uint8Array([0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81]);
+		const data = new Uint8Array([0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81]);
+		const reader = new ProtoReader(data);
+		expect(() => reader.readField()).toThrow(ProtoParseError);
+	});
+
+	it('throws error on truncated varint', () => {
+		const data = new Uint8Array([0x81]); // MSB is 1, but buffer ends
 		const reader = new ProtoReader(data);
 		expect(() => reader.readField()).toThrow(ProtoParseError);
 	});
