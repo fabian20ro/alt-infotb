@@ -472,6 +472,26 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(line7.arrivingTimes).toEqual([10, 15, 20]);
 	});
 
+	it('preserves separate entries for the same line with different directions', async () => {
+		const stop1 = buildStopResponse([
+			{ name: '1', id: 1, type: 'BUS', color: '#000', direction: 'North', arrivals: [{ seconds: 100 }] }
+		]);
+		const stop2 = buildStopResponse([
+			{ name: '1', id: 1, type: 'BUS', color: '#000', direction: 'South', arrivals: [{ seconds: 200 }] }
+		]);
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '1') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([1, 2]);
+		expect(result.arrivals).toHaveLength(2);
+		expect(result.arrivals.find(a => a.direction === 'North')!.arrivingTimes).toEqual([100]);
+		expect(result.arrivals.find(a => a.direction === 'South')!.arrivingTimes).toEqual([200]);
+	});
+
+
 	it('sorts line names numerically even when provided out of order', async () => {
 		const responseData = buildStopResponse([
 			{ name: '2', id: 2, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 100 }] },
