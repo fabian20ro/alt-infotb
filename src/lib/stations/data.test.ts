@@ -55,8 +55,9 @@ describe('isNewRomanianDay', () => {
 		expect(isNewRomanianDay(0, now)).toBe(true);
 	});
 
-	it('returns false when timestamps are identical', () => {
-		const now = new Date('2026-06-15T12:00:00Z').getTime();
-		expect(isNewRomanianDay(now, now)).toBe(false);
+	it('handles leap year transitions correctly', () => {
+		const before = new Date('2024-02-28T05:00:00Z').getTime();
+		const after = new Date('2024-02-29T05:00:00Z').getTime();
+		expect(isNewRomanianDay(before, after)).toBe(true);
 	});
 });
