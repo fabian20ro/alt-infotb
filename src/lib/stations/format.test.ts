@@ -28,4 +28,10 @@ describe('formatLastUpdate', () => {
 		const formatted = formatLastUpdate(0, 'en');
 		expect(formatted).toContain('Jan 1, 1970');
 	});
+
+	it('returns "Just now" for very recent timestamps', () => {
+		const ts = Date.now() - 30000; // 30 seconds ago
+		expect(formatLastUpdate(ts, 'en')).toBe('Just now');
+		expect(formatLastUpdate(ts, 'ro')).toBe('Acum');
+	});
 });
