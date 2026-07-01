@@ -663,4 +663,23 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals[0].lineId).toBe(69);
 		expect(result.arrivals[0].vehicleType).toBe('TRAM');
 	});
+
+	it('breaks ties in mostCommonNonEmpty when equal-frequency strings compete', async () => {
+		const stop1 = buildStopResponse([], 'Station A', '');
+		const stop2 = buildStopResponse([], 'Station B', '');
+		const stop3 = buildStopResponse([], 'Station C', '');
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '1') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			if (stopId === '2') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop3.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([1, 2, 3]);
+
+		// Tie — none is more common; one of the three should be chosen (no empty/error).
+		expect(['Station A', 'Station B', 'Station C']).toContain(result.stationName);
+	});
 });
