@@ -13,6 +13,23 @@ function sortByLineName(arrivals: ArrivalInfo[]): void {
 	});
 }
 
+/** Format seconds-to-arrival into short human text (ro-RO). */
+export function formatArrivalTime(seconds: number): string {
+	if (seconds < 30) return 'acum';
+	const totalMinutes = Math.ceil(seconds / 60);
+	if (totalMinutes <= 59) return `${totalMinutes} min`;
+	const hours = Math.floor(totalMinutes / 60);
+	const mins = totalMinutes % 60;
+	const hourWord = hours === 1 ? 'oră' : 'ore';
+	if (mins === 0) return `${hours} ${hourWord}`;
+	return `${hours} ${hourWord}, ${mins} min`;
+}
+
+/** Format a Date to HH:MM in ro-RO locale. */
+export function formatTime(date: Date): string {
+	return date.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
+}
+
 /**
  * Decode the protobuf response from the STB stop endpoint.
  * Reads field 9 repeated sub-messages for arrival times (not fields 6/7/8).

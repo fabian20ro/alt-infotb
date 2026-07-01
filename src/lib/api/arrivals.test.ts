@@ -165,6 +165,18 @@ describe('fetchArrivals', () => {
 		await expect(fetchArrivals(3570)).rejects.toThrow('Network error');
 	});
 
+	it('preserves HTTP status codes from the STB API in ApiError', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 401 })
+		);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		await expect(fetchArrivals(3570)).rejects.toMatchObject({
+			status: 401,
+			message: expect.stringContaining('HTTP 401')
+		});
+	});
 
 	it('throws ApiError when protobuf payload is malformed', async () => {
 		const malformed = new Uint8Array([0x0a, 0x05, 0x41]);
@@ -357,6 +369,23 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals.map((a) => a.lineName)).toEqual(['M1', 'M3']);
 	});
 
+	it('returns empty arrivingTimes when a line entry has no arrival sub-messages', async () => {
+		const responseData = buildStopResponse([
+			{ name: '1', id: 1, type: 'BUS', color: '#000', direction: 'D', arrivals: [] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals).toHaveLength(1);
+		expect(result.arrivals[0].lineName).toBe('1');
+		expect(result.arrivals[0].arrivingTimes).toEqual([]);
+	});
+
 	it('tolerates partial failures in multi-stop fetch', async () => {
 		const stop1 = buildStopResponse([
 			{
@@ -448,6 +477,26 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.address).toBe('Address A');
 	});
 
+	it('treats NFC-composed and decomposed station names as identical during merge', async () => {
+		const composed = 'Pia\u021ba Unirii';   // U+0219 (s-comma) — NFC form used by STB
+		const decomposed = 'Pi\u02C7a Unirii';  // U+0307 combining acute, applied to a → NFD form
+
+		const stop1 = buildStopResponse([], composed, '');
+		const stop2 = buildStopResponse([], decomposed, '');
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		// Both forms should count as the same key → NFC canonical form wins (originalValues.get)
+		expect(result.stationName).toBe(composed);
+	});
+
 	it('respects MAX_ARRIVALS_PER_LINE when merging arrivals from multiple stops', async () => {
 		const stop1 = buildStopResponse([
 			{
@@ -507,5 +556,70 @@ describe('fetchArrivals multi-stop merging', () => {
 		const { fetchArrivals } = await import('./arrivals.js');
 		const result = await fetchArrivals(3570);
 		expect(result.arrivals.map((a) => a.lineName)).toEqual(['1', '2', '10']);
+	});
+
+	it('falls back to first stop metadata when all stops return empty station name and address', async () => {
+		const stop1 = buildStopResponse([], '', '');
+		const stop2 = buildStopResponse([], '', '');
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+		expect(result.stationName).toBe('');
+		expect(result.address).toBe('');
+	});
+
+	it('preserves line id and vehicle type from protobuf during merge', async () => {
+		const stop1 = buildStopResponse([{ name: 'M1', id: 522, type: 'SUBWAY', color: '#1D1D1B', direction: 'Dristor', arrivals: [{ seconds: 300 }] }], 'Piața Unirii');
+		const stop2 = buildStopResponse([{ name: 'M1', id: 522, type: 'SUBWAY', color: '#1D1D1B', direction: 'Dristor', arrivals: [{ seconds: 600 }] }], 'Piața Unirii');
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+		expect(result.arrivals[0].lineId).toBe(522);
+		expect(result.arrivals[0].vehicleType).toBe('SUBWAY');
+	});
+
+	it('exports formatArrivalTime for seconds-to-arrival formatting', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(5)).toBe('acum');
+		expect(formatArrivalTime(29)).toBe('acum');
+		expect(formatArrivalTime(30)).toBe('1 min');
+		expect(formatArrivalTime(480)).toBe('8 min');
+		expect(formatArrivalTime(3600)).toBe('1 oră');
+		expect(formatArrivalTime(3660)).toBe('1 oră, 1 min');
+		expect(formatArrivalTime(7200)).toBe('2 ore');
+		expect(formatArrivalTime(-5)).toBe('acum');
+	});
+
+	it('exports formatTime for HH:MM date formatting', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		// Use a fixed time to avoid flaky hour output across locales/runs
+		const d = new Date(2026, 6, 1, 9, 7); // July 1, 09:07 UTC — ro-RO will show as local
+		const formatted = formatTime(d);
+		expect(formatted).toMatch(/\d{2}:\d{2}/);
+	});
+
+	it('decodes all line fields (id, vehicleType) from protobuf during fetch', async () => {
+		const responseData = buildStopResponse([{
+			name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'C.F.R. Progresul',
+			arrivals: [{ seconds: 120 }]
+		}]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals[0].lineId).toBe(69);
+		expect(result.arrivals[0].vehicleType).toBe('TRAM');
 	});
 });
