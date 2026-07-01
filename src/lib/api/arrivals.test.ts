@@ -627,6 +627,22 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals[0].vehicleType).toBe('SUBWAY');
 	});
 
+	it('constructs correct URL with stop_id query parameter', async () => {
+		const responseData = buildStopResponse([]);
+		const mockFetch = vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		});
+		vi.stubGlobal('fetch', mockFetch);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		await fetchArrivals(3570);
+		const [url] = mockFetch.mock.calls[0];
+
+		expect(url).toContain('lines/stop');
+		expect(url).toContain('stop_id=3570');
+	});
+
 	it('exports formatArrivalTime for seconds-to-arrival formatting', async () => {
 		const { formatArrivalTime } = await import('./arrivals.js');
 		expect(formatArrivalTime(5)).toBe('acum');
