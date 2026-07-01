@@ -357,6 +357,23 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals.map((a) => a.lineName)).toEqual(['M1', 'M3']);
 	});
 
+	it('returns empty arrivingTimes when a line entry has no arrival sub-messages', async () => {
+		const responseData = buildStopResponse([
+			{ name: '1', id: 1, type: 'BUS', color: '#000', direction: 'D', arrivals: [] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals).toHaveLength(1);
+		expect(result.arrivals[0].lineName).toBe('1');
+		expect(result.arrivals[0].arrivingTimes).toEqual([]);
+	});
+
 	it('tolerates partial failures in multi-stop fetch', async () => {
 		const stop1 = buildStopResponse([
 			{
