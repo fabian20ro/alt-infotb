@@ -558,6 +558,27 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals.map((a) => a.lineName)).toEqual(['1', '2', '10']);
 	});
 
+	it('does not merge lines that share name/direction/vehicleType but have different line IDs', async () => {
+		// Two bus routes both named '1' heading to 'Depou' — different line IDs.
+		// The merge key (lineName|direction|vehicleType) would collide; each should remain separate.
+		const stop1 = buildStopResponse([{ name: '1', id: 10, type: 'BUS', color: '#000', direction: 'Depou', arrivals: [{ seconds: 100 }] }], 'Piața Unirii');
+		const stop2 = buildStopResponse([{ name: '1', id: 20, type: 'BUS', color: '#000', direction: 'Depou', arrivals: [{ seconds: 200 }] }], 'Piața Unirii');
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		expect(result.arrivals).toHaveLength(2);
+		const byId = new Map(result.arrivals.map((a) => [a.lineId, a]));
+		expect(byId.get(10)?.arrivingTimes).toEqual([100]);
+		expect(byId.get(20)?.arrivingTimes).toEqual([200]);
+	});
+
 	it('falls back to first stop metadata when all stops return empty station name and address', async () => {
 		const stop1 = buildStopResponse([], '', '');
 		const stop2 = buildStopResponse([], '', '');

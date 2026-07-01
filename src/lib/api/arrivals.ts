@@ -140,7 +140,7 @@ function mergeArrivals(results: StationArrivals[]): StationArrivals {
 
 	const byLineKey = new Map<string, ArrivalInfo>();
 	for (const arrival of results.flatMap((r) => r.arrivals)) {
-		const key = `${arrival.lineName}|${arrival.direction}|${arrival.vehicleType}`;
+		const key = `${arrival.lineName}|${arrival.direction}|${arrival.vehicleType}|${arrival.lineId}`;
 		const existing = byLineKey.get(key);
 		if (!existing) {
 			byLineKey.set(key, { ...arrival, arrivingTimes: [...arrival.arrivingTimes] });
