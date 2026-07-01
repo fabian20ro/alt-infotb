@@ -585,4 +585,41 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals[0].lineId).toBe(522);
 		expect(result.arrivals[0].vehicleType).toBe('SUBWAY');
 	});
+
+	it('exports formatArrivalTime for seconds-to-arrival formatting', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(5)).toBe('acum');
+		expect(formatArrivalTime(29)).toBe('acum');
+		expect(formatArrivalTime(30)).toBe('1 min');
+		expect(formatArrivalTime(480)).toBe('8 min');
+		expect(formatArrivalTime(3600)).toBe('1 oră');
+		expect(formatArrivalTime(3660)).toBe('1 oră, 1 min');
+		expect(formatArrivalTime(7200)).toBe('2 ore');
+		expect(formatArrivalTime(-5)).toBe('acum');
+	});
+
+	it('exports formatTime for HH:MM date formatting', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		// Use a fixed time to avoid flaky hour output across locales/runs
+		const d = new Date(2026, 6, 1, 9, 7); // July 1, 09:07 UTC — ro-RO will show as local
+		const formatted = formatTime(d);
+		expect(formatted).toMatch(/\d{2}:\d{2}/);
+	});
+
+	it('decodes all line fields (id, vehicleType) from protobuf during fetch', async () => {
+		const responseData = buildStopResponse([{
+			name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'C.F.R. Progresul',
+			arrivals: [{ seconds: 120 }]
+		}]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals[0].lineId).toBe(69);
+		expect(result.arrivals[0].vehicleType).toBe('TRAM');
+	});
 });
