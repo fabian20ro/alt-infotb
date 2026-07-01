@@ -26,6 +26,13 @@ describe('isNewRomanianDay', () => {
 		expect(isNewRomanianDay(beforeBoundary, afterBoundary)).toBe(true);
 	});
 
+	it('returns true when moving from before 4 AM to after 4 AM (case: exact boundary)', () => {
+		// Testing the exact boundary condition more explicitly
+		const beforeBoundary = new Date('2026-06-15T00:59:59Z').getTime();
+		const afterBoundary = new Date('2026-06-15T01:00:00Z').getTime();
+		expect(isNewRomanianDay(beforeBoundary, afterBoundary)).toBe(true);
+	});
+
 	it('returns false if timestamp is recent and within the same transit day', () => {
 		const now = new Date('2026-06-15T12:00:00Z').getTime();
 		const recent = now - 1000;
