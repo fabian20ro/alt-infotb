@@ -525,4 +525,32 @@ describe('fetchArrivals multi-stop merging', () => {
 		const result = await fetchArrivals(3570);
 		expect(result.arrivals.map((a) => a.lineName)).toEqual(['1', '2', '10']);
 	});
+
+	it('falls back to first stop metadata when all stops return empty station name and address', async () => {
+		const stop1 = buildStopResponse([], '', '');
+		const stop2 = buildStopResponse([], '', '');
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+		expect(result.stationName).toBe('');
+		expect(result.address).toBe('');
+	});
+
+	it('preserves line id and vehicle type from protobuf during merge', async () => {
+		const stop1 = buildStopResponse([{ name: 'M1', id: 522, type: 'SUBWAY', color: '#1D1D1B', direction: 'Dristor', arrivals: [{ seconds: 300 }] }], 'Piața Unirii');
+		const stop2 = buildStopResponse([{ name: 'M1', id: 522, type: 'SUBWAY', color: '#1D1D1B', direction: 'Dristor', arrivals: [{ seconds: 600 }] }], 'Piața Unirii');
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+		expect(result.arrivals[0].lineId).toBe(522);
+		expect(result.arrivals[0].vehicleType).toBe('SUBWAY');
+	});
 });
