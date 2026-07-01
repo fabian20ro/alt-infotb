@@ -38,10 +38,13 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 			if (err.name === 'AbortError') throw new ApiError('Request aborted', 0);
 			if (err.name === 'TimeoutError') throw new ApiError('Request timeout', 0);
 		}
-		throw new ApiError(
-			err instanceof TypeError ? 'Network error (CORS or connectivity)' : String(err),
-			0
-		);
+		if (err instanceof TypeError) {
+			throw new ApiError('Network error (CORS or connectivity)', 0);
+		}
+		if (err instanceof Error) {
+			throw new ApiError(`Response data unavailable: ${err.message}`, 0);
+		}
+		throw new ApiError(String(err), 0);
 	}
 }
 
