@@ -205,7 +205,7 @@ describe('apiFetchBinary', () => {
 		);
 
 		const promise = apiFetchBinary('https://info.stb.ro/test');
-		await expect(promise).rejects.toThrow('Error: Unexpected error');
+		await expect(promise).rejects.toThrow(/Response data unavailable: Unexpected error/);
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
@@ -228,7 +228,7 @@ describe('apiFetchBinary', () => {
 		);
 
 		const promise = apiFetchBinary('https://info.stb.ro/test');
-		await expect(promise).rejects.toThrow('Error: Unexpected error');
+		await expect(promise).rejects.toThrow(/Response data unavailable: Unexpected error/);
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
@@ -253,7 +253,21 @@ describe('apiFetchBinary', () => {
 		);
 
 		const promise = apiFetchBinary('https://info.stb.ro/test');
-		await expect(promise).rejects.toThrow('Buffer error');
+		await expect(promise).rejects.toThrow(/Response data unavailable: Buffer error/);
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+	});
+
+	it('throws ApiError with RangeError message for malformed binary data', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.reject(new RangeError('Array buffer allocation failed'))
+			})
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(/Response data unavailable: Array buffer allocation failed/);
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 

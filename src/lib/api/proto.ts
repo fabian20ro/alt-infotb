@@ -84,13 +84,13 @@ export class ProtoReader {
 		while (this.pos < this.buf.length) {
 			const byte = this.buf[this.pos++];
 			result += (byte & 0x7f) * Math.pow(2, shift);
-			if ((byte & 0x80) === 0) break;
+			if ((byte & 0x80) === 0) return result;
 			shift += 7;
 			if (shift > 35) {
 				throw new ProtoParseError('Varint too long');
 			}
 		}
-		return result;
+		throw new ProtoParseError('Truncated varint: buffer ended before terminating byte');
 	}
 
 	/** Read all fields into a map of fieldNumber → values */

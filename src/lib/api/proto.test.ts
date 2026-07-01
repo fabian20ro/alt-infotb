@@ -125,4 +125,18 @@ describe('ProtoReader', () => {
 		const reader = new ProtoReader(data);
 		expect(() => reader.readField()).toThrow(ProtoParseError);
 	});
+
+	it('does not silently return partial varint on truncated payload', () => {
+		// Regression: a continuation byte at end of buffer must throw, never return garbage.
+		const data = new Uint8Array([0x12, 0x81]); // field 2 tag + continuation varint byte with no terminator
+		const reader = new ProtoReader(data);
+		expect(() => reader.readField()).toThrow(/Truncated varint/);
+	});
+
+	it('does not silently return partial varint on truncated length-delimited payload', () => {
+		// Regression: a truncated length field must cause parse failure, never read garbage bytes.
+		const data = new Uint8Array([0x12, 0xff, 0x7f]); // tag=field2 + multi-byte varint with MSB set on last byte
+		const reader = new ProtoReader(data);
+		expect(() => reader.readField()).toThrow(ProtoParseError);
+	});
 });

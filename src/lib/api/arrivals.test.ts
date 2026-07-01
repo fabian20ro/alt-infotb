@@ -386,6 +386,26 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals[0].arrivingTimes).toEqual([]);
 	});
 
+	it('de-duplicates identical arrival seconds when merging two stops for the same line', async () => {
+		const stop1 = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul', arrivals: [{ seconds: 100 }, { seconds: 200 }] }
+		]);
+		const stop2 = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul', arrivals: [{ seconds: 200 }, { seconds: 300 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+		expect(line7.arrivingTimes).toEqual([100, 200, 300]);
+	});
+
 	it('tolerates partial failures in multi-stop fetch', async () => {
 		const stop1 = buildStopResponse([
 			{
@@ -558,6 +578,27 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals.map((a) => a.lineName)).toEqual(['1', '2', '10']);
 	});
 
+	it('does not merge lines that share name/direction/vehicleType but have different line IDs', async () => {
+		// Two bus routes both named '1' heading to 'Depou' — different line IDs.
+		// The merge key (lineName|direction|vehicleType) would collide; each should remain separate.
+		const stop1 = buildStopResponse([{ name: '1', id: 10, type: 'BUS', color: '#000', direction: 'Depou', arrivals: [{ seconds: 100 }] }], 'Piața Unirii');
+		const stop2 = buildStopResponse([{ name: '1', id: 20, type: 'BUS', color: '#000', direction: 'Depou', arrivals: [{ seconds: 200 }] }], 'Piața Unirii');
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		expect(result.arrivals).toHaveLength(2);
+		const byId = new Map(result.arrivals.map((a) => [a.lineId, a]));
+		expect(byId.get(10)?.arrivingTimes).toEqual([100]);
+		expect(byId.get(20)?.arrivingTimes).toEqual([200]);
+	});
+
 	it('falls back to first stop metadata when all stops return empty station name and address', async () => {
 		const stop1 = buildStopResponse([], '', '');
 		const stop2 = buildStopResponse([], '', '');
@@ -621,5 +662,24 @@ describe('fetchArrivals multi-stop merging', () => {
 		const result = await fetchArrivals(3570);
 		expect(result.arrivals[0].lineId).toBe(69);
 		expect(result.arrivals[0].vehicleType).toBe('TRAM');
+	});
+
+	it('breaks ties in mostCommonNonEmpty when equal-frequency strings compete', async () => {
+		const stop1 = buildStopResponse([], 'Station A', '');
+		const stop2 = buildStopResponse([], 'Station B', '');
+		const stop3 = buildStopResponse([], 'Station C', '');
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '1') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			if (stopId === '2') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop3.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([1, 2, 3]);
+
+		// Tie — none is more common; one of the three should be chosen (no empty/error).
+		expect(['Station A', 'Station B', 'Station C']).toContain(result.stationName);
 	});
 });
