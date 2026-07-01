@@ -386,6 +386,26 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals[0].arrivingTimes).toEqual([]);
 	});
 
+	it('de-duplicates identical arrival seconds when merging two stops for the same line', async () => {
+		const stop1 = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul', arrivals: [{ seconds: 100 }, { seconds: 200 }] }
+		]);
+		const stop2 = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul', arrivals: [{ seconds: 200 }, { seconds: 300 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+		expect(line7.arrivingTimes).toEqual([100, 200, 300]);
+	});
+
 	it('tolerates partial failures in multi-stop fetch', async () => {
 		const stop1 = buildStopResponse([
 			{
