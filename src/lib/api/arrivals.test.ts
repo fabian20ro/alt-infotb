@@ -465,6 +465,26 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.address).toBe('Address A');
 	});
 
+	it('treats NFC-composed and decomposed station names as identical during merge', async () => {
+		const composed = 'Pia\u021ba Unirii';   // U+0219 (s-comma) — NFC form used by STB
+		const decomposed = 'Pi\u02C7a Unirii';  // U+0307 combining acute, applied to a → NFD form
+
+		const stop1 = buildStopResponse([], composed, '');
+		const stop2 = buildStopResponse([], decomposed, '');
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		// Both forms should count as the same key → NFC canonical form wins (originalValues.get)
+		expect(result.stationName).toBe(composed);
+	});
+
 	it('respects MAX_ARRIVALS_PER_LINE when merging arrivals from multiple stops', async () => {
 		const stop1 = buildStopResponse([
 			{
