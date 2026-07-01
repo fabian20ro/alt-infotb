@@ -126,6 +126,18 @@ describe('ProtoReader', () => {
 		expect(() => reader.readField()).toThrow(ProtoParseError);
 	});
 
+	it('throws TypeError when constructed with null', () => {
+		expect(() => new ProtoReader(null)).toThrow(TypeError);
+	});
+
+	it('throws TypeError when constructed with undefined', () => {
+		expect(() => new ProtoReader()).toThrow(TypeError);
+	});
+
+	it('throws TypeError when constructed with a plain object', () => {
+		expect(() => new ProtoReader({})).toThrow(TypeError);
+	});
+
 	it('does not silently return partial varint on truncated payload', () => {
 		// Regression: a continuation byte at end of buffer must throw, never return garbage.
 		const data = new Uint8Array([0x12, 0x81]); // field 2 tag + continuation varint byte with no terminator
