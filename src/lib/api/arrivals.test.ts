@@ -165,6 +165,18 @@ describe('fetchArrivals', () => {
 		await expect(fetchArrivals(3570)).rejects.toThrow('Network error');
 	});
 
+	it('preserves HTTP status codes from the STB API in ApiError', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 401 })
+		);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		await expect(fetchArrivals(3570)).rejects.toMatchObject({
+			status: 401,
+			message: expect.stringContaining('HTTP 401')
+		});
+	});
 
 	it('throws ApiError when protobuf payload is malformed', async () => {
 		const malformed = new Uint8Array([0x0a, 0x05, 0x41]);
