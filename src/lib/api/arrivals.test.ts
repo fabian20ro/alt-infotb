@@ -862,4 +862,43 @@ describe('fetchArrivals multi-stop merging', () => {
 		const result = await fetchArrivals([9552, 9543]);
 		expect(result.arrivals[0].direction).toBe('Faur');
 	});
+
+	it('ignores protobuf fields 6/7/8 and only reads arrivals from field 9', async () => {
+		// Manually build a line entry that includes redundant varint fields 6, 7, 8.
+		// The decoder must read ONLY field 9 (repeated sub-messages) for arrival times;
+		// fields 6/7/8 should be ignored entirely.
+		const lineBytes: number[] = [
+			...encodeStringField(1, '7'),        // field 1: NAME
+			...encodeVarintField(2, 69),          // field 2: ID
+			...encodeStringField(3, 'TRAM'),      // field 3: VEHICLE_TYPE
+			...encodeStringField(4, '#BE1622'),   // field 4: COLOR
+			...encodeStringField(5, 'Faur'),      // field 5: DIRECTION
+			...encodeVarintField(6, 99),          // redundant field 6 (ignored)
+			...encodeVarintField(7, 88),          // redundant field 7 (ignored)
+			...encodeVarintField(8, 77),          // redundant field 8 (ignored)
+		];
+		const arrivalBytes = encodeArrivalEntry(120);
+		lineBytes.push(...encodeMessageField(9, arrivalBytes));
+
+		const bytes: number[] = [
+			...encodeStringField(1, 'Piata Unirii'),
+			...encodeStringField(2, 'Bd. Regina Maria, Bucuresti'),
+			...encodeStringField(5, 'STATION'),
+			...encodeMessageField(10, lineBytes)
+		];
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new Uint8Array(bytes).buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+
+		expect(line7.direction).toBe('Faur');
+		expect(line7.vehicleType).toBe('TRAM');
+		expect(line7.color).toBe('#BE1622');
+		expect(line7.arrivingTimes).toEqual([120]);
+	});
 });
