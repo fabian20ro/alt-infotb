@@ -756,6 +756,34 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals.map((a) => a.lineName)).toEqual(['Alpha', 'Bravo', 'Zebra']);
 	});
 
+	it('falls back to #888888 when LINE.COLOR field is absent from protobuf', async () => {
+		const lineBytes: number[] = [
+			...encodeStringField(1, '7'),        // field 1: NAME
+			...encodeVarintField(2, 69),          // field 2: ID
+			...encodeStringField(3, 'TRAM'),      // field 3: VEHICLE_TYPE
+			// No color field (4) encoded — decoder should fall back to '#888888'
+			...encodeStringField(5, 'Progresul')  // field 5: DIRECTION
+		];
+		const arrivalBytes = encodeArrivalEntry(120);
+		lineBytes.push(...encodeMessageField(9, arrivalBytes));
+
+		const bytes: number[] = [
+			...encodeStringField(1, 'Piata Unirii'),
+			...encodeStringField(2, 'Bd. Regina Maria, Bucuresti'),
+			...encodeStringField(5, 'STATION'),
+			...encodeMessageField(10, lineBytes)
+		];
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new Uint8Array(bytes).buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals[0].color).toBe('#888888');
+	});
+
 	it('formatArrivalTime returns acum for zero seconds and handles negative input', async () => {
 		const { formatArrivalTime } = await import('./arrivals.js');
 		expect(formatArrivalTime(0)).toBe('acum');
