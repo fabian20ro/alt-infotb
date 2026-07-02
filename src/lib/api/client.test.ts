@@ -232,14 +232,27 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
-	it('throws ApiError when url is invalid (empty string)', async () => {
+	it('throws ApiError for empty URL string', async () => {
 		vi.stubGlobal(
 			'fetch',
-			vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+			vi.fn() // should never be called
 		);
 
 		const promise = apiFetchBinary('');
-		await expect(promise).rejects.toThrow('Network error (CORS or connectivity)');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+	});
+
+	it('throws ApiError for whitespace-only URL string', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('   ');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 

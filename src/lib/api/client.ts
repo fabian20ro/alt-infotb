@@ -5,6 +5,10 @@ import { API } from './constants.js';
  * The API returns Protocol Buffers, so we read as ArrayBuffer.
  */
 export async function apiFetchBinary(url: string): Promise<Uint8Array> {
+	if (!url || typeof url !== 'string' || !url.trim().length) {
+		throw new ApiError('Invalid request URL', 0);
+	}
+
 	try {
 		const response = await fetch(url, {
 			headers: API.HEADERS,
