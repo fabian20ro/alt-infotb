@@ -187,7 +187,7 @@ describe('fetchArrivals', () => {
 
 	it('throws when provided with an empty array of stop IDs', async () => {
 		const { fetchArrivals } = await import('./arrivals.js');
-		await expect(fetchArrivals([])).rejects.toThrow('All subway stop fetches failed');
+		await expect(fetchArrivals([])).rejects.toThrow('Nu au fost furnizate ID-uri de stații');
 	});
 
 	it('filters arrival times outside the valid range [0, 7200]', async () => {
@@ -672,6 +672,16 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(formatArrivalTime(-5)).toBe('acum');
 	});
 
+	it('formatArrivalTime rounds up at minute boundaries via Math.ceil', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		// 58s → ceil(58/60)=1 → '1 min' (not '2 min')
+		expect(formatArrivalTime(58)).toBe('1 min');
+		expect(formatArrivalTime(59)).toBe('1 min');
+		expect(formatArrivalTime(60)).toBe('1 min');
+		// 3540s → ceil(3540/60)=59 → '59 min' (not '1 oră')
+		expect(formatArrivalTime(3540)).toBe('59 min');
+	});
+
 	it('exports formatTime for HH:MM date formatting', async () => {
 		const { formatTime } = await import('./arrivals.js');
 		// Use a fixed time to avoid flaky hour output across locales/runs
@@ -714,5 +724,191 @@ describe('fetchArrivals multi-stop merging', () => {
 
 		// Tie — none is more common; one of the three should be chosen (no empty/error).
 		expect(['Station A', 'Station B', 'Station C']).toContain(result.stationName);
+	});
+
+	it('tolerates partial failures and returns merged data from successful stops', async () => {
+		const stop1 = buildStopResponse([
+			{ name: 'M1', id: 522, type: 'SUBWAY', color: '#1D1D1B', direction: 'Dristor', arrivals: [{ seconds: 300 }] }
+		], 'Piata Unirii');
+
+		const mockFetch = vi.fn()
+			.mockImplementation((url: string) => {
+				const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+				if (stopId === '9552') {
+					return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+				}
+				return Promise.reject(new Error('Network down'));
+			});
+		vi.stubGlobal('fetch', mockFetch);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		expect(result.arrivals).toHaveLength(1);
+		expect(result.arrivals[0].lineName).toBe('M1');
+		expect(result.arrivals[0].arrivingTimes).toEqual([300]);
+	});
+
+	it('falls back to locale sort when all line names are non-numeric', async () => {
+		const responseData = buildStopResponse([
+			{ name: 'Zebra', id: 1, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 100 }] },
+			{ name: 'Alpha', id: 2, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 100 }] },
+			{ name: 'Bravo', id: 3, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 100 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals.map((a) => a.lineName)).toEqual(['Alpha', 'Bravo', 'Zebra']);
+	});
+
+	it('falls back to #888888 when LINE.COLOR field is absent from protobuf', async () => {
+		const lineBytes: number[] = [
+			...encodeStringField(1, '7'),        // field 1: NAME
+			...encodeVarintField(2, 69),          // field 2: ID
+			...encodeStringField(3, 'TRAM'),      // field 3: VEHICLE_TYPE
+			// No color field (4) encoded — decoder should fall back to '#888888'
+			...encodeStringField(5, 'Progresul')  // field 5: DIRECTION
+		];
+		const arrivalBytes = encodeArrivalEntry(120);
+		lineBytes.push(...encodeMessageField(9, arrivalBytes));
+
+		const bytes: number[] = [
+			...encodeStringField(1, 'Piata Unirii'),
+			...encodeStringField(2, 'Bd. Regina Maria, Bucuresti'),
+			...encodeStringField(5, 'STATION'),
+			...encodeMessageField(10, lineBytes)
+		];
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new Uint8Array(bytes).buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals[0].color).toBe('#888888');
+	});
+
+	it('formatArrivalTime returns acum for zero seconds and handles negative input', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(0)).toBe('acum');
+		expect(formatArrivalTime(-10)).toBe('acum');
+	});
+
+	it('sorts arrival times ascending within each line after decoding', async () => {
+		const responseData = buildStopResponse([
+			{
+				name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul',
+				arrivals: [{ seconds: 480 }, { seconds: 90 }, { seconds: 360 }, { seconds: 240 }]
+			}
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+		expect(line7.arrivingTimes).toEqual([90, 240, 360]); // sorted ascending, sliced to MAX_ARRIVALS_PER_LINE=3
+	});
+
+	it('treats empty protobuf payload as zero lines', async () => {
+		const emptyData = new Uint8Array(0);
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, arrayBuffer: () => Promise.resolve(emptyData.buffer) }));
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals).toHaveLength(0);
+	});
+
+	it('returns empty arrivingTimes for a line with no arrival sub-messages in protobuf', async () => {
+		const lineBytes: number[] = [
+			...encodeStringField(1, '42'),       // field 1: NAME
+			...encodeVarintField(2, 99),          // field 2: ID
+			...encodeStringField(3, 'BUS'),       // field 3: VEHICLE_TYPE
+			...encodeStringField(4, '#000'),      // field 4: COLOR
+			...encodeStringField(5, 'Depou')      // field 5: DIRECTION
+			// No field 9 (ARRIVALS) — empty arrivals expected
+		];
+		const bytes: number[] = [
+			...encodeStringField(1, 'Piata Unirii'),
+			...encodeStringField(2, 'Addr'),
+			...encodeStringField(5, 'STATION'),
+			...encodeMessageField(10, lineBytes)
+		];
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new Uint8Array(bytes).buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals[0].lineName).toBe('42');
+		expect(result.arrivals[0].arrivingTimes).toEqual([]);
+	});
+
+	it('preserves line direction during multi-stop merge', async () => {
+		const stop1 = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Faur', arrivals: [{ seconds: 100 }] }
+		]);
+		const stop2 = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Faur', arrivals: [{ seconds: 200 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+		expect(result.arrivals[0].direction).toBe('Faur');
+	});
+
+	it('ignores protobuf fields 6/7/8 and only reads arrivals from field 9', async () => {
+		// Manually build a line entry that includes redundant varint fields 6, 7, 8.
+		// The decoder must read ONLY field 9 (repeated sub-messages) for arrival times;
+		// fields 6/7/8 should be ignored entirely.
+		const lineBytes: number[] = [
+			...encodeStringField(1, '7'),        // field 1: NAME
+			...encodeVarintField(2, 69),          // field 2: ID
+			...encodeStringField(3, 'TRAM'),      // field 3: VEHICLE_TYPE
+			...encodeStringField(4, '#BE1622'),   // field 4: COLOR
+			...encodeStringField(5, 'Faur'),      // field 5: DIRECTION
+			...encodeVarintField(6, 99),          // redundant field 6 (ignored)
+			...encodeVarintField(7, 88),          // redundant field 7 (ignored)
+			...encodeVarintField(8, 77),          // redundant field 8 (ignored)
+		];
+		const arrivalBytes = encodeArrivalEntry(120);
+		lineBytes.push(...encodeMessageField(9, arrivalBytes));
+
+		const bytes: number[] = [
+			...encodeStringField(1, 'Piata Unirii'),
+			...encodeStringField(2, 'Bd. Regina Maria, Bucuresti'),
+			...encodeStringField(5, 'STATION'),
+			...encodeMessageField(10, lineBytes)
+		];
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new Uint8Array(bytes).buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+
+		expect(line7.direction).toBe('Faur');
+		expect(line7.vehicleType).toBe('TRAM');
+		expect(line7.color).toBe('#BE1622');
+		expect(line7.arrivingTimes).toEqual([120]);
 	});
 });

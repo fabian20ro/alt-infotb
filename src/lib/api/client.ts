@@ -35,6 +35,9 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		}
 
 		const buf = await response.arrayBuffer();
+		if (!(buf instanceof ArrayBuffer)) {
+			throw new ApiError('Response data unavailable: invalid buffer type', 0);
+		}
 		return new Uint8Array(buf);
 	} catch (err) {
 		if (err instanceof ApiError) throw err;

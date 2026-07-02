@@ -296,4 +296,54 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toThrow(/Some DOM error/);
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
+
+	it('throws ApiError when arrayBuffer() returns null or undefined', async () => {
+		for (const bad of [null, undefined]) {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({
+					ok: true,
+					arrayBuffer: () => Promise.resolve(bad)
+				})
+			);
+
+			const promise = apiFetchBinary('https://info.stb.ro/test');
+			await expect(promise).rejects.toThrow(
+				'Response data unavailable: invalid buffer type'
+			);
+			await expect(promise).rejects.toMatchObject({ status: 0 });
+		}
+	});
+
+	it('throws ApiError when arrayBuffer() returns non-ArrayBuffer', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.resolve('not a buffer')
+			})
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(
+			'Response data unavailable: invalid buffer type'
+		);
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+	});
+
+	it('throws ApiError when arrayBuffer() rejects', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.reject(new Error('read failed'))
+			})
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(
+			'Response data unavailable: read failed'
+		);
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+	});
 });
