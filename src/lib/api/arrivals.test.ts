@@ -386,6 +386,23 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals[0].arrivingTimes).toEqual([]);
 	});
 
+	it('does not de-duplicate identical seconds within a single line (dedup happens only at merge time)', async () => {
+		const responseData = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul', arrivals: [{ seconds: 100 }, { seconds: 100 }, { seconds: 200 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+		// Decoder does NOT deduplicate per-line; two 100s remain, slice to 3.
+		expect(line7.arrivingTimes).toEqual([100, 100, 200]);
+	});
+
 	it('de-duplicates identical arrival seconds when merging two stops for the same line', async () => {
 		const stop1 = buildStopResponse([
 			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul', arrivals: [{ seconds: 100 }, { seconds: 200 }] }
