@@ -690,6 +690,28 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(formatted).toMatch(/\d{2}:\d{2}/);
 	});
 
+	it('formats zero-padded single-digit hours in HH:MM', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		expect(formatTime(new Date(2026, 6, 1, 3, 5))).toBe('03:05');
+	});
+
+	it('formats noon exactly as 12:00', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		expect(formatTime(new Date(2026, 6, 1, 12, 0))).toBe('12:00');
+	});
+
+	it('formats minute-boundary times without rounding', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		expect(formatTime(new Date(2026, 6, 1, 7, 30))).toBe('07:30');
+		expect(formatTime(new Date(2026, 6, 1, 18, 59))).toBe('18:59');
+	});
+
+	it('produces ro-RO locale time strings with correct separator', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const formatted = formatTime(new Date(2026, 6, 1, 14, 22));
+		expect(formatted).toMatch(/^\d{2}:\d{2}$/);
+	});
+
 	it('decodes all line fields (id, vehicleType) from protobuf during fetch', async () => {
 		const responseData = buildStopResponse([{
 			name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'C.F.R. Progresul',
