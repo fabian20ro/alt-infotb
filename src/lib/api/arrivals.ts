@@ -171,6 +171,10 @@ function mergeArrivals(results: StationArrivals[]): StationArrivals {
 export async function fetchArrivals(stopIds: number | number[]): Promise<StationArrivals> {
 	const ids = Array.isArray(stopIds) ? stopIds : [stopIds];
 
+	if (ids.length === 0) {
+		throw new ApiError('Nu au fost furnizate ID-uri de stații', 0);
+	}
+
 	const settled = await Promise.allSettled(ids.map(fetchSingleStop));
 	const successes = settled
 		.filter((r): r is PromiseFulfilledResult<StationArrivals> => r.status === 'fulfilled')

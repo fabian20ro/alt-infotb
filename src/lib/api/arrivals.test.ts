@@ -187,7 +187,7 @@ describe('fetchArrivals', () => {
 
 	it('throws when provided with an empty array of stop IDs', async () => {
 		const { fetchArrivals } = await import('./arrivals.js');
-		await expect(fetchArrivals([])).rejects.toThrow('All subway stop fetches failed');
+		await expect(fetchArrivals([])).rejects.toThrow('Nu au fost furnizate ID-uri de stații');
 	});
 
 	it('filters arrival times outside the valid range [0, 7200]', async () => {
