@@ -151,4 +151,31 @@ describe('ProtoReader', () => {
 		const reader = new ProtoReader(data);
 		expect(() => reader.readField()).toThrow(ProtoParseError);
 	});
+
+	it('accepts zero-length length-delimited payload', () => {
+		// Regression: a valid protobuf encoding of an empty sub-message (length=0) must decode,
+		// not throw. The STB API can return optional fields with empty embedded messages.
+		const data = new Uint8Array([0x12, 0x00]); // field 2, wire type 2, length 0
+		const reader = new ProtoReader(data);
+		const field = reader.readField();
+		expect(field?.fieldNumber).toBe(2);
+		expect(field?.wireType).toBe(2);
+		expect(field?.value).toEqual(new Uint8Array([]));
+		expect(reader.done).toBe(true);
+	});
+
+	it('accepts zero-length length-delimited payload repeated', () => {
+		// Regression: repeated empty sub-messages must all decode.
+		const data = new Uint8Array([
+			0x12, 0x03, 0x61, 0x62, 0x63, // field 2, "abc"
+			0x12, 0x00,                     // field 2, empty
+			0x12, 0x00                      // field 2, empty again
+		]);
+		const reader = new ProtoReader(data);
+		const fields = reader.readAllFields();
+		expect(fields.get(2)).toHaveLength(3);
+		expect(fields.get(2)![0]).toEqual(new Uint8Array([0x61, 0x62, 0x63]));
+		expect(fields.get(2)![1]).toEqual(new Uint8Array([]));
+		expect(fields.get(2)![2]).toEqual(new Uint8Array([]));
+	});
 });
