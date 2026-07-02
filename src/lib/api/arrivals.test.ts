@@ -715,4 +715,50 @@ describe('fetchArrivals multi-stop merging', () => {
 		// Tie — none is more common; one of the three should be chosen (no empty/error).
 		expect(['Station A', 'Station B', 'Station C']).toContain(result.stationName);
 	});
+
+	it('tolerates partial failures and returns merged data from successful stops', async () => {
+		const stop1 = buildStopResponse([
+			{ name: 'M1', id: 522, type: 'SUBWAY', color: '#1D1D1B', direction: 'Dristor', arrivals: [{ seconds: 300 }] }
+		], 'Piata Unirii');
+
+		const mockFetch = vi.fn()
+			.mockImplementation((url: string) => {
+				const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+				if (stopId === '9552') {
+					return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+				}
+				return Promise.reject(new Error('Network down'));
+			});
+		vi.stubGlobal('fetch', mockFetch);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		expect(result.arrivals).toHaveLength(1);
+		expect(result.arrivals[0].lineName).toBe('M1');
+		expect(result.arrivals[0].arrivingTimes).toEqual([300]);
+	});
+
+	it('falls back to locale sort when all line names are non-numeric', async () => {
+		const responseData = buildStopResponse([
+			{ name: 'Zebra', id: 1, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 100 }] },
+			{ name: 'Alpha', id: 2, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 100 }] },
+			{ name: 'Bravo', id: 3, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 100 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals.map((a) => a.lineName)).toEqual(['Alpha', 'Bravo', 'Zebra']);
+	});
+
+	it('formatArrivalTime returns acum for zero seconds and handles negative input', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(0)).toBe('acum');
+		expect(formatArrivalTime(-10)).toBe('acum');
+	});
 });
