@@ -789,4 +789,77 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(formatArrivalTime(0)).toBe('acum');
 		expect(formatArrivalTime(-10)).toBe('acum');
 	});
+
+	it('sorts arrival times ascending within each line after decoding', async () => {
+		const responseData = buildStopResponse([
+			{
+				name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul',
+				arrivals: [{ seconds: 480 }, { seconds: 90 }, { seconds: 360 }, { seconds: 240 }]
+			}
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+		expect(line7.arrivingTimes).toEqual([90, 240, 360]); // sorted ascending, sliced to MAX_ARRIVALS_PER_LINE=3
+	});
+
+	it('treats empty protobuf payload as zero lines', async () => {
+		const emptyData = new Uint8Array(0);
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, arrayBuffer: () => Promise.resolve(emptyData.buffer) }));
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals).toHaveLength(0);
+	});
+
+	it('returns empty arrivingTimes for a line with no arrival sub-messages in protobuf', async () => {
+		const lineBytes: number[] = [
+			...encodeStringField(1, '42'),       // field 1: NAME
+			...encodeVarintField(2, 99),          // field 2: ID
+			...encodeStringField(3, 'BUS'),       // field 3: VEHICLE_TYPE
+			...encodeStringField(4, '#000'),      // field 4: COLOR
+			...encodeStringField(5, 'Depou')      // field 5: DIRECTION
+			// No field 9 (ARRIVALS) — empty arrivals expected
+		];
+		const bytes: number[] = [
+			...encodeStringField(1, 'Piata Unirii'),
+			...encodeStringField(2, 'Addr'),
+			...encodeStringField(5, 'STATION'),
+			...encodeMessageField(10, lineBytes)
+		];
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new Uint8Array(bytes).buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals[0].lineName).toBe('42');
+		expect(result.arrivals[0].arrivingTimes).toEqual([]);
+	});
+
+	it('preserves line direction during multi-stop merge', async () => {
+		const stop1 = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Faur', arrivals: [{ seconds: 100 }] }
+		]);
+		const stop2 = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Faur', arrivals: [{ seconds: 200 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+		expect(result.arrivals[0].direction).toBe('Faur');
+	});
 });
