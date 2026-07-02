@@ -672,6 +672,16 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(formatArrivalTime(-5)).toBe('acum');
 	});
 
+	it('formatArrivalTime rounds up at minute boundaries via Math.ceil', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		// 58s → ceil(58/60)=1 → '1 min' (not '2 min')
+		expect(formatArrivalTime(58)).toBe('1 min');
+		expect(formatArrivalTime(59)).toBe('1 min');
+		expect(formatArrivalTime(60)).toBe('1 min');
+		// 3540s → ceil(3540/60)=59 → '59 min' (not '1 oră')
+		expect(formatArrivalTime(3540)).toBe('59 min');
+	});
+
 	it('exports formatTime for HH:MM date formatting', async () => {
 		const { formatTime } = await import('./arrivals.js');
 		// Use a fixed time to avoid flaky hour output across locales/runs
