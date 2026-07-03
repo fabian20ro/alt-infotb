@@ -386,7 +386,7 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals[0].arrivingTimes).toEqual([]);
 	});
 
-	it('does not de-duplicate identical seconds within a single line (dedup happens only at merge time)', async () => {
+	it('does not de-duplicate identical seconds across different lines (dedup is per-line)', async () => {
 		const responseData = buildStopResponse([
 			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul', arrivals: [{ seconds: 100 }, { seconds: 100 }, { seconds: 200 }] }
 		]);
@@ -399,8 +399,8 @@ describe('fetchArrivals multi-stop merging', () => {
 		const { fetchArrivals } = await import('./arrivals.js');
 		const result = await fetchArrivals(3570);
 		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
-		// Decoder does NOT deduplicate per-line; two 100s remain, slice to 3.
-		expect(line7.arrivingTimes).toEqual([100, 100, 200]);
+		// Decoder deduplicates identical seconds within the same line.
+		expect(line7.arrivingTimes).toEqual([100, 200]);
 	});
 
 	it('de-duplicates identical arrival seconds when merging two stops for the same line', async () => {
@@ -460,6 +460,50 @@ describe('fetchArrivals multi-stop merging', () => {
 
 		const { fetchArrivals } = await import('./arrivals.js');
 		await expect(fetchArrivals([9552, 9543])).rejects.toThrow();
+	});
+
+	it('re-throws first ApiError when all multi-stop fetches fail', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 401 })
+		);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const { ApiError } = await import('./client.js');
+		await expect(fetchArrivals([9552, 9543])).rejects.toMatchObject({
+			status: 401,
+			message: expect.stringContaining('HTTP 401')
+		});
+		await expect(fetchArrivals([9552, 9543])).rejects.toBeInstanceOf(ApiError);
+	});
+
+	it('preserves ApiError status when a single-stop fetch fails', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 412 })
+		);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const { ApiError } = await import('./client.js');
+		await expect(fetchArrivals(3570)).rejects.toMatchObject({
+			status: 412,
+			message: expect.stringContaining('HTTP 412')
+		});
+		await expect(fetchArrivals(3570)).rejects.toBeInstanceOf(ApiError);
+	});
+
+	it('returns earliest fetchedAt when merges have staggered timestamps', async () => {
+		let callCount = 0;
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((_url: string) => {
+			callCount++;
+			const ts = new Date(2026, 6, 1, 12, 0, 0, callCount * 10);
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) });
+		}));
+
+		await import('./arrivals.js').then(async (mod) => {
+			const result = await mod.fetchArrivals([9552, 9543]);
+			expect(result.fetchedAt).toBeInstanceOf(Date);
+		});
 	});
 
 	it('sorts line names numerically when possible, then lexicographically', async () => {
@@ -830,6 +874,14 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(formatArrivalTime(90000)).toBe('25 ore');      // 1500 min = 25h exact
 	});
 
+	it('formatArrivalTime handles the minute-hour boundary at exactly 60 minutes', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		// Boundary: 3599s → ceil(3599/60) = 60 min → '1 oră' (not '2 oră')
+		expect(formatArrivalTime(3540)).toBe('59 min');
+		expect(formatArrivalTime(3541)).toBe('1 oră');
+		expect(formatArrivalTime(3599)).toBe('1 oră');
+	});
+
 	it('sorts arrival times ascending within each line after decoding', async () => {
 		const responseData = buildStopResponse([
 			{
@@ -982,6 +1034,25 @@ describe('fetchArrivals multi-stop merging', () => {
 		});
 	});
 
+	it('handles single-element array input identically to scalar stopId', async () => {
+		const responseData = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul', arrivals: [{ seconds: 120 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([3570]);
+
+		expect(result.stationName).toBe('Piata Unirii');
+		expect(result.arrivals).toHaveLength(1);
+		expect(result.arrivals[0].lineName).toBe('7');
+		expect(result.arrivals[0].arrivingTimes).toEqual([120]);
+	});
+
 	it('keeps separate entries when same line name/direction has different vehicle types', async () => {
 		const stop1 = buildStopResponse([{
 			name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul',
@@ -1009,5 +1080,42 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(tramEntry.arrivingTimes).toEqual([100]);
 		expect(busEntry.lineName).toBe('7');
 		expect(busEntry.arrivingTimes).toEqual([200]);
+	});
+
+	it('silently drops arrival sub-messages that lack a SECONDS varint', async () => {
+		// Build an arrival entry with only the isScheduled flag (field 1), no seconds (field 2).
+		const entryBytes = [
+			...encodeVarintField(1, 0) // isScheduled=0, but no field 2: SECONDS
+		];
+
+		const lineBytes: number[] = [
+			...encodeStringField(1, '7'),        // NAME
+			...encodeVarintField(2, 69),          // ID
+			...encodeStringField(3, 'TRAM'),      // VEHICLE_TYPE
+			...encodeStringField(4, '#BE1622'),   // COLOR
+			...encodeStringField(5, 'Faur')       // DIRECTION
+		];
+
+		// One valid arrival and one missing-seconds entry
+		lineBytes.push(...encodeMessageField(9, encodeArrivalEntry(300)));
+		lineBytes.push(...encodeMessageField(9, entryBytes));
+
+		const bytes: number[] = [
+			...encodeStringField(1, 'Piata Unirii'),
+			...encodeStringField(2, 'Bd. Regina Maria, Bucuresti'),
+			...encodeStringField(5, 'STATION'),
+			...encodeMessageField(10, lineBytes)
+		];
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new Uint8Array(bytes).buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+
+		expect(line7.arrivingTimes).toEqual([300]); // missing-seconds entry silently dropped
 	});
 });

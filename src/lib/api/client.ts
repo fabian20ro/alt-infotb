@@ -9,6 +9,27 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		throw new ApiError('Invalid request URL', 0);
 	}
 
+	const urlPattern = /^(https?:\/\/|\/)/;
+	if (!urlPattern.test(url)) {
+		throw new ApiError('Invalid request URL', 0);
+	}
+
+	try {
+		const parsed = new URL(url, 'http://localhost');
+		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+			throw new Error('invalid protocol');
+		}
+		if (!parsed.hostname) {
+			throw new Error('missing host');
+		}
+		const hostnamePattern = /^[a-zA-Z0-9.-]+$/;
+		if (!hostnamePattern.test(parsed.hostname)) {
+			throw new Error('invalid hostname');
+		}
+	} catch {
+		throw new ApiError('Invalid request URL', 0);
+	}
+
 	try {
 		const response = await fetch(url, {
 			headers: API.HEADERS,
@@ -32,6 +53,11 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 				? ' (Internal Server Error)'
 				: '';
 			throw new ApiError(`HTTP ${response.status}${hint}`, response.status);
+		}
+
+		const contentType = response.headers?.get('content-type');
+		if (contentType && /text\/(html|plain|json)/i.test(contentType)) {
+			throw new ApiError(`Unexpected content type: ${contentType}`, 0);
 		}
 
 		const buf = await response.arrayBuffer();

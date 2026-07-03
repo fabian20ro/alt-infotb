@@ -69,7 +69,7 @@ function decodeStopResponse(data: Uint8Array): StationArrivals {
 			}
 		}
 
-		times.sort((a, b) => a - b);
+		const uniqueTimes = Array.from(new Set(times)).sort((a, b) => a - b);
 
 		arrivals.push({
 			lineName,
@@ -77,7 +77,7 @@ function decodeStopResponse(data: Uint8Array): StationArrivals {
 			vehicleType,
 			color,
 			direction,
-			arrivingTimes: times.slice(0, MAX_ARRIVALS_PER_LINE)
+			arrivingTimes: uniqueTimes.slice(0, MAX_ARRIVALS_PER_LINE)
 		});
 	};
 
