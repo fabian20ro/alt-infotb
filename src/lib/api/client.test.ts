@@ -392,4 +392,19 @@ describe('apiFetchBinary', () => {
 			vi.restoreAllMocks();
 		}
 	});
+
+	it('throws ApiError when response body exceeds maximum size', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				headers: new Map([['content-type', 'application/octet-stream']]),
+				arrayBuffer: () => Promise.resolve(new ArrayBuffer(11 * 1024 * 1024)) // > 10 MB
+			})
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow(/Response exceeds maximum size/);
+	});
 });
