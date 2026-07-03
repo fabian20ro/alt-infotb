@@ -256,6 +256,20 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
+	it('throws ApiError for malformed URLs', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const badUrls = ['not a url', 'http://[invalid]', '://missing-scheme', '   spaces'];
+		for (const u of badUrls) {
+			await expect(apiFetchBinary(u)).rejects.toThrow(ApiError);
+			await expect(apiFetchBinary(u)).rejects.toThrow('Invalid request URL');
+			await expect(apiFetchBinary(u)).rejects.toMatchObject({ status: 0 });
+		}
+	});
+
 	it('throws ApiError if arrayBuffer() fails with a non-TypeError Error', async () => {
 		vi.stubGlobal(
 			'fetch',
