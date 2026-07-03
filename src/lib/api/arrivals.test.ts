@@ -822,6 +822,14 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(formatArrivalTime(-10)).toBe('acum');
 	});
 
+	it('formatArrivalTime formats large values beyond 7200s as hours with minutes', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		// Values well above MAX_ARRIVAL_SECONDS still go through the same formatting path.
+		expect(formatArrivalTime(14400)).toBe('4 ore');       // 240 min exactly
+		expect(formatArrivalTime(14460)).toBe('4 ore, 1 min'); // 241 min
+		expect(formatArrivalTime(90000)).toBe('25 ore');      // 1500 min = 25h exact
+	});
+
 	it('sorts arrival times ascending within each line after decoding', async () => {
 		const responseData = buildStopResponse([
 			{
