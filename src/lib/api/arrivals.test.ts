@@ -933,4 +933,24 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(line7.color).toBe('#BE1622');
 		expect(line7.arrivingTimes).toEqual([120]);
 	});
+
+	it('returns a fetchedAt timestamp in the decoded response', async () => {
+		const responseData = buildStopResponse([]);
+
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.resolve(responseData.buffer)
+			})
+		);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+
+		expect(result.fetchedAt).toBeInstanceOf(Date);
+		const ageMs = Date.now() - result.fetchedAt.getTime();
+		expect(ageMs).toBeGreaterThanOrEqual(0);
+		expect(ageMs).toBeLessThan(5000);
+	});
 });
