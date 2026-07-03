@@ -462,6 +462,50 @@ describe('fetchArrivals multi-stop merging', () => {
 		await expect(fetchArrivals([9552, 9543])).rejects.toThrow();
 	});
 
+	it('re-throws first ApiError when all multi-stop fetches fail', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 401 })
+		);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const { ApiError } = await import('./client.js');
+		await expect(fetchArrivals([9552, 9543])).rejects.toMatchObject({
+			status: 401,
+			message: expect.stringContaining('HTTP 401')
+		});
+		await expect(fetchArrivals([9552, 9543])).rejects.toBeInstanceOf(ApiError);
+	});
+
+	it('preserves ApiError status when a single-stop fetch fails', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({ ok: false, status: 412 })
+		);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const { ApiError } = await import('./client.js');
+		await expect(fetchArrivals(3570)).rejects.toMatchObject({
+			status: 412,
+			message: expect.stringContaining('HTTP 412')
+		});
+		await expect(fetchArrivals(3570)).rejects.toBeInstanceOf(ApiError);
+	});
+
+	it('returns earliest fetchedAt when merges have staggered timestamps', async () => {
+		let callCount = 0;
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((_url: string) => {
+			callCount++;
+			const ts = new Date(2026, 6, 1, 12, 0, 0, callCount * 10);
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) });
+		}));
+
+		await import('./arrivals.js').then(async (mod) => {
+			const result = await mod.fetchArrivals([9552, 9543]);
+			expect(result.fetchedAt).toBeInstanceOf(Date);
+		});
+	});
+
 	it('sorts line names numerically when possible, then lexicographically', async () => {
 		const responseData = buildStopResponse([
 			{
