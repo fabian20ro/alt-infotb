@@ -1029,4 +1029,41 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(busEntry.lineName).toBe('7');
 		expect(busEntry.arrivingTimes).toEqual([200]);
 	});
+
+	it('silently drops arrival sub-messages that lack a SECONDS varint', async () => {
+		// Build an arrival entry with only the isScheduled flag (field 1), no seconds (field 2).
+		const entryBytes = [
+			...encodeVarintField(1, 0) // isScheduled=0, but no field 2: SECONDS
+		];
+
+		const lineBytes: number[] = [
+			...encodeStringField(1, '7'),        // NAME
+			...encodeVarintField(2, 69),          // ID
+			...encodeStringField(3, 'TRAM'),      // VEHICLE_TYPE
+			...encodeStringField(4, '#BE1622'),   // COLOR
+			...encodeStringField(5, 'Faur')       // DIRECTION
+		];
+
+		// One valid arrival and one missing-seconds entry
+		lineBytes.push(...encodeMessageField(9, encodeArrivalEntry(300)));
+		lineBytes.push(...encodeMessageField(9, entryBytes));
+
+		const bytes: number[] = [
+			...encodeStringField(1, 'Piata Unirii'),
+			...encodeStringField(2, 'Bd. Regina Maria, Bucuresti'),
+			...encodeStringField(5, 'STATION'),
+			...encodeMessageField(10, lineBytes)
+		];
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new Uint8Array(bytes).buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+
+		expect(line7.arrivingTimes).toEqual([300]); // missing-seconds entry silently dropped
+	});
 });
