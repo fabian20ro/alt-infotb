@@ -981,4 +981,33 @@ describe('fetchArrivals multi-stop merging', () => {
 			expect(ageMs).toBeLessThan(5000);
 		});
 	});
+
+	it('keeps separate entries when same line name/direction has different vehicle types', async () => {
+		const stop1 = buildStopResponse([{
+			name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul',
+			arrivals: [{ seconds: 100 }]
+		}], 'Piata Unirii');
+		const stop2 = buildStopResponse([{
+			name: '7', id: 69, type: 'BUS', color: '#006600', direction: 'Progresul',
+			arrivals: [{ seconds: 200 }]
+		}], 'Piata Unirii');
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		// vehicleType differs → merge key differs → two separate entries
+		expect(result.arrivals).toHaveLength(2);
+		const tramEntry = result.arrivals.find((a) => a.vehicleType === 'TRAM')!;
+		const busEntry = result.arrivals.find((a) => a.vehicleType === 'BUS')!;
+		expect(tramEntry.lineName).toBe('7');
+		expect(tramEntry.arrivingTimes).toEqual([100]);
+		expect(busEntry.lineName).toBe('7');
+		expect(busEntry.arrivingTimes).toEqual([200]);
+	});
 });
