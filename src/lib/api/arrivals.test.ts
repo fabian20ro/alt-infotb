@@ -874,6 +874,14 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(formatArrivalTime(90000)).toBe('25 ore');      // 1500 min = 25h exact
 	});
 
+	it('formatArrivalTime handles the minute-hour boundary at exactly 60 minutes', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		// Boundary: 3599s → ceil(3599/60) = 60 min → '1 oră' (not '2 oră')
+		expect(formatArrivalTime(3540)).toBe('59 min');
+		expect(formatArrivalTime(3541)).toBe('1 oră');
+		expect(formatArrivalTime(3599)).toBe('1 oră');
+	});
+
 	it('sorts arrival times ascending within each line after decoding', async () => {
 		const responseData = buildStopResponse([
 			{
