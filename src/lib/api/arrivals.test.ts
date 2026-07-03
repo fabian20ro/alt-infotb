@@ -961,4 +961,24 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(ageMs).toBeGreaterThanOrEqual(0);
 		expect(ageMs).toBeLessThan(5000);
 	});
+
+	it('uses the earliest fetchedAt across merged stops', async () => {
+		let callIndex = 0;
+		const mockFetch = vi.fn().mockImplementation((_url: string) => {
+			callIndex++;
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) });
+		});
+
+		vi.stubGlobal('fetch', mockFetch);
+
+		await import('./arrivals.js').then(async (mod) => {
+			const result = await mod.fetchArrivals([9552, 9543]);
+
+			expect(mockFetch).toHaveBeenCalledTimes(2);
+			expect(result.fetchedAt).toBeInstanceOf(Date);
+			const ageMs = Date.now() - result.fetchedAt.getTime();
+			expect(ageMs).toBeGreaterThanOrEqual(0);
+			expect(ageMs).toBeLessThan(5000);
+		});
+	});
 });
