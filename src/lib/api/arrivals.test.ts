@@ -982,6 +982,25 @@ describe('fetchArrivals multi-stop merging', () => {
 		});
 	});
 
+	it('handles single-element array input identically to scalar stopId', async () => {
+		const responseData = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul', arrivals: [{ seconds: 120 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([3570]);
+
+		expect(result.stationName).toBe('Piata Unirii');
+		expect(result.arrivals).toHaveLength(1);
+		expect(result.arrivals[0].lineName).toBe('7');
+		expect(result.arrivals[0].arrivingTimes).toEqual([120]);
+	});
+
 	it('keeps separate entries when same line name/direction has different vehicle types', async () => {
 		const stop1 = buildStopResponse([{
 			name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul',
