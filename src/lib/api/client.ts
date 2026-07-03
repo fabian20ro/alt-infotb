@@ -34,6 +34,11 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 			throw new ApiError(`HTTP ${response.status}${hint}`, response.status);
 		}
 
+		const contentType = response.headers?.get('content-type');
+		if (contentType && /text\/(html|plain|json)/i.test(contentType)) {
+			throw new ApiError(`Unexpected content type: ${contentType}`, 0);
+		}
+
 		const buf = await response.arrayBuffer();
 		if (!(buf instanceof ArrayBuffer)) {
 			throw new ApiError('Response data unavailable: invalid buffer type', 0);
