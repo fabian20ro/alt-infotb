@@ -153,11 +153,16 @@ function mergeArrivals(results: StationArrivals[]): StationArrivals {
 	const arrivals = Array.from(byLineKey.values());
 	sortByLineName(arrivals);
 
+	const fetchedAt = results.reduce(
+		(min, r) => (r.fetchedAt < min ? r.fetchedAt : min),
+		results[0].fetchedAt
+	);
+
 	return {
 		stationName,
 		address,
 		arrivals,
-		fetchedAt: new Date()
+		fetchedAt
 	};
 }
 

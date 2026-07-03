@@ -690,6 +690,28 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(formatted).toMatch(/\d{2}:\d{2}/);
 	});
 
+	it('formats zero-padded single-digit hours in HH:MM', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		expect(formatTime(new Date(2026, 6, 1, 3, 5))).toBe('03:05');
+	});
+
+	it('formats noon exactly as 12:00', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		expect(formatTime(new Date(2026, 6, 1, 12, 0))).toBe('12:00');
+	});
+
+	it('formats minute-boundary times without rounding', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		expect(formatTime(new Date(2026, 6, 1, 7, 30))).toBe('07:30');
+		expect(formatTime(new Date(2026, 6, 1, 18, 59))).toBe('18:59');
+	});
+
+	it('produces ro-RO locale time strings with correct separator', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const formatted = formatTime(new Date(2026, 6, 1, 14, 22));
+		expect(formatted).toMatch(/^\d{2}:\d{2}$/);
+	});
+
 	it('decodes all line fields (id, vehicleType) from protobuf during fetch', async () => {
 		const responseData = buildStopResponse([{
 			name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'C.F.R. Progresul',
@@ -798,6 +820,14 @@ describe('fetchArrivals multi-stop merging', () => {
 		const { formatArrivalTime } = await import('./arrivals.js');
 		expect(formatArrivalTime(0)).toBe('acum');
 		expect(formatArrivalTime(-10)).toBe('acum');
+	});
+
+	it('formatArrivalTime formats large values beyond 7200s as hours with minutes', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		// Values well above MAX_ARRIVAL_SECONDS still go through the same formatting path.
+		expect(formatArrivalTime(14400)).toBe('4 ore');       // 240 min exactly
+		expect(formatArrivalTime(14460)).toBe('4 ore, 1 min'); // 241 min
+		expect(formatArrivalTime(90000)).toBe('25 ore');      // 1500 min = 25h exact
 	});
 
 	it('sorts arrival times ascending within each line after decoding', async () => {
@@ -910,5 +940,74 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(line7.vehicleType).toBe('TRAM');
 		expect(line7.color).toBe('#BE1622');
 		expect(line7.arrivingTimes).toEqual([120]);
+	});
+
+	it('returns a fetchedAt timestamp in the decoded response', async () => {
+		const responseData = buildStopResponse([]);
+
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.resolve(responseData.buffer)
+			})
+		);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+
+		expect(result.fetchedAt).toBeInstanceOf(Date);
+		const ageMs = Date.now() - result.fetchedAt.getTime();
+		expect(ageMs).toBeGreaterThanOrEqual(0);
+		expect(ageMs).toBeLessThan(5000);
+	});
+
+	it('uses the earliest fetchedAt across merged stops', async () => {
+		let callIndex = 0;
+		const mockFetch = vi.fn().mockImplementation((_url: string) => {
+			callIndex++;
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) });
+		});
+
+		vi.stubGlobal('fetch', mockFetch);
+
+		await import('./arrivals.js').then(async (mod) => {
+			const result = await mod.fetchArrivals([9552, 9543]);
+
+			expect(mockFetch).toHaveBeenCalledTimes(2);
+			expect(result.fetchedAt).toBeInstanceOf(Date);
+			const ageMs = Date.now() - result.fetchedAt.getTime();
+			expect(ageMs).toBeGreaterThanOrEqual(0);
+			expect(ageMs).toBeLessThan(5000);
+		});
+	});
+
+	it('keeps separate entries when same line name/direction has different vehicle types', async () => {
+		const stop1 = buildStopResponse([{
+			name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul',
+			arrivals: [{ seconds: 100 }]
+		}], 'Piata Unirii');
+		const stop2 = buildStopResponse([{
+			name: '7', id: 69, type: 'BUS', color: '#006600', direction: 'Progresul',
+			arrivals: [{ seconds: 200 }]
+		}], 'Piata Unirii');
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		// vehicleType differs → merge key differs → two separate entries
+		expect(result.arrivals).toHaveLength(2);
+		const tramEntry = result.arrivals.find((a) => a.vehicleType === 'TRAM')!;
+		const busEntry = result.arrivals.find((a) => a.vehicleType === 'BUS')!;
+		expect(tramEntry.lineName).toBe('7');
+		expect(tramEntry.arrivingTimes).toEqual([100]);
+		expect(busEntry.lineName).toBe('7');
+		expect(busEntry.arrivingTimes).toEqual([200]);
 	});
 });
