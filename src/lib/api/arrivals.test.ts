@@ -1118,4 +1118,46 @@ describe('fetchArrivals multi-stop merging', () => {
 
 		expect(line7.arrivingTimes).toEqual([300]); // missing-seconds entry silently dropped
 	});
+
+	it('merges arrivals for a line present in both stops when one stop returns empty arrivingTimes', async () => {
+		const stop1 = buildStopResponse([{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Faur', arrivals: [] }]);
+		const stop2 = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Faur', arrivals: [{ seconds: 300 }, { seconds: 600 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		expect(result.arrivals).toHaveLength(1);
+		const line7 = result.arrivals[0];
+		expect(line7.lineName).toBe('7');
+		expect(line7.direction).toBe('Faur');
+		expect(line7.arrivingTimes).toEqual([300, 600]);
+	});
+
+	it('handles multi-stop merge where one stop has zero lines and the other has arrivals', async () => {
+		const emptyStop = buildStopResponse([]);
+		const populatedStop = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Faur', arrivals: [{ seconds: 300 }] }
+		], 'Piata Unirii');
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(emptyStop.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(populatedStop.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		expect(result.arrivals).toHaveLength(1);
+		expect(result.arrivals[0].lineName).toBe('7');
+		expect(result.arrivals[0].arrivingTimes).toEqual([300]);
+	});
 });
