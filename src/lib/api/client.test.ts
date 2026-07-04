@@ -433,4 +433,37 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toThrow(ApiError);
 		await expect(promise).rejects.toThrow(/Response exceeds maximum size/);
 	});
+
+	it('throws ApiError for URL with embedded tab characters', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro	/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+	});
+
+	it('throws ApiError for URL with embedded newline characters', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro\n/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+	});
+
+	it('throws ApiError for URL with embedded carriage return', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro\r/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+	});
 });

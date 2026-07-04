@@ -5,12 +5,25 @@ import { API } from './constants.js';
  * The API returns Protocol Buffers, so we read as ArrayBuffer.
  */
 export async function apiFetchBinary(url: string): Promise<Uint8Array> {
-	if (!url || typeof url !== 'string' || !url.trim().length) {
+	if (typeof url !== 'string') {
+		throw new ApiError('Invalid request URL', 0);
+	}
+
+	const trimmed = url.trim();
+	if (!trimmed.length) {
+		throw new ApiError('Invalid request URL', 0);
+	}
+
+	// Reject URLs with embedded control characters (tabs, newlines, etc.)
+	// The `URL` constructor and `fetch()` silently strip leading/trailing whitespace,
+	// but internal whitespace can produce malformed requests that fail obscurely.
+	const controlCharPattern = /[	\n\r\f\v]/;
+	if (controlCharPattern.test(url)) {
 		throw new ApiError('Invalid request URL', 0);
 	}
 
 	const urlPattern = /^(https?:\/\/|\/)/;
-	if (!urlPattern.test(url)) {
+	if (!urlPattern.test(trimmed)) {
 		throw new ApiError('Invalid request URL', 0);
 	}
 
