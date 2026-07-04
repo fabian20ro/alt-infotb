@@ -87,6 +87,11 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		if (err instanceof Error) {
 			throw new ApiError(`Response data unavailable: ${err.message}`, 0);
 		}
+		if (typeof err === 'object' && err !== null) {
+			const obj = err as { message?: unknown };
+			const msg = typeof obj.message === 'string' ? String(obj.message) : 'unexpected error type';
+			throw new ApiError(`Response data unavailable: ${msg}`, 0);
+		}
 		throw new ApiError(String(err), 0);
 	}
 }

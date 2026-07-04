@@ -221,14 +221,25 @@ describe('apiFetchBinary', () => {
 		expect(abortSignalSpy).toHaveBeenCalledWith(API.TIMEOUT);
 	});
 
-	it('wraps a generic Error in an ApiError', async () => {
+	it('extracts .message from thrown plain objects with a message property', async () => {
 		vi.stubGlobal(
 			'fetch',
-			vi.fn().mockRejectedValue(new Error('Unexpected error'))
+			vi.fn().mockRejectedValue({ message: 'plain object error' })
 		);
 
 		const promise = apiFetchBinary('https://info.stb.ro/test');
-		await expect(promise).rejects.toThrow(/Response data unavailable: Unexpected error/);
+		await expect(promise).rejects.toThrow(/Response data unavailable: plain object error/);
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+	});
+
+	it('falls back to "unexpected error type" when thrown plain objects lack a message property', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockRejectedValue({ someOtherKey: 'something' })
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(/Response data unavailable: unexpected error type/);
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
