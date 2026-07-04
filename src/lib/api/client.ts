@@ -56,8 +56,13 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		}
 
 		const contentType = response.headers?.get('content-type');
-		if (contentType && /text\/(html|plain|json)/i.test(contentType)) {
-			throw new ApiError(`Unexpected content type: ${contentType}`, 0);
+		if (contentType) {
+			const lowerCt = contentType.toLowerCase();
+			const jsonPattern = /json\b/i;
+			const textPattern = /^text\//i;
+			if ((jsonPattern.test(lowerCt) && !lowerCt.includes('x-protobuf')) || textPattern.test(lowerCt)) {
+				throw new ApiError(`Unexpected content type: ${contentType}`, 0);
+			}
 		}
 
 		const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB hard cap on response body

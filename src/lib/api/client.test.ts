@@ -376,6 +376,21 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toThrow(/Unexpected content type/);
 	});
 
+	it('throws ApiError when response returns application/json instead of protobuf', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				headers: new Map([['content-type', 'application/json; charset=utf-8']]),
+				arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
+			})
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow(/Unexpected content type/);
+	});
+
 	it('accepts octet-stream and protobuf content types', async () => {
 		for (const ct of ['application/octet-stream', 'application/x-protobuf']) {
 			vi.stubGlobal(
