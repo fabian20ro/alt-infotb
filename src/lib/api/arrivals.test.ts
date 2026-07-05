@@ -512,6 +512,22 @@ describe('fetchArrivals multi-stop merging', () => {
 		await expect(fetchArrivals(3570)).rejects.toBeInstanceOf(ApiError);
 	});
 
+	it('falls back to the first stop\'s metadata when all stop names are unique', async () => {
+		const stop1 = buildStopResponse([{ name: 'A', id: 1, type: 'BUS', color: '#111', direction: 'D', arrivals: [{ seconds: 300 }] }], 'Name A', 'Addr A');
+		const stop2 = buildStopResponse([{ name: 'B', id: 2, type: 'BUS', color: '#222', direction: 'D', arrivals: [{ seconds: 600 }] }], 'Name B', 'Addr B');
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			return Promise.resolve(stopId === '9552' ? { ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) } : { ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		// No name appears twice — fallback picks the first stop's value.
+		expect(result.stationName).toBe('Name A');
+		expect(result.address).toBe('Addr A');
+	});
+
 	it('returns earliest fetchedAt when merges have staggered timestamps', async () => {
 		let callCount = 0;
 		vi.stubGlobal('fetch', vi.fn().mockImplementation((_url: string) => {
