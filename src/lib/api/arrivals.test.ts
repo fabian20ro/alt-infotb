@@ -212,6 +212,26 @@ describe('fetchArrivals', () => {
 		expect(line7.arrivingTimes).toEqual([0, 7200]);
 	});
 
+	it('returns valid metadata with empty arrivals when protobuf has zero lines', async () => {
+		const responseData = buildStopResponse([]);
+
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.resolve(responseData.buffer)
+			})
+		);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+
+		expect(result.stationName).toBe('Piata Unirii');
+		expect(result.address).toBe('Bd. Regina Maria, Bucuresti');
+		expect(result.arrivals).toHaveLength(0);
+		expect(result.fetchedAt).toBeInstanceOf(Date);
+	});
+
 	it('limits to 3 arrival times per line', async () => {
 		const responseData = buildStopResponse([
 			{
