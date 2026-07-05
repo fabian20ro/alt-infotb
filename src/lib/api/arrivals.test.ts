@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { formatArrivalTime } from './arrivals.js';
 
 /** Protobuf encoding helpers */
 function encodeVarint(value: number): number[] {
@@ -1299,5 +1300,44 @@ describe('formatTime', () => {
 		const { formatTime } = await import('./arrivals.js');
 		const date = new Date(2026, 6, 5, 23, 59);
 		expect(formatTime(date)).toBe('23:59');
+	});
+});
+
+describe('formatArrivalTime', () => {
+	it('returns "acum" for seconds below 30', () => {
+		expect(formatArrivalTime(0)).toBe('acum');
+		expect(formatArrivalTime(15)).toBe('acum');
+		expect(formatArrivalTime(29)).toBe('acum');
+	});
+
+	it('returns minute count at the sub-minute threshold', () => {
+		expect(formatArrivalTime(31)).toBe('1 min');
+	});
+
+	it('formats minutes correctly across range', () => {
+		expect(formatArrivalTime(60)).toBe('1 min');
+		expect(formatArrivalTime(3540)).toBe('59 min'); // 59.0 exactly
+	});
+
+	it('rounds fractional minutes to nearest', () => {
+		expect(formatArrivalTime(74)).toBe('1 min');
+		expect(formatArrivalTime(76)).toBe('1 min');
+	});
+
+	it('formats exact hour boundaries with correct singular/plural', () => {
+		expect(formatArrivalTime(3600)).toBe('1 oră');
+		expect(formatArrivalTime(7200)).toBe('2 ore');
+		expect(formatArrivalTime(18000)).toBe('5 ore');
+	});
+
+	it('formats mixed hours and minutes', () => {
+		// 3700s = 61.67 → rounds to 62 min = 1h 2min
+		expect(formatArrivalTime(3700)).toBe('1 oră, 2 min');
+		// 7825s = 130.42 → rounds to 130 min = 2h 10min
+		expect(formatArrivalTime(7825)).toBe('2 ore, 10 min');
+	});
+
+	it('treats exactly-60-min as one hour with no minutes remainder', () => {
+		expect(formatArrivalTime(3600)).toBe('1 oră');
 	});
 });
