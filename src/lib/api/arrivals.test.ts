@@ -1340,4 +1340,119 @@ describe('formatArrivalTime', () => {
 	it('treats exactly-60-min as one hour with no minutes remainder', () => {
 		expect(formatArrivalTime(3600)).toBe('1 oră');
 	});
+
+	it('returns "acum" for zero seconds and negative seconds (negative clamped to "acum")', () => {
+		expect(formatArrivalTime(-5)).toBe('acum'); // branch 1: <30 → 'acum'
+	});
+
+	it('formats exactly half-hour boundaries correctly with fractional rounding', () => {
+		// 29s = 0.48 min → rounds to 0 min (still "acum" since <30)
+		expect(formatArrivalTime(29)).toBe('acum');
+		// 31s = 0.52 min → rounds to 1 min
+		expect(formatArrivalTime(31)).toBe('1 min');
+	});
+
+	it('formats "X ore, Y min" with a single minute remainder', () => {
+		// 7260s = 121 min → exactly 2h 1min (no rounding needed)
+		expect(formatArrivalTime(7260)).toBe('2 ore, 1 min');
+	});
+
+	it('formats "X oră, Y min" when hours >= 1 and minutes > 0', () => {
+		// 5461s = 91.02 → rounds to 91 min = 1h 31min
+		expect(formatArrivalTime(5461)).toBe('1 oră, 31 min');
+	});
+
+	it('formats "X ore" without minutes for exact hour multiples', () => {
+		for (const h of [2, 3, 5]) {
+			const secs = h * 3600;
+			expect(formatArrivalTime(secs)).toBe(`${h} ore`);
+		}
+	});
+
+	it('does not fall through to "ore" for exactly-1-hour', () => {
+		// Regression: the singular/plural branch must pick "oră", not "ore".
+		expect(formatArrivalTime(3600)).toBe('1 oră');
+		// And not "ore, 0 min" (minutes === 0 path)
+		expect(formatArrivalTime(7200)).not.toContain(',');
+	});
+
+	it('formats "X ore, Y min" where minutes is small and rounding matters', () => {
+		// 1859s = 30.98 → rounds to 31 min < 60 — stays in "min" branch
+		expect(formatArrivalTime(1859)).toBe('31 min');
+	});
+
+	it('formats hours-and-minutes with rounding at boundary (29.5→30, not yet an hour)', () => {
+		// 1770s = 29.5 → rounds to 30 min — still in the "min" branch (<60)
+		expect(formatArrivalTime(1770)).toBe('30 min');
+	});
+});
+
+describe('fetchArrivals protobuf decoder edge cases', () => {
+	beforeEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('ignores arrival entries with seconds exactly at MAX_ARRIVAL_SECONDS boundary (7200)', async () => {
+		const responseData = buildStopResponse([
+			{ name: '1', id: 1, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 7200 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals[0].arrivingTimes).toEqual([7200]);
+	});
+
+	it('filters out arrival entries with seconds just above MAX_ARRIVAL_SECONDS (7201)', async () => {
+		const responseData = buildStopResponse([
+			{ name: '1', id: 1, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 7201 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals[0].arrivingTimes).toEqual([]);
+	});
+
+	it('preserves is_scheduled flag in arrival decoding (does not drop it silently)', async () => {
+		// Regression: ensure field 1 of arrival sub-message (is_scheduled) is decoded.
+		const responseData = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Faur', arrivals: [{ seconds: 300, isScheduled: 1 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals[0].lineName).toBe('7');
+		expect(result.arrivals[0].arrivingTimes).toEqual([300]);
+	});
+
+	it('handles a protobuf response with many fields in non-standard order', async () => {
+		// Regression: field 10 (lines) must come after strings, but the decoder reads by field number not position.
+		const responseData = buildStopResponse([
+			{ name: 'X', id: 99, type: 'TRAM', color: '#ABC', direction: 'End', arrivals: [{ seconds: 100 }] }
+		], 'Ordered Station');
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.stationName).toBe('Ordered Station');
+		expect(result.arrivals[0].lineId).toBe(99);
+	});
 });

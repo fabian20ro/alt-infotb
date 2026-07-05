@@ -466,4 +466,59 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toThrow(ApiError);
 		await expect(promise).rejects.toThrow('Invalid request URL');
 	});
+
+	it('throws ApiError for URL with embedded form-feed character', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro\f/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+	});
+
+	it('throws ApiError for URL with embedded vertical-tab character', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro\v/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+	});
+
+	it('throws ApiError for URLs that start with a non-http scheme', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const badUrls = ['ftp://example.com/x', 'file:///etc/passwd'];
+		for (const u of badUrls) {
+			await expect(apiFetchBinary(u)).rejects.toThrow(ApiError);
+			await expect(apiFetchBinary(u)).rejects.toThrow('Invalid request URL');
+		}
+	});
+
+	it('throws ApiError for URLs whose hostname is only dots', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://.../test');
+		await expect(promise).rejects.toThrow(ApiError);
+	});
+
+	it('throws ApiError for URLs with dot-dot segments in hostname', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://foo..bar/test');
+		await expect(promise).rejects.toThrow(ApiError);
+	});
 });
