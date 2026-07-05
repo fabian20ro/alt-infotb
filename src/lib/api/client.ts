@@ -87,7 +87,9 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		if (buf.byteLength > MAX_RESPONSE_BYTES) {
 			throw new ApiError(`Response exceeds maximum size (${MAX_RESPONSE_BYTES} bytes)`, 0);
 		}
-		return new Uint8Array(buf);
+		const copy = new Uint8Array(buf.byteLength);
+		copy.set(new Uint8Array(buf));
+		return copy;
 	} catch (err) {
 		if (err instanceof ApiError) throw err;
 		if (err instanceof DOMException) {

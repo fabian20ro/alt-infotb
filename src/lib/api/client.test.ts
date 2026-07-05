@@ -20,6 +20,13 @@ describe('apiFetchBinary', () => {
 		const result = await apiFetchBinary('https://info.stb.ro/test');
 		expect(result).toBeInstanceOf(Uint8Array);
 		expect(result).toEqual(mockData);
+
+		// Output must be an independent copy — mutating the result must not corrupt the source buffer
+		result[0] = 0xff;
+		expect(mockData[0]).toBe(0x0a);
+		// And vice versa — mutating the source must not affect the returned view
+		mockData[3] = 0xff;
+		expect(result[3]).toBe(0x37);
 	});
 
 	it('returns empty Uint8Array for 204 No Content', async () => {
