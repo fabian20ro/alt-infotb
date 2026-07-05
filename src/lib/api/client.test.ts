@@ -62,6 +62,18 @@ describe('apiFetchBinary', () => {
 		expect(options.signal).toBeInstanceOf(AbortSignal);
 	});
 
+	it('strips leading/trailing whitespace from the URL before fetch', async () => {
+		const mockFetch = vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
+		});
+		vi.stubGlobal('fetch', mockFetch);
+
+		await apiFetchBinary('  https://info.stb.ro/test  ');
+
+		expect(mockFetch.mock.calls[0][0]).toBe('https://info.stb.ro/test');
+	});
+
 	it('throws helpful error on 401 or 403', async () => {
 		for (const status of [401, 403]) {
 			vi.stubGlobal(

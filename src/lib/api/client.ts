@@ -28,7 +28,7 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 	}
 
 	try {
-		const parsed = new URL(url, 'http://localhost');
+		const parsed = new URL(trimmed, 'http://localhost');
 		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
 			throw new Error('invalid protocol');
 		}
@@ -44,7 +44,7 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 	}
 
 	try {
-		const response = await fetch(url, {
+		const response = await fetch(trimmed, {
 			headers: API.HEADERS,
 			signal: AbortSignal.timeout(API.TIMEOUT)
 		});
