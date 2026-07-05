@@ -16,7 +16,7 @@ function sortByLineName(arrivals: ArrivalInfo[]): void {
 /** Format seconds-to-arrival into short human text (ro-RO). */
 export function formatArrivalTime(seconds: number): string {
 	if (seconds < 30) return 'acum';
-	const totalMinutes = Math.ceil(seconds / 60);
+	const totalMinutes = Math.round(seconds / 60);
 	if (totalMinutes <= 59) return `${totalMinutes} min`;
 	const hours = Math.floor(totalMinutes / 60);
 	const mins = totalMinutes % 60;

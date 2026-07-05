@@ -716,13 +716,16 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(formatArrivalTime(-5)).toBe('acum');
 	});
 
-	it('formatArrivalTime rounds up at minute boundaries via Math.ceil', async () => {
+	it('formatArrivalTime rounds at minute boundaries via Math.round', async () => {
 		const { formatArrivalTime } = await import('./arrivals.js');
-		// 58s → ceil(58/60)=1 → '1 min' (not '2 min')
+		// 58s → round(0.967)=1 → '1 min' (not rounded up to next minute)
 		expect(formatArrivalTime(58)).toBe('1 min');
-		expect(formatArrivalTime(59)).toBe('1 min');
+		expect(formatArrivalTime(29)).toBe('acum'); // <30 stays acum
+		expect(formatArrivalTime(45)).toBe('1 min'); // midpoint rounds up
 		expect(formatArrivalTime(60)).toBe('1 min');
-		// 3540s → ceil(3540/60)=59 → '59 min' (not '1 oră')
+		// 61s → round(1.017)=1 → '1 min' (no longer jumps to 2 min like ceil)
+		expect(formatArrivalTime(61)).toBe('1 min');
+		// 3540s → round(59)=59 → '59 min'
 		expect(formatArrivalTime(3540)).toBe('59 min');
 	});
 
@@ -876,10 +879,11 @@ describe('fetchArrivals multi-stop merging', () => {
 
 	it('formatArrivalTime handles the minute-hour boundary at exactly 60 minutes', async () => {
 		const { formatArrivalTime } = await import('./arrivals.js');
-		// Boundary: 3599s → ceil(3599/60) = 60 min → '1 oră' (not '2 oră')
-		expect(formatArrivalTime(3540)).toBe('59 min');
-		expect(formatArrivalTime(3541)).toBe('1 oră');
-		expect(formatArrivalTime(3599)).toBe('1 oră');
+		// Boundary: with rounding, ~3580s → round(59.67)=60 min → '1 oră' (not '2 oră')
+		expect(formatArrivalTime(3540)).toBe('59 min');       // 59.0 exact
+		expect(formatArrivalTime(3541)).toBe('59 min');       // 59.017 rounds to 59
+		expect(formatArrivalTime(3580)).toBe('1 oră');        // 59.67 rounds to 60
+		expect(formatArrivalTime(3599)).toBe('1 oră');        // 59.983 rounds to 60
 	});
 
 	it('sorts arrival times ascending within each line after decoding', async () => {
