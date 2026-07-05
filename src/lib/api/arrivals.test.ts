@@ -472,6 +472,23 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals[0].lineName).toBe('M1');
 	});
 
+	it('returns empty station metadata when all stops return zero-line responses', async () => {
+		const stop1 = buildStopResponse([]);
+		const stop2 = buildStopResponse([]);
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			return Promise.resolve(stopId === '9552' ? { ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) } : { ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		expect(result.arrivals).toHaveLength(0);
+		expect(result.stationName).toBe('Piata Unirii');
+		expect(result.fetchedAt).toBeInstanceOf(Date);
+	});
+
 	it('throws when all stops fail in multi-stop fetch', async () => {
 		vi.stubGlobal(
 			'fetch',
