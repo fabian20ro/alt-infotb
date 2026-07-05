@@ -1165,3 +1165,86 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals[0].arrivingTimes).toEqual([300]);
 	});
 });
+
+describe('formatArrivalTime', () => {
+	it('returns "acum" for seconds under 30', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(0)).toBe('acum');
+		expect(formatArrivalTime(15)).toBe('acum');
+		expect(formatArrivalTime(29)).toBe('acum');
+	});
+
+	it('formats minutes (≤ 59) with rounding at the half-minute boundary', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		// Math.round: 30s → 1min, 34s → 1min, 35s → 1min, 59s → 1min
+		expect(formatArrivalTime(30)).toBe('1 min');
+		expect(formatArrivalTime(34)).toBe('1 min');
+		expect(formatArrivalTime(89)).toBe('1 min'); // 89/60=1.483 → rounds to 1
+		expect(formatArrivalTime(90)).toBe('2 min'); // 90/60=1.5 → rounds to 2
+		expect(formatArrivalTime(299)).toBe('5 min'); // rounds to 4.98 → 5
+	});
+
+	it('switches to hours once rounded minutes exceed 59', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		// 3540s = 59min exactly → '59 min'
+		expect(formatArrivalTime(3540)).toBe('59 min');
+		// 3600s rounds to 60min → enters hours branch
+		expect(formatArrivalTime(3600)).toBe('1 oră');
+	});
+
+	it('uses plural "ore" for hour counts ≥ 2', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(7200)).toBe('2 ore');
+		expect(formatArrivalTime(10800)).toBe('3 ore');
+		expect(formatArrivalTime(90000)).toBe('25 ore'); // 90000/60=1500 → hours=25, mins=0
+	});
+
+	it('formats mixed hours and minutes (e.g. "1 oră, 30 min")', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(3600 + 1800)).toBe('1 oră, 30 min'); // 5400s = 90min → 1h 30m
+		expect(formatArrivalTime(2 * 3600 + 15 * 60)).toBe('2 ore, 15 min');
+	});
+
+	it('handles a large value like 86400s (24 hours) correctly', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(86400)).toBe('24 ore');
+	});
+});
+
+describe('formatTime', () => {
+	it('formats a Date as HH:MM in ro-RO locale', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const date = new Date(2026, 6, 5, 14, 7); // July 5, 2026 14:07 local (no timezone set)
+		expect(formatTime(date)).toBe('14:07');
+	});
+
+	it('pads single-digit hours with leading zero', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const date = new Date(2026, 6, 5, 3, 5);
+		expect(formatTime(date)).toBe('03:05');
+	});
+
+	it('pads single-digit minutes with trailing zero', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const date = new Date(2026, 6, 5, 14, 9);
+		expect(formatTime(date)).toBe('14:09');
+	});
+
+	it('formats midnight as "00:00"', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const date = new Date(2026, 6, 5);
+		expect(formatTime(date)).toBe('00:00');
+	});
+
+	it('formats noon as "12:00"', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const date = new Date(2026, 6, 5, 12);
+		expect(formatTime(date)).toBe('12:00');
+	});
+
+	it('formats end-of-day time correctly', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const date = new Date(2026, 6, 5, 23, 59);
+		expect(formatTime(date)).toBe('23:59');
+	});
+});
