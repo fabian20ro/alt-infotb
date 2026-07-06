@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { formatArrivalTime } from './arrivals.js';
 
 /** Protobuf encoding helpers */
 function encodeVarint(value: number): number[] {
@@ -210,6 +211,26 @@ describe('fetchArrivals', () => {
 		const result = await fetchArrivals(3570);
 		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
 		expect(line7.arrivingTimes).toEqual([0, 7200]);
+	});
+
+	it('returns valid metadata with empty arrivals when protobuf has zero lines', async () => {
+		const responseData = buildStopResponse([]);
+
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.resolve(responseData.buffer)
+			})
+		);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+
+		expect(result.stationName).toBe('Piata Unirii');
+		expect(result.address).toBe('Bd. Regina Maria, Bucuresti');
+		expect(result.arrivals).toHaveLength(0);
+		expect(result.fetchedAt).toBeInstanceOf(Date);
 	});
 
 	it('limits to 3 arrival times per line', async () => {
@@ -452,6 +473,23 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals[0].lineName).toBe('M1');
 	});
 
+	it('returns empty station metadata when all stops return zero-line responses', async () => {
+		const stop1 = buildStopResponse([]);
+		const stop2 = buildStopResponse([]);
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			return Promise.resolve(stopId === '9552' ? { ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) } : { ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		expect(result.arrivals).toHaveLength(0);
+		expect(result.stationName).toBe('Piata Unirii');
+		expect(result.fetchedAt).toBeInstanceOf(Date);
+	});
+
 	it('throws when all stops fail in multi-stop fetch', async () => {
 		vi.stubGlobal(
 			'fetch',
@@ -490,6 +528,22 @@ describe('fetchArrivals multi-stop merging', () => {
 			message: expect.stringContaining('HTTP 412')
 		});
 		await expect(fetchArrivals(3570)).rejects.toBeInstanceOf(ApiError);
+	});
+
+	it('falls back to the first stop\'s metadata when all stop names are unique', async () => {
+		const stop1 = buildStopResponse([{ name: 'A', id: 1, type: 'BUS', color: '#111', direction: 'D', arrivals: [{ seconds: 300 }] }], 'Name A', 'Addr A');
+		const stop2 = buildStopResponse([{ name: 'B', id: 2, type: 'BUS', color: '#222', direction: 'D', arrivals: [{ seconds: 600 }] }], 'Name B', 'Addr B');
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			return Promise.resolve(stopId === '9552' ? { ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) } : { ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		// No name appears twice — fallback picks the first stop's value.
+		expect(result.stationName).toBe('Name A');
+		expect(result.address).toBe('Addr A');
 	});
 
 	it('returns earliest fetchedAt when merges have staggered timestamps', async () => {
@@ -716,13 +770,16 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(formatArrivalTime(-5)).toBe('acum');
 	});
 
-	it('formatArrivalTime rounds up at minute boundaries via Math.ceil', async () => {
+	it('formatArrivalTime rounds at minute boundaries via Math.round', async () => {
 		const { formatArrivalTime } = await import('./arrivals.js');
-		// 58s → ceil(58/60)=1 → '1 min' (not '2 min')
+		// 58s → round(0.967)=1 → '1 min' (not rounded up to next minute)
 		expect(formatArrivalTime(58)).toBe('1 min');
-		expect(formatArrivalTime(59)).toBe('1 min');
+		expect(formatArrivalTime(29)).toBe('acum'); // <30 stays acum
+		expect(formatArrivalTime(45)).toBe('1 min'); // midpoint rounds up
 		expect(formatArrivalTime(60)).toBe('1 min');
-		// 3540s → ceil(3540/60)=59 → '59 min' (not '1 oră')
+		// 61s → round(1.017)=1 → '1 min' (no longer jumps to 2 min like ceil)
+		expect(formatArrivalTime(61)).toBe('1 min');
+		// 3540s → round(59)=59 → '59 min'
 		expect(formatArrivalTime(3540)).toBe('59 min');
 	});
 
@@ -876,10 +933,11 @@ describe('fetchArrivals multi-stop merging', () => {
 
 	it('formatArrivalTime handles the minute-hour boundary at exactly 60 minutes', async () => {
 		const { formatArrivalTime } = await import('./arrivals.js');
-		// Boundary: 3599s → ceil(3599/60) = 60 min → '1 oră' (not '2 oră')
-		expect(formatArrivalTime(3540)).toBe('59 min');
-		expect(formatArrivalTime(3541)).toBe('1 oră');
-		expect(formatArrivalTime(3599)).toBe('1 oră');
+		// Boundary: with rounding, ~3580s → round(59.67)=60 min → '1 oră' (not '2 oră')
+		expect(formatArrivalTime(3540)).toBe('59 min');       // 59.0 exact
+		expect(formatArrivalTime(3541)).toBe('59 min');       // 59.017 rounds to 59
+		expect(formatArrivalTime(3580)).toBe('1 oră');        // 59.67 rounds to 60
+		expect(formatArrivalTime(3599)).toBe('1 oră');        // 59.983 rounds to 60
 	});
 
 	it('sorts arrival times ascending within each line after decoding', async () => {
@@ -1117,5 +1175,284 @@ describe('fetchArrivals multi-stop merging', () => {
 		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
 
 		expect(line7.arrivingTimes).toEqual([300]); // missing-seconds entry silently dropped
+	});
+
+	it('merges arrivals for a line present in both stops when one stop returns empty arrivingTimes', async () => {
+		const stop1 = buildStopResponse([{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Faur', arrivals: [] }]);
+		const stop2 = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Faur', arrivals: [{ seconds: 300 }, { seconds: 600 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop1.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(stop2.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		expect(result.arrivals).toHaveLength(1);
+		const line7 = result.arrivals[0];
+		expect(line7.lineName).toBe('7');
+		expect(line7.direction).toBe('Faur');
+		expect(line7.arrivingTimes).toEqual([300, 600]);
+	});
+
+	it('handles multi-stop merge where one stop has zero lines and the other has arrivals', async () => {
+		const emptyStop = buildStopResponse([]);
+		const populatedStop = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Faur', arrivals: [{ seconds: 300 }] }
+		], 'Piata Unirii');
+
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const stopId = new URL(url, 'http://localhost').searchParams.get('stop_id');
+			if (stopId === '9552') return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(emptyStop.buffer) });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(populatedStop.buffer) });
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543]);
+
+		expect(result.arrivals).toHaveLength(1);
+		expect(result.arrivals[0].lineName).toBe('7');
+		expect(result.arrivals[0].arrivingTimes).toEqual([300]);
+	});
+});
+
+describe('formatArrivalTime', () => {
+	it('returns "acum" for seconds under 30', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(0)).toBe('acum');
+		expect(formatArrivalTime(15)).toBe('acum');
+		expect(formatArrivalTime(29)).toBe('acum');
+	});
+
+	it('formats minutes (≤ 59) with rounding at the half-minute boundary', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		// Math.round: 30s → 1min, 34s → 1min, 35s → 1min, 59s → 1min
+		expect(formatArrivalTime(30)).toBe('1 min');
+		expect(formatArrivalTime(34)).toBe('1 min');
+		expect(formatArrivalTime(89)).toBe('1 min'); // 89/60=1.483 → rounds to 1
+		expect(formatArrivalTime(90)).toBe('2 min'); // 90/60=1.5 → rounds to 2
+		expect(formatArrivalTime(299)).toBe('5 min'); // rounds to 4.98 → 5
+	});
+
+	it('switches to hours once rounded minutes exceed 59', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		// 3540s = 59min exactly → '59 min'
+		expect(formatArrivalTime(3540)).toBe('59 min');
+		// 3600s rounds to 60min → enters hours branch
+		expect(formatArrivalTime(3600)).toBe('1 oră');
+	});
+
+	it('uses plural "ore" for hour counts ≥ 2', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(7200)).toBe('2 ore');
+		expect(formatArrivalTime(10800)).toBe('3 ore');
+		expect(formatArrivalTime(90000)).toBe('25 ore'); // 90000/60=1500 → hours=25, mins=0
+	});
+
+	it('formats mixed hours and minutes (e.g. "1 oră, 30 min")', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(3600 + 1800)).toBe('1 oră, 30 min'); // 5400s = 90min → 1h 30m
+		expect(formatArrivalTime(2 * 3600 + 15 * 60)).toBe('2 ore, 15 min');
+	});
+
+	it('handles a large value like 86400s (24 hours) correctly', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(86400)).toBe('24 ore');
+	});
+});
+
+describe('formatTime', () => {
+	it('formats a Date as HH:MM in ro-RO locale', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const date = new Date(2026, 6, 5, 14, 7); // July 5, 2026 14:07 local (no timezone set)
+		expect(formatTime(date)).toBe('14:07');
+	});
+
+	it('pads single-digit hours with leading zero', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const date = new Date(2026, 6, 5, 3, 5);
+		expect(formatTime(date)).toBe('03:05');
+	});
+
+	it('pads single-digit minutes with trailing zero', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const date = new Date(2026, 6, 5, 14, 9);
+		expect(formatTime(date)).toBe('14:09');
+	});
+
+	it('formats midnight as "00:00"', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const date = new Date(2026, 6, 5);
+		expect(formatTime(date)).toBe('00:00');
+	});
+
+	it('formats noon as "12:00"', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const date = new Date(2026, 6, 5, 12);
+		expect(formatTime(date)).toBe('12:00');
+	});
+
+	it('formats end-of-day time correctly', async () => {
+		const { formatTime } = await import('./arrivals.js');
+		const date = new Date(2026, 6, 5, 23, 59);
+		expect(formatTime(date)).toBe('23:59');
+	});
+});
+
+describe('formatArrivalTime', () => {
+	it('returns "acum" for seconds below 30', () => {
+		expect(formatArrivalTime(0)).toBe('acum');
+		expect(formatArrivalTime(15)).toBe('acum');
+		expect(formatArrivalTime(29)).toBe('acum');
+	});
+
+	it('returns minute count at the sub-minute threshold', () => {
+		expect(formatArrivalTime(31)).toBe('1 min');
+	});
+
+	it('formats minutes correctly across range', () => {
+		expect(formatArrivalTime(60)).toBe('1 min');
+		expect(formatArrivalTime(3540)).toBe('59 min'); // 59.0 exactly
+	});
+
+	it('rounds fractional minutes to nearest', () => {
+		expect(formatArrivalTime(74)).toBe('1 min');
+		expect(formatArrivalTime(76)).toBe('1 min');
+	});
+
+	it('formats exact hour boundaries with correct singular/plural', () => {
+		expect(formatArrivalTime(3600)).toBe('1 oră');
+		expect(formatArrivalTime(7200)).toBe('2 ore');
+		expect(formatArrivalTime(18000)).toBe('5 ore');
+	});
+
+	it('formats mixed hours and minutes', () => {
+		// 3700s = 61.67 → rounds to 62 min = 1h 2min
+		expect(formatArrivalTime(3700)).toBe('1 oră, 2 min');
+		// 7825s = 130.42 → rounds to 130 min = 2h 10min
+		expect(formatArrivalTime(7825)).toBe('2 ore, 10 min');
+	});
+
+	it('treats exactly-60-min as one hour with no minutes remainder', () => {
+		expect(formatArrivalTime(3600)).toBe('1 oră');
+	});
+
+	it('returns "acum" for zero seconds and negative seconds (negative clamped to "acum")', () => {
+		expect(formatArrivalTime(-5)).toBe('acum'); // branch 1: <30 → 'acum'
+	});
+
+	it('formats exactly half-hour boundaries correctly with fractional rounding', () => {
+		// 29s = 0.48 min → rounds to 0 min (still "acum" since <30)
+		expect(formatArrivalTime(29)).toBe('acum');
+		// 31s = 0.52 min → rounds to 1 min
+		expect(formatArrivalTime(31)).toBe('1 min');
+	});
+
+	it('formats "X ore, Y min" with a single minute remainder', () => {
+		// 7260s = 121 min → exactly 2h 1min (no rounding needed)
+		expect(formatArrivalTime(7260)).toBe('2 ore, 1 min');
+	});
+
+	it('formats "X oră, Y min" when hours >= 1 and minutes > 0', () => {
+		// 5461s = 91.02 → rounds to 91 min = 1h 31min
+		expect(formatArrivalTime(5461)).toBe('1 oră, 31 min');
+	});
+
+	it('formats "X ore" without minutes for exact hour multiples', () => {
+		for (const h of [2, 3, 5]) {
+			const secs = h * 3600;
+			expect(formatArrivalTime(secs)).toBe(`${h} ore`);
+		}
+	});
+
+	it('does not fall through to "ore" for exactly-1-hour', () => {
+		// Regression: the singular/plural branch must pick "oră", not "ore".
+		expect(formatArrivalTime(3600)).toBe('1 oră');
+		// And not "ore, 0 min" (minutes === 0 path)
+		expect(formatArrivalTime(7200)).not.toContain(',');
+	});
+
+	it('formats "X ore, Y min" where minutes is small and rounding matters', () => {
+		// 1859s = 30.98 → rounds to 31 min < 60 — stays in "min" branch
+		expect(formatArrivalTime(1859)).toBe('31 min');
+	});
+
+	it('formats hours-and-minutes with rounding at boundary (29.5→30, not yet an hour)', () => {
+		// 1770s = 29.5 → rounds to 30 min — still in the "min" branch (<60)
+		expect(formatArrivalTime(1770)).toBe('30 min');
+	});
+});
+
+describe('fetchArrivals protobuf decoder edge cases', () => {
+	beforeEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('ignores arrival entries with seconds exactly at MAX_ARRIVAL_SECONDS boundary (7200)', async () => {
+		const responseData = buildStopResponse([
+			{ name: '1', id: 1, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 7200 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals[0].arrivingTimes).toEqual([7200]);
+	});
+
+	it('filters out arrival entries with seconds just above MAX_ARRIVAL_SECONDS (7201)', async () => {
+		const responseData = buildStopResponse([
+			{ name: '1', id: 1, type: 'BUS', color: '#000', direction: 'D', arrivals: [{ seconds: 7201 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals[0].arrivingTimes).toEqual([]);
+	});
+
+	it('preserves is_scheduled flag in arrival decoding (does not drop it silently)', async () => {
+		// Regression: ensure field 1 of arrival sub-message (is_scheduled) is decoded.
+		const responseData = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Faur', arrivals: [{ seconds: 300, isScheduled: 1 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.arrivals[0].lineName).toBe('7');
+		expect(result.arrivals[0].arrivingTimes).toEqual([300]);
+	});
+
+	it('handles a protobuf response with many fields in non-standard order', async () => {
+		// Regression: field 10 (lines) must come after strings, but the decoder reads by field number not position.
+		const responseData = buildStopResponse([
+			{ name: 'X', id: 99, type: 'TRAM', color: '#ABC', direction: 'End', arrivals: [{ seconds: 100 }] }
+		], 'Ordered Station');
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		expect(result.stationName).toBe('Ordered Station');
+		expect(result.arrivals[0].lineId).toBe(99);
 	});
 });

@@ -20,6 +20,13 @@ describe('apiFetchBinary', () => {
 		const result = await apiFetchBinary('https://info.stb.ro/test');
 		expect(result).toBeInstanceOf(Uint8Array);
 		expect(result).toEqual(mockData);
+
+		// Output must be an independent copy — mutating the result must not corrupt the source buffer
+		result[0] = 0xff;
+		expect(mockData[0]).toBe(0x0a);
+		// And vice versa — mutating the source must not affect the returned view
+		mockData[3] = 0xff;
+		expect(result[3]).toBe(0x37);
 	});
 
 	it('returns empty Uint8Array for 204 No Content', async () => {
@@ -60,6 +67,18 @@ describe('apiFetchBinary', () => {
 
 		const [, options] = mockFetch.mock.calls[0];
 		expect(options.signal).toBeInstanceOf(AbortSignal);
+	});
+
+	it('strips leading/trailing whitespace from the URL before fetch', async () => {
+		const mockFetch = vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
+		});
+		vi.stubGlobal('fetch', mockFetch);
+
+		await apiFetchBinary('  https://info.stb.ro/test  ');
+
+		expect(mockFetch.mock.calls[0][0]).toBe('https://info.stb.ro/test');
 	});
 
 	it('throws helpful error on 401 or 403', async () => {
@@ -221,14 +240,25 @@ describe('apiFetchBinary', () => {
 		expect(abortSignalSpy).toHaveBeenCalledWith(API.TIMEOUT);
 	});
 
-	it('wraps a generic Error in an ApiError', async () => {
+	it('extracts .message from thrown plain objects with a message property', async () => {
 		vi.stubGlobal(
 			'fetch',
-			vi.fn().mockRejectedValue(new Error('Unexpected error'))
+			vi.fn().mockRejectedValue({ message: 'plain object error' })
 		);
 
 		const promise = apiFetchBinary('https://info.stb.ro/test');
-		await expect(promise).rejects.toThrow(/Response data unavailable: Unexpected error/);
+		await expect(promise).rejects.toThrow(/Response data unavailable: plain object error/);
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+	});
+
+	it('falls back to "unexpected error type" when thrown plain objects lack a message property', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockRejectedValue({ someOtherKey: 'something' })
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(/Response data unavailable: unexpected error type/);
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
@@ -376,6 +406,21 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toThrow(/Unexpected content type/);
 	});
 
+	it('throws ApiError when response returns application/json instead of protobuf', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				headers: new Map([['content-type', 'application/json; charset=utf-8']]),
+				arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
+			})
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow(/Unexpected content type/);
+	});
+
 	it('accepts octet-stream and protobuf content types', async () => {
 		for (const ct of ['application/octet-stream', 'application/x-protobuf']) {
 			vi.stubGlobal(
@@ -391,5 +436,108 @@ describe('apiFetchBinary', () => {
 			expect(result).toBeInstanceOf(Uint8Array);
 			vi.restoreAllMocks();
 		}
+	});
+
+	it('throws ApiError when response body exceeds maximum size', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				headers: new Map([['content-type', 'application/octet-stream']]),
+				arrayBuffer: () => Promise.resolve(new ArrayBuffer(11 * 1024 * 1024)) // > 10 MB
+			})
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow(/Response exceeds maximum size/);
+	});
+
+	it('throws ApiError for URL with embedded tab characters', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro	/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+	});
+
+	it('throws ApiError for URL with embedded newline characters', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro\n/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+	});
+
+	it('throws ApiError for URL with embedded carriage return', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro\r/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+	});
+
+	it('throws ApiError for URL with embedded form-feed character', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro\f/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+	});
+
+	it('throws ApiError for URL with embedded vertical-tab character', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro\v/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+	});
+
+	it('throws ApiError for URLs that start with a non-http scheme', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const badUrls = ['ftp://example.com/x', 'file:///etc/passwd'];
+		for (const u of badUrls) {
+			await expect(apiFetchBinary(u)).rejects.toThrow(ApiError);
+			await expect(apiFetchBinary(u)).rejects.toThrow('Invalid request URL');
+		}
+	});
+
+	it('throws ApiError for URLs whose hostname is only dots', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://.../test');
+		await expect(promise).rejects.toThrow(ApiError);
+	});
+
+	it('throws ApiError for URLs with dot-dot segments in hostname', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://foo..bar/test');
+		await expect(promise).rejects.toThrow(ApiError);
 	});
 });

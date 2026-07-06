@@ -178,4 +178,14 @@ describe('ProtoReader', () => {
 		expect(fields.get(2)![1]).toEqual(new Uint8Array([]));
 		expect(fields.get(2)![2]).toEqual(new Uint8Array([]));
 	});
+
+	it('throws ProtoParseError on field number 0 (wire-level corruption)', () => {
+		// Field number 0 is reserved in protobuf — encountering it means a corrupted wire stream.
+		// Tag = 0x01 → field 0, wireType 1; tag = 0x80 → field 0, wireType 0.
+		for (const badTag of [0x01, 0x80]) {
+			const data = new Uint8Array([badTag]); // single-byte tag already implies field 0
+			const reader = new ProtoReader(data);
+			expect(() => reader.readField()).toThrow(ProtoParseError);
+		}
+	});
 });

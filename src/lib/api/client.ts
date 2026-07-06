@@ -5,17 +5,30 @@ import { API } from './constants.js';
  * The API returns Protocol Buffers, so we read as ArrayBuffer.
  */
 export async function apiFetchBinary(url: string): Promise<Uint8Array> {
-	if (!url || typeof url !== 'string' || !url.trim().length) {
+	if (typeof url !== 'string') {
+		throw new ApiError('Invalid request URL', 0);
+	}
+
+	const trimmed = url.trim();
+	if (!trimmed.length) {
+		throw new ApiError('Invalid request URL', 0);
+	}
+
+	// Reject URLs with embedded control characters (tabs, newlines, etc.)
+	// The `URL` constructor and `fetch()` silently strip leading/trailing whitespace,
+	// but internal whitespace can produce malformed requests that fail obscurely.
+	const controlCharPattern = /[	\n\r\f\v]/;
+	if (controlCharPattern.test(url)) {
 		throw new ApiError('Invalid request URL', 0);
 	}
 
 	const urlPattern = /^(https?:\/\/|\/)/;
-	if (!urlPattern.test(url)) {
+	if (!urlPattern.test(trimmed)) {
 		throw new ApiError('Invalid request URL', 0);
 	}
 
 	try {
-		const parsed = new URL(url, 'http://localhost');
+		const parsed = new URL(trimmed, 'http://localhost');
 		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
 			throw new Error('invalid protocol');
 		}
@@ -31,7 +44,7 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 	}
 
 	try {
-		const response = await fetch(url, {
+		const response = await fetch(trimmed, {
 			headers: API.HEADERS,
 			signal: AbortSignal.timeout(API.TIMEOUT)
 		});
@@ -56,15 +69,27 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		}
 
 		const contentType = response.headers?.get('content-type');
-		if (contentType && /text\/(html|plain|json)/i.test(contentType)) {
-			throw new ApiError(`Unexpected content type: ${contentType}`, 0);
+		if (contentType) {
+			const lowerCt = contentType.toLowerCase();
+			const jsonPattern = /json\b/i;
+			const textPattern = /^text\//i;
+			if ((jsonPattern.test(lowerCt) && !lowerCt.includes('x-protobuf')) || textPattern.test(lowerCt)) {
+				throw new ApiError(`Unexpected content type: ${contentType}`, 0);
+			}
 		}
+
+		const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB hard cap on response body
 
 		const buf = await response.arrayBuffer();
 		if (!(buf instanceof ArrayBuffer)) {
 			throw new ApiError('Response data unavailable: invalid buffer type', 0);
 		}
-		return new Uint8Array(buf);
+		if (buf.byteLength > MAX_RESPONSE_BYTES) {
+			throw new ApiError(`Response exceeds maximum size (${MAX_RESPONSE_BYTES} bytes)`, 0);
+		}
+		const copy = new Uint8Array(buf.byteLength);
+		copy.set(new Uint8Array(buf));
+		return copy;
 	} catch (err) {
 		if (err instanceof ApiError) throw err;
 		if (err instanceof DOMException) {
@@ -76,6 +101,11 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		}
 		if (err instanceof Error) {
 			throw new ApiError(`Response data unavailable: ${err.message}`, 0);
+		}
+		if (typeof err === 'object' && err !== null) {
+			const obj = err as { message?: unknown };
+			const msg = typeof obj.message === 'string' ? String(obj.message) : 'unexpected error type';
+			throw new ApiError(`Response data unavailable: ${msg}`, 0);
 		}
 		throw new ApiError(String(err), 0);
 	}
