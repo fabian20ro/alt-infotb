@@ -22,7 +22,7 @@ export class ProtoReader {
 	private pos: number;
 
 	constructor(data?: unknown) {
-		if (!(data instanceof Uint8Array)) {
+		if (data == null || !(data instanceof Uint8Array)) {
 			throw new TypeError('ProtoReader requires a Uint8Array');
 		}
 		this.buf = data;
@@ -93,8 +93,8 @@ export class ProtoReader {
 			result += (byte & 0x7f) * Math.pow(2, shift);
 			if ((byte & 0x80) === 0) return result;
 			shift += 7;
-			if (shift > 35) {
-				throw new ProtoParseError('Varint too long');
+			if (result > Number.MAX_SAFE_INTEGER || shift > 35) {
+				throw new ProtoParseError('Varint exceeds maximum safe integer');
 			}
 		}
 		throw new ProtoParseError('Truncated varint: buffer ended before terminating byte');

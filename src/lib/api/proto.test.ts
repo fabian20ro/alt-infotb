@@ -188,4 +188,79 @@ describe('ProtoReader', () => {
 			expect(() => reader.readField()).toThrow(ProtoParseError);
 		}
 	});
+
+	it('accepts a zero-length (empty) Uint8Array without throwing', () => {
+		// Regression: an empty buffer is valid input. readAllFields must return an empty Map,
+		// and calling readField repeatedly must keep returning null — never throw or loop.
+		const reader = new ProtoReader(new Uint8Array([]));
+		expect(reader.done).toBe(true);
+		expect(reader.readField()).toBeNull();
+		const fields = reader.readAllFields();
+		expect(fields.size).toBe(0);
+	});
+
+	it('rejects a non-Uint8Array ArrayBuffer as input', () => {
+		// Regression: an ArrayBuffer has .byteLength but is NOT a Uint8Array — the constructor must reject it.
+		expect(() => new ProtoReader(new ArrayBuffer(4))).toThrow(TypeError);
+	});
+
+	it('throws when varint exceeds maximum safe integer', () => {
+		// Varint-encoded value above Number.MAX_SAFE_INTEGER causes silent precision loss.
+		// Seven full-continuation bytes (0xff) accumulate a result well past 2^53.
+		const data = new Uint8Array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
+		const reader = new ProtoReader(data);
+		expect(() => reader.readField()).toThrow(ProtoParseError);
+	});
+
+	it('rejects a plain object with length property as input', () => {
+		// Regression: an object like `{ byteLength: 5 }` would crash .slice() at runtime.
+		// The constructor must reject it upfront with TypeError.
+		expect(() => new ProtoReader({ byteLength: 5 })).toThrow(TypeError);
+	});
+
+	it('rejects a string as input', () => {
+		// Regression: passing raw text would silently produce garbage bytes from char codes.
+		expect(() => new ProtoReader('hello')).toThrow(TypeError);
+	});
+
+	it('returns only Uint8Array values from getMessages, dropping varints', () => {
+		// Regression: when a field has mixed varint and Uint8Array entries,
+		// getMessages must filter to keep only Uint8Arrays.
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [new Uint8Array([0x01]), 42, new Uint8Array([0x02])]);
+		expect(getMessages(fields, 1)).toEqual([new Uint8Array([0x01]), new Uint8Array([0x02])]);
+	});
+
+	it('returns empty array from getVarints when field holds only strings', () => {
+		// Regression: a length-delimited field with no varint values must not throw.
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [new Uint8Array([0x61])]);
+		expect(getVarints(fields, 1)).toEqual([]);
+	});
+
+	it('returns empty array from getMessages when field holds only varints', () => {
+		// Regression: a varint-only field must not throw.
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [1, 2, 3]);
+		expect(getMessages(fields, 1)).toEqual([]);
+	});
+
+	it('returns replacement characters for invalid UTF-8 in getString', () => {
+		// TextDecoder does NOT reject invalid sequences — it substitutes U+FFFD.
+		// getString returns the decoded text, even if garbled; callers must handle this at their level.
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [new Uint8Array([0x80, 0xff])]); // invalid UTF-8 bytes
+		expect(getString(fields, 1)).toBe('\ufffd\ufffd');
+	});
+
+	it('handles non-contiguous ArrayBuffer via set() correctly', () => {
+		// Regression: when response.arrayBuffer() returns a slice of a larger buffer,
+		// the Uint8Array.copyFrom must produce an independent contiguous view.
+		const full = new ArrayBuffer(16);
+		const outer = new Uint8Array(full);
+		for (let i = 0; i < 16; i++) outer[i] = i * 2;
+
+		const slice = new Uint8Array(full.slice(4, 8)); // bytes at indices 4..7 of full
+		expect(slice).toEqual(new Uint8Array([8, 10, 12, 14]));
+	});
 });
