@@ -17,7 +17,7 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 	// Reject URLs with embedded control characters (tabs, newlines, etc.)
 	// The `URL` constructor and `fetch()` silently strip leading/trailing whitespace,
 	// but internal whitespace can produce malformed requests that fail obscurely.
-	const controlCharPattern = /[	\n\r\f\v]/;
+	const controlCharPattern = /[\t\n\r\f\v\0]/;
 	if (controlCharPattern.test(url)) {
 		throw new ApiError('Invalid request URL', 0);
 	}

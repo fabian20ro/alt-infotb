@@ -714,6 +714,44 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(byId.get(20)?.arrivingTimes).toEqual([200]);
 	});
 
+	it('ignores fields 6/7/8 and only reads arrival times from field 9 sub-messages', async () => {
+		// Per LESSONS_LEARNED: fields 6 (first-arrival seconds), 7 (always 0), 8 (always 1) are NOT
+		// the real arrival data. The actual arrival times live exclusively in field 9 repeated sub-messages.
+		// This test encodes conflicting values in fields 6/7/8 and verifies only field 9 is used.
+		const lineBytes: number[] = [
+			...encodeStringField(1, '7'),        // NAME
+			...encodeVarintField(2, 69),          // ID
+			...encodeStringField(3, 'TRAM'),      // VEHICLE_TYPE
+			...encodeStringField(4, '#BE1622'),   // COLOR
+			...encodeStringField(5, 'Progresul'), // DIRECTION
+			// field 6 = redundant first-arrival varint (should be ignored)
+			...encodeVarintField(6, 9999),
+			// field 7 = always 0 (ignored)
+			...encodeVarintField(7, 0),
+			// field 8 = always 1 (ignored)
+			...encodeVarintField(8, 1),
+			// field 9 = real arrival sub-messages
+			...encodeMessageField(9, encodeArrivalEntry(300)),
+			...encodeMessageField(9, encodeArrivalEntry(600))
+		];
+		const bytes: number[] = [
+			...encodeStringField(1, 'Piata Unirii'),
+			...encodeStringField(2, 'Bd. Regina Maria'),
+			...encodeStringField(5, 'STATION'),
+			...encodeMessageField(10, lineBytes)
+		];
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(new Uint8Array(bytes).buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(3570);
+		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+		expect(line7.arrivingTimes).toEqual([300, 600]);
+	});
+
 	it('falls back to first stop metadata when all stops return empty station name and address', async () => {
 		const stop1 = buildStopResponse([], '', '');
 		const stop2 = buildStopResponse([], '', '');

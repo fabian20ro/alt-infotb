@@ -508,6 +508,17 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toThrow('Invalid request URL');
 	});
 
+	it('throws ApiError for URLs containing null bytes', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro\0/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+	});
+
 	it('throws ApiError for URLs that start with a non-http scheme', async () => {
 		vi.stubGlobal(
 			'fetch',
@@ -539,5 +550,19 @@ describe('apiFetchBinary', () => {
 
 		const promise = apiFetchBinary('https://foo..bar/test');
 		await expect(promise).rejects.toThrow(ApiError);
+	});
+
+	it('throws ApiError for non-string inputs (null, undefined, number)', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const badInputs: unknown[] = [null, undefined, 12345];
+		for (const input of badInputs) {
+			await expect(apiFetchBinary(input as string)).rejects.toThrow(ApiError);
+			await expect(apiFetchBinary(input as string)).rejects.toThrow('Invalid request URL');
+			await expect(apiFetchBinary(input as string)).rejects.toMatchObject({ status: 0 });
+		}
 	});
 });
