@@ -47,6 +47,10 @@ export class ProtoReader {
 		const fieldNumber = tag >>> 3;
 		const wireType = tag & 0x7;
 
+		if (fieldNumber === 0) {
+			throw new ProtoParseError('Invalid field number: 0');
+		}
+
 		if (wireType === 0) {
 			// Varint
 			return { fieldNumber, wireType, value: this.readVarint() };
