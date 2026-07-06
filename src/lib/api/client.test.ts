@@ -540,4 +540,18 @@ describe('apiFetchBinary', () => {
 		const promise = apiFetchBinary('https://foo..bar/test');
 		await expect(promise).rejects.toThrow(ApiError);
 	});
+
+	it('throws ApiError for non-string inputs (null, undefined, number)', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const badInputs: unknown[] = [null, undefined, 12345];
+		for (const input of badInputs) {
+			await expect(apiFetchBinary(input as string)).rejects.toThrow(ApiError);
+			await expect(apiFetchBinary(input as string)).rejects.toThrow('Invalid request URL');
+			await expect(apiFetchBinary(input as string)).rejects.toMatchObject({ status: 0 });
+		}
+	});
 });
