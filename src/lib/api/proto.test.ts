@@ -204,6 +204,14 @@ describe('ProtoReader', () => {
 		expect(() => new ProtoReader(new ArrayBuffer(4))).toThrow(TypeError);
 	});
 
+	it('throws when varint exceeds maximum safe integer', () => {
+		// Varint-encoded value above Number.MAX_SAFE_INTEGER causes silent precision loss.
+		// Seven full-continuation bytes (0xff) accumulate a result well past 2^53.
+		const data = new Uint8Array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
+		const reader = new ProtoReader(data);
+		expect(() => reader.readField()).toThrow(ProtoParseError);
+	});
+
 	it('rejects a plain object with length property as input', () => {
 		// Regression: an object like `{ byteLength: 5 }` would crash .slice() at runtime.
 		// The constructor must reject it upfront with TypeError.
