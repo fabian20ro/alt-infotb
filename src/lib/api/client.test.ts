@@ -508,6 +508,17 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toThrow('Invalid request URL');
 	});
 
+	it('throws ApiError for URLs containing null bytes', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro\0/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+	});
+
 	it('throws ApiError for URLs that start with a non-http scheme', async () => {
 		vi.stubGlobal(
 			'fetch',
