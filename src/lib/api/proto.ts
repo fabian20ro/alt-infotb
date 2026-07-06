@@ -22,7 +22,7 @@ export class ProtoReader {
 	private pos: number;
 
 	constructor(data?: unknown) {
-		if (!(data instanceof Uint8Array)) {
+		if (data == null || !(data instanceof Uint8Array)) {
 			throw new TypeError('ProtoReader requires a Uint8Array');
 		}
 		this.buf = data;
