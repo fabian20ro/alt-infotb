@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ApiError } from './client.js';
 import { formatArrivalTime } from './arrivals.js';
 
 /** Protobuf encoding helpers */
@@ -197,10 +198,14 @@ describe('fetchArrivals', () => {
 
 		const { fetchArrivals } = await import('./arrivals.js');
 
-		await expect(fetchArrivals(-1)).rejects.toThrow('trebuie să fie un număr pozitiv');
-		await expect(fetchArrivals(0)).rejects.toThrow('trebuie să fie un număr pozitiv');
-		await expect(fetchArrivals(3.5)).rejects.toThrow('trebuie să fie un număr pozitiv');
-		await expect(fetchArrivals(NaN)).rejects.toThrow('trebuie să fie un număr pozitiv');
+		for (const badId of [-1, 0, 3.5, NaN]) {
+			await expect(fetchArrivals(badId)).rejects.toSatisfy((err: unknown) => {
+				expect(err).toBeInstanceOf(ApiError);
+				expect((err as ApiError).status).toBe(0);
+				expect((err as ApiError).message).toContain('trebuie să fie un număr pozitiv');
+				return true;
+			});
+		}
 
 		// Ensure no network call was made for invalid input
 		expect(fetchMock).not.toHaveBeenCalled();
