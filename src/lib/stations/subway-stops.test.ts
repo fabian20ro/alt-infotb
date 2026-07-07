@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveStopIds } from './subway-stops.js';
+import { resolveStopIds, SUBWAY_STOP_IDS } from './subway-stops.js';
 
 describe('resolveStopIds', () => {
 	it('resolves known station with multiple stops (interchange)', () => {
@@ -22,5 +22,16 @@ describe('resolveStopIds', () => {
 	it('handles M5 stations (not in map) by returning the station ID', () => {
 		// M5 station ID example (not in the map)
 		expect(resolveStopIds(14777)).toEqual([14777]);
+	});
+
+	it('every subway station entry has at least 2 platform stop IDs', () => {
+		for (const [gtfsId, apiIds] of Object.entries(SUBWAY_STOP_IDS)) {
+			expect(apiIds.length, `station ${gtfsId} should have ≥2 stops`).toBeGreaterThanOrEqual(2);
+		}
+	});
+
+	it('resolves M4 stations specifically', () => {
+		expect(resolveStopIds(14742)).toEqual([9753, 9754]); // Gara de Nord 2 (M4)
+		expect(resolveStopIds(57443)).toEqual([9722, 9723]); // Laminorului (M4)
 	});
 });
