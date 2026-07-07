@@ -37,6 +37,51 @@ test.describe('Station Arrivals', () => {
 		await expect(timesContainer).toBeVisible();
 	});
 
+	test('shows skeleton loading state before data arrives', async ({ page }) => {
+		await page.goto('/');
+
+		// Skeleton placeholders should appear during initial load
+		const skeletons = page.locator('.skeleton');
+		await expect(skeletons.first()).toBeVisible({ timeout: 5_000 });
+
+		// After data loads, skeleton should be gone
+		const direction = page.locator('.direction').first();
+		await expect(direction).toBeVisible({ timeout: 15_000 });
+		await expect(skeletons.first()).not.toBeVisible();
+	});
+
+	test('recovers to normal state after transient API error', async ({ page }) => {
+		let requestCount = 0;
+
+		// Intercept and block the first request, then unblock subsequent ones
+		await page.route('**/stb-api/**', async (route) => {
+			requestCount += 1;
+			if (requestCount === 1) {
+				return route.abort();
+			}
+			return route.continue();
+		});
+
+		await page.goto('/');
+
+		// Error state should appear after first blocked request
+		const errorMsg = page.locator('.error-message');
+		await expect(errorMsg).toBeVisible({ timeout: 15_000 });
+
+		const retryBtn = page.locator('.retry-btn');
+		await expect(retryBtn).toBeVisible();
+
+		// Click retry to trigger re-fetch (will succeed on 2nd request)
+		await retryBtn.click();
+
+		// Data should load after recovery — direction text appears only with real data
+		const direction = page.locator('.direction').first();
+		await expect(direction).toBeVisible({ timeout: 15_000 });
+
+		// Error state and error-message class should be gone
+		await expect(errorMsg).not.toBeVisible();
+	});
+
 	test('refreshes on resume signal and continues 20s polling', async ({ page }) => {
 		let stopRequests = 0;
 		page.on('request', (request) => {

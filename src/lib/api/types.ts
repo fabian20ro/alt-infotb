@@ -9,7 +9,11 @@ export interface ArrivalInfo {
 	arrivingTimes: number[];
 }
 
-/** The full arrival response for a station */
+/** The full arrival response for a station.
+ *  NOTE: `fetchedAt` is `Date` in the API layer (decodeStopResponse) but becomes
+ *  `string` when deserialized from localStorage (getCachedArrivals). Callers that
+ *  consume this field must handle both states — never pass raw data through JSON
+ *  serialization without converting to Date first. */
 export interface StationArrivals {
 	stationName: string;
 	address: string;

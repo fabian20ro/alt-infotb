@@ -180,6 +180,12 @@ export async function fetchArrivals(stopIds: number | number[]): Promise<Station
 		throw new ApiError('Nu au fost furnizate ID-uri de stații', 0);
 	}
 
+	for (const id of ids) {
+		if (!Number.isInteger(id) || id <= 0) {
+			throw new ApiError(`ID-ul stației trebuie să fie un număr pozitiv`, 0);
+		}
+	}
+
 	const settled = await Promise.allSettled(ids.map(fetchSingleStop));
 	const successes = settled
 		.filter((r): r is PromiseFulfilledResult<StationArrivals> => r.status === 'fulfilled')

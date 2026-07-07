@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ApiError } from './client.js';
 import { formatArrivalTime } from './arrivals.js';
 
 /** Protobuf encoding helpers */
@@ -189,6 +190,25 @@ describe('fetchArrivals', () => {
 	it('throws when provided with an empty array of stop IDs', async () => {
 		const { fetchArrivals } = await import('./arrivals.js');
 		await expect(fetchArrivals([])).rejects.toThrow('Nu au fost furnizate ID-uri de stații');
+	});
+
+	it('throws ApiError for non-positive or non-integer stop IDs before network call', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+
+		for (const badId of [-1, 0, 3.5, NaN]) {
+			await expect(fetchArrivals(badId)).rejects.toSatisfy((err: unknown) => {
+				expect(err).toBeInstanceOf(ApiError);
+				expect((err as ApiError).status).toBe(0);
+				expect((err as ApiError).message).toContain('trebuie să fie un număr pozitiv');
+				return true;
+			});
+		}
+
+		// Ensure no network call was made for invalid input
+		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
 	it('filters arrival times outside the valid range [0, 7200]', async () => {
