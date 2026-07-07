@@ -90,4 +90,44 @@ describe('normalize', () => {
 	it('collapses multiple spaces', () => {
 		expect(normalize('  Too   Many   Spaces  ')).toBe('too many spaces');
 	});
+
+	it('strips decomposed combining diacritic marks (e.g., base + U+0326)', () => {
+		// Unicode normalization NFD converts pre-combined to base + combining mark;
+		// the regex then strips the combining mark entirely.
+		expect(normalize('S\u0326tation')).toBe('station');
+	});
+
+	it('returns empty array for whitespace-only query', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Alpha', description: 'test', lat: 0, lon: 0 },
+		];
+		expect(searchStations('   ', stations)).toEqual([]);
+	});
+
+	it('returns empty array for punctuation-only query', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Alpha', description: 'test', lat: 0, lon: 0 },
+		];
+		expect(searchStations('...!!!', stations)).toEqual([]);
+	});
+
+	it('strips decomposed diacritics and still finds matches by name', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Piata Unirii', description: 'Hub', lat: 0, lon: 0 },
+		];
+		// Query with decomposed diacritic on 't': t + combining caron
+		const results = searchStations('Pia\u030Cta', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Piata Unirii');
+	});
+
+	it('strips decomposed diacritics and still finds matches via description', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Alpha', description: 'Cafenea cu cozonac', lat: 0, lon: 0 },
+		];
+		// Query with decomposed diacritic on 'a': a + combining acute (U+0301) which is in [U+0300-U+036F] range stripped by normalize
+		const results = searchStations('cozo\u0301nac', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Alpha');
+	});
 });
