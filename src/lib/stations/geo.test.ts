@@ -62,6 +62,50 @@ describe('geo', () => {
 			const nearest = findNearestStations(44.4, 26.1, farStations, 2);
 			expect(nearest).toHaveLength(2);
 		});
+
+		it('expands bounding box to find distant stations', () => {
+			// Stations at ~5km away — outside the initial ~0.018° (~2 km) radius
+			const farStations: Station[] = [
+				{ id: 20, name: 'Far1', description: '', lat: 44.46, lon: 26.1 },   // ~6.7 km north
+				{ id: 21, name: 'Far2', description: '', lat: 44.5, lon: 26.2 },     // ~10+ km NE
+				{ id: 22, name: 'Far3', description: '', lat: 44.42, lon: 26.1 },    // ~2.2 km north
+			];
+			const nearest = findNearestStations(44.4, 26.1, farStations, 2);
+
+			expect(nearest).toHaveLength(2);
+			// Far3 (~2.2km) should come before Far1 (~6.7km) by distance
+			expect(nearest[0].id).toBe(22);
+			expect(nearest[1].id).toBe(20);
+		});
+
+		it('returns stations sorted by actual haversine distance after expansion', () => {
+			const farStations: Station[] = [
+				{ id: 30, name: 'A', description: '', lat: 44.5, lon: 26.1 },       // ~11 km north
+				{ id: 31, name: 'B', description: '', lat: 44.42, lon: 26.101 },     // ~2.2 km NE
+				{ id: 32, name: 'C', description: '', lat: 44.45, lon: 26.15 },      // ~5.5 km NE
+			];
+			const nearest = findNearestStations(44.4, 26.1, farStations, 3);
+
+			expect(nearest).toHaveLength(3);
+			// Verify strict distance ordering after expansion + sort
+			expect(nearest[0].distanceMeters).toBeLessThan(nearest[1].distanceMeters);
+			expect(nearest[1].distanceMeters).toBeLessThan(nearest[2].distanceMeters);
+		});
+
+		it('expands bounding box across multiple iterations to reach distant stations', () => {
+			// Stations at 0.6° away (~68 km) — requires expansion past several doublings:
+			// initial 0.018 < 0.6, then 0.036, 0.072, 0.144 (still too small), 0.288 (no match yet for lon diff),
+			// until eventually radius covers the gap. Exercises multi-iteration expansion path.
+			const farStations: Station[] = [
+				{ id: 50, name: 'Far1', description: '', lat: 45.0, lon: 26.1 },   // ~68 km north
+				{ id: 51, name: 'Far2', description: '', lat: 45.0, lon: 26.2 },    // ~76 km NE
+			];
+			const nearest = findNearestStations(44.4, 26.1, farStations, 3);
+
+			expect(nearest).toHaveLength(2);
+			expect(nearest[0].id).toBe(50);
+			expect(nearest[1].id).toBe(51);
+		});
 	});
 
 	describe('findStationsInBounds', () => {
@@ -88,7 +132,6 @@ describe('geo', () => {
 			const results = findStationsInBounds(bounds, stations, 10);
 			expect(results).toHaveLength(3);
 		});
-
 
 
 		it('returns selected station if it is within bounds', () => {
