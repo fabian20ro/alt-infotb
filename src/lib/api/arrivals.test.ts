@@ -191,6 +191,21 @@ describe('fetchArrivals', () => {
 		await expect(fetchArrivals([])).rejects.toThrow('Nu au fost furnizate ID-uri de stații');
 	});
 
+	it('throws ApiError for non-positive or non-integer stop IDs before network call', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+
+		await expect(fetchArrivals(-1)).rejects.toThrow('trebuie să fie un număr pozitiv');
+		await expect(fetchArrivals(0)).rejects.toThrow('trebuie să fie un număr pozitiv');
+		await expect(fetchArrivals(3.5)).rejects.toThrow('trebuie să fie un număr pozitiv');
+		await expect(fetchArrivals(NaN)).rejects.toThrow('trebuie să fie un număr pozitiv');
+
+		// Ensure no network call was made for invalid input
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
 	it('filters arrival times outside the valid range [0, 7200]', async () => {
 		const responseData = buildStopResponse([
 			{
