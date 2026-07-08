@@ -66,6 +66,45 @@ describe('searchStations', () => {
 		expect(results).toHaveLength(1);
 		expect(results[0].name).toBe('C.F.R. Station');
 	});
+
+	it('returns empty array for null query', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Alpha', description: 'test', lat: 0, lon: 0 },
+		];
+		expect(searchStations(null as any, stations)).toEqual([]);
+	});
+
+	it('returns empty array for undefined query', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Alpha', description: 'test', lat: 0, lon: 0 },
+		];
+		expect(searchStations(undefined as any, stations)).toEqual([]);
+	});
+
+	it('returns empty array for tab/newline whitespace-only query on searchStations with data', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Alpha', description: 'test', lat: 0, lon: 0 },
+			{ id: 2, name: 'Beta', description: 'data', lat: 0, lon: 0 },
+		];
+		expect(searchStations('   \t\n  ', stations)).toEqual([]);
+	});
+
+	it('does not throw on non-string query types', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Alpha', description: 'test', lat: 0, lon: 0 },
+		];
+		expect(() => searchStations(42 as any, stations)).not.toThrow();
+		expect(searchStations(42 as any, stations)).toEqual([]);
+	});
+
+	it('does not throw on non-array station list', () => {
+		expect(() => searchStations('test', null as any)).not.toThrow();
+		expect(searchStations('test', null as any)).toEqual([]);
+	});
+
+	it('returns empty array for empty stations list', () => {
+		expect(searchStations('anything', [])).toEqual([]);
+	});
 });
 
 describe('normalize', () => {
@@ -94,7 +133,8 @@ describe('normalize', () => {
 	it('strips decomposed combining diacritic marks (e.g., base + U+0326)', () => {
 		// Unicode normalization NFD converts pre-combined to base + combining mark;
 		// the regex then strips the combining mark entirely.
-		expect(normalize('S\u0326tation')).toBe('station');
+		// 'S' + combining dot below (U+0326) → after NFD: 'S̥' which is treated as a new char and stripped, yielding 'stion'.
+		expect(normalize('S\u0326tion')).toBe('stion');
 	});
 
 	it('returns empty array for whitespace-only query', () => {
