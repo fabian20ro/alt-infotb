@@ -51,6 +51,9 @@ describe('STB API (real network)', () => {
 		const stationName = getString(fields, STOP.NAME);
 		expect(stationName).toBeTruthy();
 
+		const address = getString(fields, STOP.ADDRESS);
+		expect(address).toBeTruthy();
+
 		const lineMessages = getMessages(fields, STOP.LINES);
 		expect(lineMessages.length).toBeGreaterThan(0);
 	});
@@ -86,37 +89,6 @@ describe('STB API (real network)', () => {
 
 			const vehicleType = getString(lineFields, LINE.VEHICLE_TYPE);
 			expect(vehicleType).toBeTruthy();
-		}
-	});
-
-	it('decodes address field at top level', async () => {
-		const headers = { ...STB_SERVER_HEADERS, 'User-Info': authToken };
-		const response = await fetch(STB_API_URL, { headers });
-		const buf = new Uint8Array(await response.arrayBuffer());
-
-		const reader = new ProtoReader(buf);
-		const fields = reader.readAllFields();
-		const { STOP } = PROTO_FIELDS;
-
-		const address = getString(fields, STOP.ADDRESS);
-		expect(address).toBeTruthy();
-	});
-
-	it('decodes direction field in line entries', async () => {
-		const headers = { ...STB_SERVER_HEADERS, 'User-Info': authToken };
-		const response = await fetch(STB_API_URL, { headers });
-		const buf = new Uint8Array(await response.arrayBuffer());
-
-		const reader = new ProtoReader(buf);
-		const fields = reader.readAllFields();
-		const { STOP, LINE } = PROTO_FIELDS;
-
-		const lineMessages = getMessages(fields, STOP.LINES);
-		expect(lineMessages.length).toBeGreaterThan(0);
-
-		for (const lineData of lineMessages) {
-			const lineReader = new ProtoReader(lineData);
-			const lineFields = lineReader.readAllFields();
 
 			const direction = getString(lineFields, LINE.DIRECTION);
 			expect(direction).toBeTruthy();
