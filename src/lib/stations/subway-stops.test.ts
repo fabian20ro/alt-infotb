@@ -34,4 +34,11 @@ describe('resolveStopIds', () => {
 		expect(resolveStopIds(14742)).toEqual([9753, 9754]); // Gara de Nord 2 (M4)
 		expect(resolveStopIds(57443)).toEqual([9722, 9723]); // Laminorului (M4)
 	});
+
+	it('every subway station entry has no duplicate stop IDs', () => {
+		for (const [gtfsId, apiIds] of Object.entries(SUBWAY_STOP_IDS)) {
+			const unique = new Set(apiIds);
+			expect(unique.size, `station ${gtfsId} should have no duplicates`).toBe(apiIds.length);
+		}
+	});
 });
