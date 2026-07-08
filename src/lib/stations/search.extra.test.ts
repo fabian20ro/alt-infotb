@@ -99,6 +99,44 @@ describe('searchStations', () => {
 		expect(results).toEqual([]);
 	});
 
+	it('numeric ID query matches only exact ID, not partial substring of a longer number', () => {
+		const results = searchStations('2', [
+			{ id: 123, name: 'X', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'Y', description: '', lat: 0, lon: 0 }
+		] as Station[]);
+		expect(results).toHaveLength(1);
+		expect(results[0].id).toBe(2);
+	});
+
+	it('numeric query with trailing whitespace still resolves to the exact ID', () => {
+		const results = searchStations('4 ', [
+			{ id: 4, name: 'Delta', description: '', lat: 0, lon: 0 },
+			{ id: 14, name: 'Fourteen', description: '', lat: 0, lon: 0 }
+		] as Station[]);
+		expect(results).toHaveLength(1);
+		expect(results[0].id).toBe(4);
+	});
+
+	it('single-word description query returns only the station whose name does not contain it', () => {
+		const stations = [
+			{ id: 1, name: 'description', description: 'this has no match', lat: 0, lon: 0 },
+			{ id: 2, name: 'Alpha', description: 'The word here appears', lat: 0, lon: 0 }
+		] as Station[];
+		const results = searchStations('here', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Alpha');
+	});
+
+	it('higher-scoring matches are returned before lower-scoring ones', () => {
+		const stations = [
+			{ id: 1, name: 'Piata Unirii', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'Unirii Piata', description: '', lat: 0, lon: 0 }
+		] as Station[];
+		const results = searchStations('piata unirii', stations);
+		expect(results).toHaveLength(2);
+		expect(results[0].name).toBe('Piata Unirii');
+	});
+
 	it('diacritic-normalized query finds ASCII-named station', () => {
 		const results = searchStations('Piața Unirii', [{ id: 1, name: 'Piata Unirii', description: '', lat: 0, lon: 0 }] as Station[]);
 		expect(results).toHaveLength(1);
