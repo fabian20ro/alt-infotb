@@ -36,4 +36,40 @@ describe('favorites store', () => {
 		expect(store.isFavorite(3570)).toBe(true);
 		expect(store.isFavorite(9999)).toBe(false);
 	});
+
+	it('remove() clears pinnedId when the removed station is pinned', async () => {
+		const station = { id: 3570, name: 'Piata Unirii', description: '', lat: 44.4, lon: 26.1 };
+		localStorage.setItem('alt-stb-favorites', JSON.stringify([station]));
+
+		const { createFavoritesStore } = await import('./favorites.svelte.js');
+		const store = createFavoritesStore();
+
+		store.togglePin(3570);
+		expect(store.pinnedId).toBe(3570);
+
+		store.remove(3570);
+		expect(store.pinnedId).toBe(null);
+	});
+
+	it('handles corrupt JSON in localStorage gracefully', async () => {
+		localStorage.setItem('alt-stb-favorites', 'not-valid-json{{{');
+
+		const { createFavoritesStore } = await import('./favorites.svelte.js');
+		const store = createFavoritesStore();
+		expect(store.favorites).toEqual([]);
+	});
+
+	it('togglePin persists pinned ID and reloads from localStorage', async () => {
+		const station = { id: 3570, name: 'Piata Unirii', description: '', lat: 44.4, lon: 26.1 };
+		localStorage.setItem('alt-stb-favorites', JSON.stringify([station]));
+
+		const { createFavoritesStore } = await import('./favorites.svelte.js');
+		const store = createFavoritesStore();
+
+		store.togglePin(3570);
+		expect(JSON.parse(localStorage.getItem('alt-stb-pinned')!)).toBe(3570);
+
+		const freshStore = createFavoritesStore();
+		expect(freshStore.pinnedId).toBe(3570);
+	});
 });
