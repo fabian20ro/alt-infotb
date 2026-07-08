@@ -34,4 +34,20 @@ describe('formatLastUpdate', () => {
 		expect(formatLastUpdate(ts, 'en')).toBe('Just now');
 		expect(formatLastUpdate(ts, 'ro')).toBe('Acum');
 	});
+
+	it('formats future timestamps with Intl date format (not "Just now")', () => {
+		const future = Date.now() + 5 * 60 * 1000; // 5 minutes from now
+		const formattedEn = formatLastUpdate(future, 'en');
+		const formattedRo = formatLastUpdate(future, 'ro');
+		expect(formattedEn).not.toBe('Just now');
+		expect(formattedEn).not.toBe('');
+		expect(formattedRo).not.toBe('Acum');
+		expect(formattedRo).not.toBe('');
+	});
+
+	it('formats timestamps more than 60 seconds ago as date, not "Just now"', () => {
+		const past = Date.now() - 120_000; // 2 minutes ago
+		expect(formatLastUpdate(past, 'en')).not.toBe('Just now');
+		expect(formatLastUpdate(past, 'ro')).not.toBe('Acum');
+	});
 });
