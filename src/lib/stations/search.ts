@@ -14,16 +14,16 @@ export function normalize(text: string): string {
 
 /** Fuzzy search stations by name. Normalizes diacritics, punctuation, and whitespace before scoring. Returns matches sorted by relevance. */
 export function searchStations(
-	query: string,
-	stations: readonly Station[],
+	query: string | null | undefined | number,
+	stations: readonly Station[] | null | undefined,
 	maxResults = 20
 ): Station[] {
-	const normalizedQuery = normalize(query);
-	if (normalizedQuery.length === 0) return [];
+	const normalizedQuery = normalize(String(query ?? ''));
+	if (normalizedQuery.length === 0 || !stations) return [];
 
 	// Check if query is a numeric ID
-	if (/^\d+$/.test(query.trim())) {
-		const queryId = parseInt(query.trim(), 10);
+	if (/^\d+$/.test(String(query).trim())) {
+		const queryId = parseInt(String(query).trim(), 10);
 		const idMatch = stations.find(s => s.id === queryId);
 		if (idMatch) return [idMatch];
 	}
