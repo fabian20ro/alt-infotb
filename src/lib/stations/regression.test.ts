@@ -48,4 +48,26 @@ describe('Regression tests for punctuation', () => {
 		const stations: Station[] = [{ id: 7, name: 'Any Station', description: '', lat: 0, lon: 0 }];
 		expect(searchStations('', stations)).toHaveLength(0);
 	});
+
+	it('handles null/undefined stations parameter', () => {
+		expect(searchStations('anything', null)).toHaveLength(0);
+		expect(searchStations('anything', undefined)).toHaveLength(0);
+	});
+
+	it('matches via description field when name does not match', () => {
+		const stations: Station[] = [
+			{ id: 8, name: 'Gara de Nord', description: 'Main railway station in Bucharest', lat: 0, lon: 0 }
+		];
+		expect(searchStations('railway station', stations)).toHaveLength(1);
+	});
+
+	it('respects maxResults cap', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'A Station', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'B Station', description: '', lat: 0, lon: 0 },
+			{ id: 3, name: 'C Station', description: '', lat: 0, lon: 0 },
+			{ id: 4, name: 'D Station', description: '', lat: 0, lon: 0 }
+		];
+		expect(searchStations('station', stations, 2)).toHaveLength(2);
+	});
 });

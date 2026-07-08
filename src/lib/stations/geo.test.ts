@@ -153,5 +153,18 @@ describe('geo', () => {
 			expect(results).toHaveLength(1);
 			expect(results[0].id).toBe(1);
 		});
+
+		it('falls through to bounds filtering when selectedId does not match any station', () => {
+			const bounds = { south: 44.3, north: 44.6, west: 26.0, east: 26.3 };
+			// id=99 does not exist in the test stations
+			const results = findStationsInBounds(bounds, stations, 10, 99);
+			expect(results).toHaveLength(3);
+		});
+
+		it('falls through to bounds filtering when selectedId is null', () => {
+			const bounds = { south: 44.3, north: 44.6, west: 26.0, east: 26.3 };
+			const results = findStationsInBounds(bounds, stations, 10, null);
+			expect(results).toHaveLength(3);
+		});
 	});
 });
