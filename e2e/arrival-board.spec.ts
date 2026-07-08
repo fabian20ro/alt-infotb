@@ -19,6 +19,27 @@ test.describe('Station Arrivals', () => {
 		expect(count).toBeGreaterThanOrEqual(1);
 	});
 
+	test('arrival rows render non-empty line names in badges', async ({ page }) => {
+		await page.goto('/');
+
+		// Wait for data to load
+		const direction = page.locator('.direction').first();
+		await expect(direction).toBeVisible({ timeout: 15_000 });
+
+		// Each arrival row should have a line badge with non-empty text
+		const rows = page.locator('.arrival-row');
+		const count = await rows.count();
+		expect(count).toBeGreaterThanOrEqual(1);
+
+		for (let i = 0; i < count; i++) {
+			const row = rows.nth(i);
+			const badge = row.locator('.line-badge');
+			await expect(badge).toBeVisible();
+			const text = await badge.textContent();
+			expect(text.length).toBeGreaterThan(0);
+		}
+	});
+
 	test('arrival rows show direction and time info', async ({ page }) => {
 		await page.goto('/');
 
