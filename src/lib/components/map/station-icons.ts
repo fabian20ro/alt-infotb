@@ -10,38 +10,45 @@ const TYPE_COLORS: Record<string, string> = {
 
 const DEFAULT_COLOR = '#888888';
 
+interface VariantOpts {
+	color: string;
+	baseSize: number;
+	shadows: string;
+}
+
+/** Build a station marker icon from variant parameters */
+function buildVariant(opts: VariantOpts): L.DivIcon {
+	const s = opts.baseSize + 6;
+	return L.divIcon({
+		className: `station-marker${opts.baseSize === 28 ? '-selected' : ''}`,
+		html: `<div style="
+			width: ${opts.baseSize}px;
+			height: ${opts.baseSize}px;
+			border-radius: 50%;
+			background: ${opts.color};
+			border: 3px solid white;
+			box-shadow: ${opts.shadows};
+		"></div>`,
+		iconSize: [s, s],
+		iconAnchor: [Math.round(s / 2), Math.round(s / 2)]
+	});
+}
+
 /** Create a circle marker icon for a station, colored by transport type */
 export function createStationIcon(vehicleType?: string): L.DivIcon {
-	const color = TYPE_COLORS[vehicleType ?? ''] ?? DEFAULT_COLOR;
-	return L.divIcon({
-		className: 'station-marker',
-		html: `<div style="
-			width: 24px;
-			height: 24px;
-			border-radius: 50%;
-			background: ${color};
-			border: 3px solid white;
-			box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-		"></div>`,
-		iconSize: [30, 30],
-		iconAnchor: [15, 15]
+	return buildVariant({
+		color: TYPE_COLORS[vehicleType ?? ''] ?? DEFAULT_COLOR,
+		baseSize: 24,
+		shadows: '0 1px 3px rgba(0,0,0,0.4)'
 	});
 }
 
 /** Create a selected station icon (slightly larger than normal, with subtle glow) */
 export function createSelectedStationIcon(): L.DivIcon {
-	return L.divIcon({
-		className: 'station-marker-selected',
-		html: `<div style="
-			width: 28px;
-			height: 28px;
-			border-radius: 50%;
-			background: #4cc9f0;
-			border: 3px solid white;
-			box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.3), 0 1px 4px rgba(0,0,0,0.4);
-		"></div>`,
-		iconSize: [34, 34],
-		iconAnchor: [17, 17]
+	return buildVariant({
+		color: '#4cc9f0',
+		baseSize: 28,
+		shadows: '0 0 0 3px rgba(76, 201, 240, 0.3), 0 1px 4px rgba(0,0,0,0.4)'
 	});
 }
 

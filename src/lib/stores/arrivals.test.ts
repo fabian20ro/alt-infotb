@@ -221,4 +221,51 @@ describe('createArrivalsStore lifecycle polling', () => {
 
 		store.cleanup();
 	});
+
+	it('sets status=error and a normalized message when fetch fails', async () => {
+		fetchArrivalsMock.mockRejectedValue(new Error('STB este indisponibil'));
+
+		const store = await createStore();
+		store.selectStation(3570);
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(store.state.status).toBe('error');
+		expect(store.state.error).toBe('STB este indisponibil');
+		expect(store.state.data).toBeNull();
+
+		store.cleanup();
+	});
+
+	it('continues polling after a fetch error', async () => {
+		const firstError = new Error('Network failure');
+		fetchArrivalsMock.mockRejectedValueOnce(firstError);
+		fetchArrivalsMock.mockResolvedValue(makeArrivals('A'));
+
+		const store = await createStore();
+		store.selectStation(3570);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(store.state.status).toBe('error');
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(1);
+
+		await vi.advanceTimersByTimeAsync(20_000);
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(2);
+		expect(store.state.data?.stationName).toBe('A');
+
+		store.cleanup();
+	});
+
+	it('does not pause polling during the onHidden grace period', async () => {
+		fetchArrivalsMock.mockResolvedValue(makeArrivals('A'));
+
+		const store = await createStore();
+		store.selectStation(3570);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(1);
+
+		store.onHidden();
+		await vi.advanceTimersByTimeAsync(20_000);
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(2);
+
+		store.cleanup();
+	});
 });
