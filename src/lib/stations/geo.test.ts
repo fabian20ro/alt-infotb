@@ -134,11 +134,16 @@ describe('geo', () => {
 		});
 
 
-		it('returns selected station if it is within bounds', () => {
+		it('does not hide other in-bounds stations when selected station is within bounds', () => {
 			const bounds = { south: 44, north: 45, west: 26, east: 27 };
 			const results = findStationsInBounds(bounds, stations, 10, 1);
-			expect(results).toHaveLength(1);
-			expect(results[0].id).toBe(1);
+			expect(results.map((s) => s.id)).toEqual([1, 2, 3]);
+		});
+
+		it('keeps selected station visible when it is outside bounds', () => {
+			const bounds = { south: 44.35, north: 44.45, west: 26.05, east: 26.15 };
+			const results = findStationsInBounds(bounds, stations, 10, 2);
+			expect(results.map((s) => s.id)).toEqual([2, 1]);
 		});
 
 		it('returns empty if maxCount is 0 and no selectedId', () => {
