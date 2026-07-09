@@ -34,23 +34,22 @@ export function createStbServerHeaders(appId: string): Record<string, string> {
 	};
 }
 
-/**
- * Resolve the API base URL based on environment:
- * - Dev: `/stb-api` (proxied by Vite, no CORS issues)
- * - Production: `VITE_STB_API_BASE` env var (Cloudflare Worker URL)
- * - Fallback: direct STB URL (will fail from browser due to CORS/400)
- */
-function resolveApiBase(): string {
-	if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-		if ((import.meta as any).env.DEV) return '/stb-api';
-		if ((import.meta as any).env.VITE_STB_API_BASE) return (import.meta as any).env.VITE_STB_API_BASE;
+function _resolveApiBase(): string {
+	try {
+		const env = (import.meta as any)?.env;
+		if (env) {
+			if (env.DEV) return '/stb-api';
+			if (env.VITE_STB_API_BASE) return env.VITE_STB_API_BASE;
+		}
+	} catch {
+		// import.meta.env not available during Vite config loading — fall through
 	}
 	return 'https://info.stb.ro/api/web/v2-6';
 }
 
 /** STB API configuration */
 export const API = {
-	BASE: resolveApiBase(),
+	get BASE(): string { return _resolveApiBase(); },
 	TIMEOUT: 10_000,
 	/** Browser never sends custom headers — the proxy injects them server-side */
 	HEADERS: {} as Record<string, string>
