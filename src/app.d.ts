@@ -10,7 +10,7 @@ declare global {
 	}
 
 	interface ImportMetaEnv {
-		readonly VITE_STB_API_BASE: string;
+		readonly VITE_STB_API_BASE?: string;
 	}
 
 	interface ImportMeta {
