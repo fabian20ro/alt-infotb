@@ -67,4 +67,17 @@ describe('isNewRomanianDay', () => {
 		const after = new Date('2024-02-29T05:00:00Z').getTime();
 		expect(isNewRomanianDay(before, after)).toBe(true);
 	});
+
+	it('detects the 4 AM Bucharest boundary under EET (UTC+2)', () => {
+		// January is EET in Bucharest (UTC+2), so:
+		//   01:59:59Z → 03:59:59 Bucharest (< 4) → previous transit day
+		//   02:00:00Z → 04:00:00 Bucharest (= 4)  → current transit day
+		const beforeBoundary = new Date('2026-01-15T01:59:59Z').getTime();
+		const afterBoundary = new Date('2026-01-15T02:00:00Z').getTime();
+		expect(isNewRomanianDay(beforeBoundary, afterBoundary)).toBe(true);
+
+		// Same transit day — both at or after the 4 AM boundary under EET
+		const sameDay = new Date('2026-01-15T03:00:00Z').getTime();
+		expect(isNewRomanianDay(afterBoundary, sameDay)).toBe(false);
+	});
 });
