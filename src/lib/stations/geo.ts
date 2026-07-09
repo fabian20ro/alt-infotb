@@ -79,16 +79,16 @@ export function findStationsInBounds(
 		? stations.find((s) => s.id === selectedId)
 		: null;
 
-	if (selected) {
-		return [selected];
-	}
-
 	const inBounds = stations.filter(
 		(s) => s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east
 	);
 
 	if (inBounds.length > maxCount) {
-		return [];
+		return selected ? [selected] : [];
+	}
+
+	if (selected && !inBounds.some((s) => s.id === selected.id)) {
+		return [selected, ...inBounds];
 	}
 
 	return inBounds;
