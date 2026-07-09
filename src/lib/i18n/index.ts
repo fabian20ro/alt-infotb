@@ -8,5 +8,11 @@ export function setLanguage(lang: Lang): void {
 }
 
 export function t(key: TranslationKey): string {
-	return translations[currentLang][key] ?? translations.ro[key] ?? key;
+	const value = translations[currentLang][key];
+
+	if (value === undefined) {
+		console.warn(`[i18n] Missing translation for "${String(key)}" in lang "${currentLang}"`);
+	}
+
+	return value ?? translations.ro[key] ?? key;
 }
