@@ -268,4 +268,18 @@ describe('createArrivalsStore lifecycle polling', () => {
 
 		store.cleanup();
 	});
+
+	it('sets normalized error message when fetch throws a non-Error value', async () => {
+		fetchArrivalsMock.mockRejectedValue('string error');
+
+		const store = await createStore();
+		store.selectStation(3570);
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(store.state.status).toBe('error');
+		expect(typeof store.state.error).toBe('string');
+		expect(store.state.error).not.toContain('string error'); // normalized, not raw
+
+		store.cleanup();
+	});
 });

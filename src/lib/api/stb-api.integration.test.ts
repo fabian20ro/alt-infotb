@@ -117,6 +117,10 @@ describe('STB API (real network)', () => {
 			for (const arrivalData of arrivalMessages) {
 				const arrivalReader = new ProtoReader(arrivalData);
 				const arrivalFields = arrivalReader.readAllFields();
+
+				// Each arrival must carry a schedule-flag sub-field
+				expect(getVarint(arrivalFields, ARRIVAL.IS_SCHEDULED)).toBeDefined();
+
 				const seconds = getVarint(arrivalFields, ARRIVAL.SECONDS);
 
 				expect(seconds).toBeDefined();
