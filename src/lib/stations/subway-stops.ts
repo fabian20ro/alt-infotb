@@ -72,5 +72,9 @@ export const SUBWAY_STOP_IDS: Record<number, number[]> = {
 
 /** Resolve a station ID to its STB API stop IDs. Non-subway stations return [stationId]. */
 export function resolveStopIds(stationId: number): number[] {
+	if (!Number.isInteger(stationId) || stationId <= 0) {
+		return [];
+	}
+
 	return SUBWAY_STOP_IDS[stationId] ?? [stationId];
 }

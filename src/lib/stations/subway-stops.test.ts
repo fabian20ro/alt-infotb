@@ -15,8 +15,19 @@ describe('resolveStopIds', () => {
 		expect(resolveStopIds(12345)).toEqual([12345]);
 	});
 
-	it('handles 0 as an unknown station', () => {
-		expect(resolveStopIds(0)).toEqual([0]);
+	it('handles 0 as an invalid station', () => {
+		expect(resolveStopIds(0)).toEqual([]);
+	});
+
+	it('rejects negative IDs (malformed GTFS data)', () => {
+		expect(resolveStopIds(-1)).toEqual([]);
+		expect(resolveStopIds(-99999)).toEqual([]);
+	});
+
+	it('rejects non-integer values', () => {
+		expect(resolveStopIds(0.5)).toEqual([]);
+		expect(resolveStopIds(NaN)).toEqual([]);
+		expect(resolveStopIds(Infinity)).toEqual([]);
 	});
 
 	it('handles M5 stations (not in map) by returning the station ID', () => {
