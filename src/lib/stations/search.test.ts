@@ -105,6 +105,34 @@ describe('searchStations', () => {
 	it('returns empty array for empty stations list', () => {
 		expect(searchStations('anything', [])).toEqual([]);
 	});
+
+	it('ranks exact match above word-boundary/all-words and description-only matches', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Bun test query', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'XYZ Info', description: 'Has Bun test query text', lat: 0, lon: 0 },
+			{ id: 3, name: 'Bun something Query test here', description: '', lat: 0, lon: 0 },
+		];
+		const results = searchStations('bun test query', stations);
+		expect(results.map(s => s.id)).toEqual([1, 3, 2]);
+	});
+
+	it('ranks starts-with above word-boundary match when both exist', () => {
+		const stations: Station[] = [
+			{ id: 10, name: 'StartWithMe extra stuff', description: '', lat: 0, lon: 0 },
+			{ id: 11, name: 'Random StartWithMe word', description: '', lat: 0, lon: 0 },
+		];
+		const results = searchStations('startwithme', stations);
+		expect(results.map(s => s.id)).toEqual([10, 11]);
+	});
+
+	it('ranks all-word match above description-only when both exist for a multi-word query', () => {
+		const stations: Station[] = [
+			{ id: 20, name: 'Hello World', description: '', lat: 0, lon: 0 },
+			{ id: 21, name: 'No match here', description: 'Hello World content', lat: 0, lon: 0 },
+		];
+		const results = searchStations('hello world', stations);
+		expect(results.map(s => s.id)).toEqual([20, 21]);
+	});
 });
 
 describe('normalize', () => {
