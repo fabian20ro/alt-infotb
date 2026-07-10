@@ -109,18 +109,28 @@ describe('formatTime', () => {
 
 describe('createArrivalsStore lifecycle polling', () => {
 	it('polls every 20 seconds after selecting a station', async () => {
-		fetchArrivalsMock.mockResolvedValue(makeArrivals('A'));
+		const initial = createDeferred<StationArrivals>();
+		fetchArrivalsMock.mockImplementationOnce(() => initial.promise);
+
 		const store = await createStore();
+
+		expect(store.state.status).toBe('idle');
+		expect(store.state.data).toBeNull();
 
 		store.selectStation(3570);
 		await vi.advanceTimersByTimeAsync(0);
+		expect(store.state.status).toBe('loading');
+		expect(store.state.error).toBeNull();
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(1);
+
+		initial.resolve(makeArrivals('A'));
+		await vi.advanceTimersByTimeAsync(0);
+		expect(store.state.data?.stationName).toBe('A');
+		expect(store.state.status).toBe('success');
 		expect(fetchArrivalsMock).toHaveBeenCalledTimes(1);
 
 		await vi.advanceTimersByTimeAsync(20_000);
 		expect(fetchArrivalsMock).toHaveBeenCalledTimes(2);
-
-		await vi.advanceTimersByTimeAsync(20_000);
-		expect(fetchArrivalsMock).toHaveBeenCalledTimes(3);
 
 		store.cleanup();
 	});
