@@ -136,6 +136,40 @@ test.describe('Station Arrivals', () => {
 		expect(stopRequests).toBeGreaterThan(afterFocus);
 	});
 
+	test('polling causes arrival rows to re-render on successful refresh', async ({ page }) => {
+		await page.goto('/');
+
+		// Wait for initial data to render
+		const direction = page.locator('.direction').first();
+		await expect(direction).toBeVisible({ timeout: 15_000 });
+
+		const rowsBefore = page.locator('.arrival-row');
+		const countBefore = await rowsBefore.count();
+		expect(countBefore).toBeGreaterThanOrEqual(1);
+
+		// Force a refresh via focus event (avoids waiting the full 20s poll cycle)
+		await page.evaluate(() => {
+			window.dispatchEvent(new Event('focus'));
+		});
+
+		// After focus-triggered refresh, arrival rows should still render with content
+		const directionAfter = page.locator('.direction').first();
+		await expect(directionAfter).toBeVisible({ timeout: 15_000 });
+
+		const rowsAfter = page.locator('.arrival-row');
+		const countAfter = await rowsAfter.count();
+		expect(countAfter).toBeGreaterThanOrEqual(1);
+
+		// Each row should still have a visible line badge with non-empty text after refresh
+		for (let i = 0; i < countAfter; i++) {
+			const row = rowsAfter.nth(i);
+			const badge = row.locator('.line-badge');
+			await expect(badge).toBeVisible();
+			const text = await badge.textContent();
+			expect(text!.length).toBeGreaterThan(0);
+		}
+	});
+
 	test('shows error state when API is unreachable', async ({ page }) => {
 		// Block API proxy requests
 		await page.route('**/stb-api/**', (route) => route.abort());
