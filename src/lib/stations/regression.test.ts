@@ -49,6 +49,24 @@ describe('Regression tests for punctuation', () => {
 		expect(searchStations('', stations)).toHaveLength(0);
 	});
 
+	it('handles numeric query "0" when no station has id 0', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'A', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'B', description: '', lat: 0, lon: 0 }
+		];
+		expect(searchStations('0', stations)).toHaveLength(0);
+	});
+
+	it('matches numeric query with leading zeros via parseInt coercion', () => {
+		const stations: Station[] = [{ id: 42, name: 'Gara de Nord', description: '', lat: 0, lon: 0 }];
+		expect(searchStations('042', stations)).toHaveLength(1);
+	});
+
+	it('handles numeric query exceeding safe integer range without crashing', () => {
+		const stations: Station[] = [{ id: 1, name: 'A', description: '', lat: 0, lon: 0 }];
+		expect(searchStations('99999999999999999999', stations)).toHaveLength(0);
+	});
+
 	it('handles null/undefined stations parameter', () => {
 		expect(searchStations('anything', null)).toHaveLength(0);
 		expect(searchStations('anything', undefined)).toHaveLength(0);
