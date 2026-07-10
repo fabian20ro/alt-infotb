@@ -55,4 +55,8 @@ export const translations = {
 	}
 } as const;
 
-export type TranslationKey = keyof typeof translations.ro;
+type RoKeys = keyof (typeof translations)['ro'];
+type EnKeys = keyof (typeof translations)['en'];
+
+/** All translation keys, enforced to exist in every language. */
+export type TranslationKey = RoKeys & EnKeys;
