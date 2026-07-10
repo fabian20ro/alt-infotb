@@ -50,4 +50,14 @@ describe('formatLastUpdate', () => {
 		expect(formatLastUpdate(past, 'en')).not.toBe('Just now');
 		expect(formatLastUpdate(past, 'ro')).not.toBe('Acum');
 	});
+
+	it('respects the 60-second boundary for "now" detection', () => {
+		const justUnder = Date.now() - 59_000; // ~59s ago — still within threshold
+		expect(formatLastUpdate(justUnder, 'en')).toBe('Just now');
+		expect(formatLastUpdate(justUnder, 'ro')).toBe('Acum');
+
+		const justOver = Date.now() - 61_000; // ~61s ago — past threshold
+		expect(formatLastUpdate(justOver, 'en')).not.toBe('Just now');
+		expect(formatLastUpdate(justOver, 'ro')).not.toBe('Acum');
+	});
 });
