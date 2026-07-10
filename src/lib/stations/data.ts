@@ -54,24 +54,21 @@ export function isNewRomanianDay(lastRefreshMs: number, nowMs = Date.now()): boo
  * background check completes (callers can await it to re-read the timestamp).
  */
 export async function loadStations(): Promise<{ stations: Station[]; refreshDone: Promise<void> }> {
-	let stations: Station[];
-
 	try {
 		const cached = await getStations();
 		if (cached.length > 0) {
-			stations = cached;
 			// Check staleness in background — return promise so caller can await it
-			const refreshDone = checkAndRefresh().catch(() => {});
-			return { stations, refreshDone };
+			return {
+				stations: cached,
+				refreshDone: checkAndRefresh().catch(() => {}),
+			};
 		}
 	} catch {
 		// IndexedDB not available (e.g., private browsing)
 	}
 
-	// Fall back to bundled data
-	stations = bundledStations as Station[];
-
-	// Save bundled data to IndexedDB for next time
+	// Fall back to bundled data and persist for next load
+	const stations = bundledStations as Station[];
 	try {
 		await saveStations(stations);
 	} catch {
