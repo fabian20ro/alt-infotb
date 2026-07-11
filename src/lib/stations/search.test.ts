@@ -125,6 +125,15 @@ describe('searchStations', () => {
 		expect(results.map(s => s.id)).toEqual([10, 11]);
 	});
 
+	it('breaks ties by shorter name when startswith scores are equal', () => {
+		const stations: Station[] = [
+			{ id: 30, name: 'Alfa Centauri Major', description: '', lat: 0, lon: 0 },
+			{ id: 31, name: 'Alfa', description: '', lat: 0, lon: 0 },
+		];
+		const results = searchStations('alfa', stations);
+		expect(results.map(s => s.id)).toEqual([31, 30]);
+	});
+
 	it('ranks all-word match above description-only when both exist for a multi-word query', () => {
 		const stations: Station[] = [
 			{ id: 20, name: 'Hello World', description: '', lat: 0, lon: 0 },
