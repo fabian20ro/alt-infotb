@@ -111,4 +111,12 @@ describe('recents store', () => {
 		const store = createRecentsStore();
 		expect(store.getExcluding(new Set())).toEqual(stations);
 	});
+
+	it('tolerates corrupt JSON in localStorage by loading empty recents', async () => {
+		localStorage.setItem('alt-stb-recents', 'not-valid-json{{{');
+
+		const { createRecentsStore } = await import('./recents.svelte.js');
+		const store = createRecentsStore();
+		expect(store.recents).toEqual([]);
+	});
 });
