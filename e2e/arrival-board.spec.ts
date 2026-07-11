@@ -50,6 +50,25 @@ test.describe('Station Arrivals', () => {
 		await expect(timesContainer).toBeVisible();
 	});
 
+	test('all arrival rows render non-empty departure time text', async ({ page }) => {
+		await page.goto('/');
+
+		const direction = page.locator('.direction').first();
+		await expect(direction).toBeVisible({ timeout: 15_000 });
+
+		const rows = page.locator('.arrival-row');
+		const count = await rows.count();
+		expect(count).toBeGreaterThanOrEqual(1);
+
+		for (let i = 0; i < count; i++) {
+			const row = rows.nth(i);
+			const timesContainer = row.locator('.times');
+			await expect(timesContainer).toBeVisible();
+			const text = await timesContainer.textContent();
+			expect(text!.length).toBeGreaterThan(0);
+		}
+	});
+
 	test('shows skeleton loading state before data arrives', async ({ page }) => {
 		await page.goto('/');
 
