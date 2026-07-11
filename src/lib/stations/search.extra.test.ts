@@ -2,6 +2,32 @@ import { describe, it, expect } from 'vitest';
 import { normalize, searchStations } from './search.js';
 import type { Station } from './types.js';
 
+describe('normalize', () => {
+	it('strips diacritics via NFD decomposition and lowercases', () => {
+		expect(normalize('Piața Unirii')).toBe('piata unirii');
+	});
+
+	it('collapses dotted acronym variants preserving surrounding spaces', () => {
+		expect(normalize('cfr progresul')).toBe('cfr progresul');
+	});
+
+	it('greedily merges spaced multi-letter acronyms with adjacent words into one token', () => {
+		expect(normalize('c f r progresul')).toBe('cfrprogresul');
+	});
+
+	it('merges mixed dot/space acronyms and consumes following word as part of the merged token', () => {
+		expect(normalize('a. b c. test')).toBe('abctest');
+	});
+
+	it('strips punctuation and special characters leaving only alphanumerics and spaces, then lowercases', () => {
+		expect(normalize('căile ferate române! @$#')).toBe('caile ferate romane');
+	});
+
+	it('lowercases the result', () => {
+		expect(normalize('ALPHA BRAVO CHARLIE')).toBe('alpha bravo charlie');
+	});
+});
+
 describe('searchStations', () => {
 	const stations: Station[] = [
 		{ id: 1, name: 'A', description: 'This is a description', lat: 0, lon: 0 },

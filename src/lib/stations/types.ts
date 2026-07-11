@@ -8,4 +8,5 @@ export interface Station {
 
 export interface StationWithDistance extends Station {
 	distanceMeters: number;
+	lastRefreshAt?: number;
 }

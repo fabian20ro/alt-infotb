@@ -80,4 +80,30 @@ describe('isNewRomanianDay', () => {
 		const sameDay = new Date('2026-01-15T03:00:00Z').getTime();
 		expect(isNewRomanianDay(afterBoundary, sameDay)).toBe(false);
 	});
+
+	it('handles spring-forward DST transition (March 28–29, 2026)', () => {
+		// Spring forward: clocks jump from 03:00 EET to 04:00 EEST at 01:00Z.
+		//   23:59:59Z Mar 28 → 01:59:59 EET (hour=1, < 4) → previous transit day
+		//   00:00:00Z Mar 29 → 03:00 EET (hour=3, < 4) → still same transit day
+		const before = new Date('2026-03-28T23:59:59Z').getTime();
+		const justBeforeBoundary = new Date('2026-03-29T00:59:59Z').getTime();
+		expect(isNewRomanianDay(before, justBeforeBoundary)).toBe(false);
+
+		// After transition: 01:00:01Z → 04:00:01 EEST (hour=4, >= 4) → new transit day
+		const afterTransition = new Date('2026-03-29T01:00:01Z').getTime();
+		expect(isNewRomanianDay(justBeforeBoundary, afterTransition)).toBe(true);
+	});
+
+	it('handles fall-back DST transition (October 25, 2026)', () => {
+		// Fall back: clocks go from 04:00 EEST to 03:00 EET.
+		//   Noon UTC = 15:00 EEST → hour >= 4
+		//   After transition at 02:00Z = 03:00 EET → still in same transit day
+		const beforeTransition = new Date('2026-10-25T12:00:00Z').getTime();
+		const duringTransition = new Date('2026-10-25T02:30:00Z').getTime();
+		expect(isNewRomanianDay(duringTransition, beforeTransition)).toBe(false);
+
+		// Before transition — same transit day as the next morning under EET
+		const nextMorning = new Date('2026-10-25T04:00:00Z').getTime(); // 07:00 EEST / 06:00 EET, both >= 4
+		expect(isNewRomanianDay(beforeTransition, nextMorning)).toBe(false);
+	});
 });

@@ -135,4 +135,50 @@ describe('STB API (real network)', () => {
 		// There should be at least some arrival entries
 		expect(totalArrivals).toBeGreaterThan(0);
 	});
+
+	it('includes STOP.TYPE per documented schema (field 5)', async () => {
+		const headers = { ...STB_SERVER_HEADERS, 'User-Info': authToken };
+		const response = await fetch(STB_API_URL, { headers });
+		expect(response.status).toBe(200);
+		const buf = new Uint8Array(await response.arrayBuffer());
+
+		const reader = new ProtoReader(buf);
+		const fields = reader.readAllFields();
+		const typeStr = getString(fields, PROTO_FIELDS.STOP.TYPE);
+		expect(typeStr).toBeTruthy();
+	});
+
+	it('each line entry carries a LINE.ID varint (field 2)', async () => {
+		const headers = { ...STB_SERVER_HEADERS, 'User-Info': authToken };
+		const response = await fetch(STB_API_URL, { headers });
+		expect(response.status).toBe(200);
+		const buf = new Uint8Array(await response.arrayBuffer());
+
+		const reader = new ProtoReader(buf);
+		const fields = reader.readAllFields();
+		const lineMessages = getMessages(fields, PROTO_FIELDS.STOP.LINES);
+
+		for (const lineData of lineMessages) {
+			const lineReader = new ProtoReader(lineData);
+			const lineFields = lineReader.readAllFields();
+			const lineId = getVarint(lineFields, PROTO_FIELDS.LINE.ID);
+			expect(lineId).toBeDefined();
+			expect(typeof lineId).toBe('number');
+		}
+	});
+
+	it('full protobuf read completes without throwing (error boundary)', async () => {
+		const headers = { ...STB_SERVER_HEADERS, 'User-Info': authToken };
+		const response = await fetch(STB_API_URL, { headers });
+		expect(response.status).toBe(200);
+		const buf = new Uint8Array(await response.arrayBuffer());
+
+		let threw = false;
+		try {
+			new ProtoReader(buf).readAllFields();
+		} catch {
+			threw = true;
+		}
+		expect(threw).toBe(false);
+	});
 });
