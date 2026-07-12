@@ -106,6 +106,11 @@ describe('searchStations', () => {
 		expect(results).toEqual([]);
 	});
 
+	it('returns [] for special-character-only query (normalizes to empty)', () => {
+		const results = searchStations('!@#$%', [{ id: 1, name: 'A', description: '', lat: 0, lon: 0 }] as Station[]);
+		expect(results).toEqual([]);
+	});
+
 	it('treats dashes as spaces — plain query matches dash-separated name', () => {
 		const stationsWithDash = [
 			{ id: 1, name: 'Piața–Unirii Nord', description: '', lat: 0, lon: 0 }
