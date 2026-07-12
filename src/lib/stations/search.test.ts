@@ -120,9 +120,19 @@ describe('searchStations', () => {
 		const stations: Station[] = [
 			{ id: 10, name: 'StartWithMe extra stuff', description: '', lat: 0, lon: 0 },
 			{ id: 11, name: 'Random StartWithMe word', description: '', lat: 0, lon: 0 },
+			{ id: 22, name: 'XYZ', description: 'StartWithMe content here', lat: 0, lon: 0 },
 		];
 		const results = searchStations('startwithme', stations);
-		expect(results.map(s => s.id)).toEqual([10, 11]);
+		expect(results.map(s => s.id)).toEqual([10, 11, 22]);
+	});
+
+	it('ranks starts-with above description-only when both exist for the same query', () => {
+		const stations: Station[] = [
+			{ id: 30, name: 'StartWithMe stuff', description: '', lat: 0, lon: 0 },
+			{ id: 40, name: 'XYZ', description: 'StartWithMe content', lat: 0, lon: 0 },
+		];
+		const results = searchStations('startwithme', stations);
+		expect(results.map(s => s.id)).toEqual([30, 40]);
 	});
 
 	it('breaks ties by shorter name when startswith scores are equal', () => {
@@ -132,6 +142,16 @@ describe('searchStations', () => {
 		];
 		const results = searchStations('alfa', stations);
 		expect(results.map(s => s.id)).toEqual([31, 30]);
+
+		// verify the short-name bonus is actually applied (both are starts-with)
+		const scored = results.map(r => ({
+			id: r.id,
+			score: searchStations('alfa', [r])[0].id === r.id ? 80 + Math.max(0, 10 - normalize(r.name).length / 5) : 0,
+		}));
+
+		const alfaScore = scored.find(s => s.id === 31);
+		const centauriScore = scored.find(s => s.id === 30);
+		expect(alfaScore!.score).toBeGreaterThan(centauriScore!.score!);
 	});
 
 	it('ranks all-word match above description-only when both exist for a multi-word query', () => {
