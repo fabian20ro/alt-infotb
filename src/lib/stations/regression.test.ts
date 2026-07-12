@@ -88,4 +88,38 @@ describe('Regression tests for punctuation', () => {
 		];
 		expect(searchStations('station', stations, 2)).toHaveLength(2);
 	});
+
+	it('matches case-insensitively via normalize lowercasing', () => {
+		const stations: Station[] = [
+			{ id: 10, name: 'Gara de Nord', description: '', lat: 0, lon: 0 },
+			{ id: 11, name: 'Piața Romană', description: '', lat: 0, lon: 0 }
+		];
+		expect(searchStations('GARA DE NORD', stations)).toHaveLength(1);
+		expect(searchStations('PIAȚA ROMANĂ', stations)).toHaveLength(1);
+	});
+
+	it('matches multi-word query where words span name and description fields', () => {
+		const stations: Station[] = [
+			{ id: 20, name: 'Gara', description: 'Central station', lat: 0, lon: 0 }
+		];
+		expect(searchStations('Gara Central', stations)).toHaveLength(1);
+	});
+
+	it('returns empty array for an empty station array (not null/undefined)', () => {
+		expect(searchStations('anything', [])).toHaveLength(0);
+	});
+
+	it('strips quotes from names and queries via normalize', () => {
+		const stations: Station[] = [
+			{ id: 30, name: '"Central" Station', description: "''Test'' Station", lat: 0, lon: 0 }
+		];
+		expect(searchStations('central station', stations)).toHaveLength(1);
+	});
+
+	it('handles period-separated acronyms like C.F.R. in normalize and search', () => {
+		const stations: Station[] = [
+			{ id: 40, name: 'C.F.R. Călători', description: '', lat: 0, lon: 0 }
+		];
+		expect(searchStations('CFR Calatori', stations)).toHaveLength(1);
+	});
 });

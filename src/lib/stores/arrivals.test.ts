@@ -293,3 +293,63 @@ describe('createArrivalsStore lifecycle polling', () => {
 		store.cleanup();
 	});
 });
+
+describe('fetchArrivals input validation', () => {
+	let fetchArrivals: typeof import('$lib/api/arrivals.js').fetchArrivals;
+
+	beforeEach(async () => {
+		vi.doUnmock('$lib/api/arrivals.js');
+		vi.resetModules();
+		const mod = await import('$lib/api/arrivals.js');
+		fetchArrivals = mod.fetchArrivals;
+	});
+
+	it('rejects an empty array of stop IDs', async () => {
+		let threw = false;
+		try {
+			await fetchArrivals([]);
+		} catch (err) {
+			threw = true;
+			expect(String(err)).toMatch(/ID-uri de stații/);
+		}
+		expect(threw).toBe(true);
+	});
+
+	it('rejects a non-positive stop ID', async () => {
+		for (const id of [0, -1]) {
+			let threw = false;
+			try {
+				await fetchArrivals(id);
+			} catch (err) {
+				threw = true;
+				expect(String(err)).toMatch(/număr pozitiv/);
+			}
+			expect(threw).toBe(true);
+		}
+	});
+
+	it('rejects a non-integer stop ID', async () => {
+		let threw = false;
+		try {
+			await fetchArrivals(3.5);
+		} catch (err) {
+			threw = true;
+			expect(String(err)).toMatch(/număr pozitiv/);
+		}
+		expect(threw).toBe(true);
+	});
+
+	it('rethrows on first error when all parallel fetches fail', async () => {
+		const mod = await import('$lib/api/arrivals.js');
+		const allFailedFetch = mod.fetchArrivals;
+
+		let threw = false;
+		try {
+			await allFailedFetch([1, 2, 3]);
+		} catch (err) {
+			threw = true;
+			expect(err).toBeDefined();
+		}
+		expect(threw).toBe(true);
+	});
+});

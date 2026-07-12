@@ -32,7 +32,7 @@ describe('STB API (real network)', () => {
 	});
 
 	it('auth endpoint returns a bcrypt token', () => {
-		expect(authToken).toMatch(/^\$2[aby]\$\d+\$/);
+		expect(authToken).toMatch(/^\\$2[aby]\\$\\d+\\$/);
 	});
 
 	it('returns 200 with valid protobuf when all headers + User-Info are present', async () => {
@@ -118,8 +118,10 @@ describe('STB API (real network)', () => {
 				const arrivalReader = new ProtoReader(arrivalData);
 				const arrivalFields = arrivalReader.readAllFields();
 
-				// Each arrival must carry a schedule-flag sub-field
-				expect(getVarint(arrivalFields, ARRIVAL.IS_SCHEDULED)).toBeDefined();
+				// Each arrival must carry a schedule-flag sub-field (0=realtime, 1=estimated)
+				const isScheduled = getVarint(arrivalFields, ARRIVAL.IS_SCHEDULED);
+				expect(isScheduled).toBeDefined();
+				expect([0, 1]).toContain(isScheduled);
 
 				const seconds = getVarint(arrivalFields, ARRIVAL.SECONDS);
 

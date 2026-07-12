@@ -19,6 +19,12 @@ describe('geo', () => {
 			expect(d).toBeGreaterThan(0);
 			expect(isNaN(d)).toBe(false);
 		});
+
+		it('is symmetric: swapping endpoints yields the same distance', () => {
+			const fwd = distanceMeters(44.4, 26.1, 45.0, 27.0);
+			const rev = distanceMeters(45.0, 27.0, 44.4, 26.1);
+			expect(fwd).toBeCloseTo(rev, 3);
+		});
 	});
 
 	describe('findNearestStations', () => {
@@ -161,15 +167,37 @@ describe('geo', () => {
 
 		it('falls through to bounds filtering when selectedId does not match any station', () => {
 			const bounds = { south: 44.3, north: 44.6, west: 26.0, east: 26.3 };
-			// id=99 does not exist in the test stations
 			const results = findStationsInBounds(bounds, stations, 10, 99);
 			expect(results).toHaveLength(3);
 		});
 
-		it('falls through to bounds filtering when selectedId is null', () => {
+		it('returns in-bounds stations when selectedId is outside the station list', () => {
+			const wideBounds = { south: 40, north: 50, west: 20, east: 30 };
+			const farStations: Station[] = [
+				{ id: 100, name: 'F1', description: '', lat: 44.8, lon: 26.5 },
+				{ id: 101, name: 'F2', description: '', lat: 45.2, lon: 27.5 },
+			];
+			const results = findStationsInBounds(wideBounds, farStations, 10, 99);
+			expect(results.map((s) => s.id)).toEqual([100, 101]);
+		});
+
+		it('returns only the selected station when maxCount is exceeded and selected is in-bounds', () => {
 			const bounds = { south: 44.3, north: 44.6, west: 26.0, east: 26.3 };
-			const results = findStationsInBounds(bounds, stations, 10, null);
-			expect(results).toHaveLength(3);
+			const results = findStationsInBounds(bounds, stations, 1, 1);
+			expect(results).toHaveLength(1);
+			expect(results[0].id).toBe(1);
+		});
+
+		it('returns empty when maxCount is exceeded and no selected station', () => {
+			const bounds = { south: 44.3, north: 44.6, west: 26.0, east: 26.3 };
+			const results = findStationsInBounds(bounds, stations, 1);
+			expect(results).toHaveLength(0);
+		});
+
+		it('does not duplicate the selected station when it falls within bounds', () => {
+			const bounds = { south: 44.35, north: 44.45, west: 26.05, east: 26.15 };
+			const results = findStationsInBounds(bounds, stations, 10, 1);
+			expect(results.map((s) => s.id)).toEqual([1]);
 		});
 	});
 });

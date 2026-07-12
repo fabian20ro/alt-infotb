@@ -46,6 +46,11 @@ describe('resolveStopIds', () => {
 		expect(resolveStopIds(57443)).toEqual([9722, 9723]); // Laminorului (M4)
 	});
 
+	it('resolves M3 stations specifically', () => {
+		expect(resolveStopIds(14738)).toEqual([9584, 9585]); // Politehnica (M3)
+		expect(resolveStopIds(14735)).toEqual([9652, 9655]); // Păcii (M3)
+	});
+
 	it('every subway station entry has no duplicate stop IDs', () => {
 		for (const [gtfsId, apiIds] of Object.entries(SUBWAY_STOP_IDS)) {
 			const unique = new Set(apiIds);

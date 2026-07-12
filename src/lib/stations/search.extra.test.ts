@@ -172,4 +172,53 @@ describe('searchStations', () => {
 		const results = searchStations('piata unirii', [{ id: 1, name: 'Piața Unirii', description: '', lat: 0, lon: 0 }] as Station[]);
 		expect(results).toHaveLength(1);
 	});
+
+	it('returns [] for null stations', () => {
+		const results = searchStations('abc', null as unknown as Station[]);
+		expect(results).toEqual([]);
+	});
+
+	it('returns [] for undefined stations', () => {
+		const results = searchStations('abc', undefined as unknown as Station[]);
+		expect(results).toEqual([]);
+	});
+
+	it('returns [] for null query', () => {
+		const results = searchStations(null, [{ id: 1, name: 'A', description: '', lat: 0, lon: 0 }] as Station[]);
+		expect(results).toEqual([]);
+	});
+
+	it('returns [] for undefined query', () => {
+		const results = searchStations(undefined, [{ id: 1, name: 'A', description: '', lat: 0, lon: 0 }] as Station[]);
+		expect(results).toEqual([]);
+	});
+
+	it('numeric query "0" returns [] when no station has that ID', () => {
+		const results = searchStations('0', [{ id: 1, name: 'A', description: '', lat: 0, lon: 0 }] as Station[]);
+		expect(results).toEqual([]);
+	});
+
+	it('numeric query "02" (leading zero) returns [] when no station has ID 2', () => {
+		const results = searchStations('02', [{ id: 1, name: 'A', description: '', lat: 0, lon: 0 }] as Station[]);
+		expect(results).toEqual([]);
+	});
+
+	it('numeric query "0" does not match station with non-numeric ID prefix', () => {
+		const results = searchStations('0', [{ id: 10, name: 'Zeroes', description: '', lat: 0, lon: 0 }] as Station[]);
+		expect(results).toEqual([]);
+	});
+
+	it('null query does not match any station by ID or name', () => {
+		const results = searchStations(null, [{ id: 1, name: 'A', description: '', lat: 0, lon: 0 }] as Station[]);
+		expect(results).toEqual([]);
+	});
+
+	it('numeric query with leading zeros resolves to parsed integer ID', () => {
+		const results = searchStations('02', [
+			{ id: 1, name: 'One', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'Two', description: '', lat: 0, lon: 0 }
+		] as Station[]);
+		expect(results).toHaveLength(1);
+		expect(results[0].id).toBe(2);
+	});
 });

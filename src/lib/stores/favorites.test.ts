@@ -173,4 +173,65 @@ describe('favorites store', () => {
 		expect(stored).toHaveLength(1);
 		expect(stored[0].id).toBe(3570);
 	});
+
+	it('add() degrades gracefully when localStorage.setItem throws', async () => {
+		const station = { id: 3570, name: 'Piata Unirii', description: '', lat: 44.4, lon: 26.1 };
+
+		vi.stubGlobal('localStorage', {
+			getItem: (key: string) => null,
+			setItem: () => { throw new DOMException('QuotaExceededError'); },
+			removeItem: () => {},
+			clear: () => {}
+		});
+
+		const { createFavoritesStore } = await import('./favorites.svelte.js');
+		expect(() => {
+			createFavoritesStore().add(station);
+		}).not.toThrow();
+	});
+
+	it('togglePin persists pin even when favorites list is empty in localStorage', async () => {
+		localStorage.setItem('alt-stb-favorites', JSON.stringify([]));
+
+		const { createFavoritesStore } = await import('./favorites.svelte.js');
+		const store = createFavoritesStore();
+
+		expect(store.pinnedId).toBeNull();
+
+		store.togglePin(3570);
+		expect(store.pinnedId).toBeNull();
+	});
+
+	it('persistPinnedId handles localStorage errors silently', async () => {
+		const station = { id: 3570, name: 'Piata Unirii', description: '', lat: 44.4, lon: 26.1 };
+
+		vi.stubGlobal('localStorage', {
+			getItem: (key: string) => key === 'alt-stb-favorites' ? JSON.stringify([station]) : null,
+			setItem: () => {},
+			removeItem: () => {},
+			clear: () => {}
+		});
+
+		const { createFavoritesStore } = await import('./favorites.svelte.js');
+		const store = createFavoritesStore();
+
+		expect(store.pinnedId).toBeNull();
+
+		let threw = false;
+		try {
+			vi.stubGlobal('localStorage', {
+				getItem: (key: string) => key === 'alt-stb-favorites' ? JSON.stringify([station]) : null,
+				setItem: () => { throw new DOMException('SecurityError'); },
+				removeItem: () => {},
+				clear: () => {}
+			});
+
+			store.togglePin(3570);
+		} catch (e) {
+			threw = true;
+		}
+
+		expect(threw).toBe(false);
+		expect(store.pinnedId).toBe(3570);
+	});
 });

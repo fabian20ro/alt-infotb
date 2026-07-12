@@ -60,4 +60,27 @@ describe('formatLastUpdate', () => {
 		expect(formatLastUpdate(justOver, 'en')).not.toBe('Just now');
 		expect(formatLastUpdate(justOver, 'ro')).not.toBe('Acum');
 	});
+
+	it('treats exactly 60 seconds as outside "now" threshold', () => {
+		const boundary = Date.now() - 60_000; // exactly 60s ago
+		expect(formatLastUpdate(boundary, 'en')).not.toBe('Just now');
+		expect(formatLastUpdate(boundary, 'ro')).not.toBe('Acum');
+		expect(formatLastUpdate(boundary, 'en')).not.toBe('');
+	});
+
+	it('formats future timestamps with positive assertions', () => {
+		const future = Date.now() + 5 * 60 * 1000; // 5 minutes in the future
+		const formattedEn = formatLastUpdate(future, 'en');
+		expect(formattedEn).not.toBe('Just now');
+		expect(formattedEn).not.toBe('');
+		// Future timestamps should produce a valid date string with year component
+		expect(formattedEn).toMatch(/\d{4}/);
+	});
+
+	it('handles negative diffSeconds (future) without falling into "now"', () => {
+		const future = Date.now() + 30 * 1000; // 30s in the future
+		// diffSeconds would be -30, failing the >= 0 guard → falls through to Intl formatting
+		expect(formatLastUpdate(future, 'en')).not.toBe('Just now');
+		expect(formatLastUpdate(future, 'ro')).not.toBe('Acum');
+	});
 });

@@ -119,4 +119,22 @@ describe('recents store', () => {
 		const store = createRecentsStore();
 		expect(store.recents).toEqual([]);
 	});
+
+	it('handles localStorage write failures without crashing the store', async () => {
+		vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+			throw new Error('QuotaExceededError');
+		});
+
+		const a = { id: 10, name: 'A', description: '', lat: 44.4, lon: 26.1 };
+		const b = { id: 20, name: 'B', description: '', lat: 44.4, lon: 26.1 };
+
+		const { createRecentsStore } = await import('./recents.svelte.js');
+		const store = createRecentsStore();
+
+		expect(() => store.add(a)).not.toThrow();
+		expect(store.recents.map((r) => r.id)).toEqual([10]);
+
+		expect(() => store.add(b)).not.toThrow();
+		expect(store.recents.map((r) => r.id)).toEqual([20, 10]);
+	});
 });

@@ -76,9 +76,18 @@ export function createFavoritesStore() {
 	}
 
 	function togglePin(id: number) {
-		const newPinned = pinnedId === id ? null : id;
-		pinnedId = newPinned;
-		persistPinnedId(newPinned);
+		if (pinnedId === id) {
+			pinnedId = null;
+			persistPinnedId(null);
+			return;
+		}
+
+		// Only pin stations that exist in favorites
+		const station = favorites.find((f) => f.id === id);
+		if (!station) return;
+
+		pinnedId = id;
+		persistPinnedId(id);
 	}
 
 	return {

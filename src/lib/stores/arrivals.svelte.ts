@@ -178,6 +178,18 @@ export function getCachedArrivals(): StationArrivals | null {
 		if (!raw) return null;
 		const parsed = JSON.parse(raw);
 		parsed.fetchedAt = new Date(parsed.fetchedAt);
+
+		// Validate structure before returning — prevents display crashes on corrupted cache
+		if (
+			!parsed ||
+			typeof parsed.stationName !== 'string' ||
+			typeof parsed.address !== 'string' ||
+			!Array.isArray(parsed.arrivals) ||
+			!(parsed.fetchedAt instanceof Date)
+		) {
+			return null;
+		}
+
 		return parsed as StationArrivals;
 	} catch {
 		return null;
