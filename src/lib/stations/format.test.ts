@@ -68,6 +68,19 @@ describe('formatLastUpdate', () => {
 		expect(formatLastUpdate(boundary, 'en')).not.toBe('');
 	});
 
+	it('treats timestamp at exactly now as "Just now"', () => {
+		const ts = Date.now(); // diffSeconds === 0
+		expect(formatLastUpdate(ts, 'en')).toBe('Just now');
+		expect(formatLastUpdate(ts, 'ro')).toBe('Acum');
+	});
+
+	it('handles timestamp from the distant past without falling into "now"', () => {
+		const old = new Date('2020-01-01T00:00:00Z').getTime();
+		expect(formatLastUpdate(old, 'en')).not.toBe('Just now');
+		expect(formatLastUpdate(old, 'ro')).not.toBe('Acum');
+		expect(formatLastUpdate(old, 'en')).not.toBe('');
+	});
+
 	it('formats future timestamps with positive assertions', () => {
 		const future = Date.now() + 5 * 60 * 1000; // 5 minutes in the future
 		const formattedEn = formatLastUpdate(future, 'en');
