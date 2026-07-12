@@ -29,23 +29,9 @@ export function createGeolocationStore() {
 		}
 	}
 
-	/** Load last known position from localStorage */
-	function loadSavedPosition(): GeoPosition | null {
-		// Intentionally do not persist precise geolocation in browser storage.
-		return null;
-	}
-
-	/** Save position to localStorage */
-	function savePosition(pos: GeoPosition): void {
-		// Intentionally no-op: avoid storing sensitive geolocation in clear text.
-		void pos;
-	}
-
-	/** Get the best available center: GPS > saved > Bucharest default */
+	/** Get the best available center: GPS > Bucharest default */
 	function getCenter(): { lat: number; lon: number } {
 		if (position) return { lat: position.lat, lon: position.lon };
-		const saved = loadSavedPosition();
-		if (saved) return { lat: saved.lat, lon: saved.lon };
 		return BUCHAREST_CENTER;
 	}
 
@@ -53,12 +39,6 @@ export function createGeolocationStore() {
 		if (watching || !navigator.geolocation) return;
 
 		updatePermissionStatus();
-
-		// Try saved position first for immediate use
-		const saved = loadSavedPosition();
-		if (saved && !position) {
-			position = saved;
-		}
 
 		watching = true;
 		error = null;
@@ -72,7 +52,6 @@ export function createGeolocationStore() {
 				};
 				position = newPos;
 				error = null;
-				savePosition(newPos);
 				permission = 'granted';
 			},
 			(geoErr) => {
