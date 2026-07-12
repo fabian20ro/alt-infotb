@@ -234,4 +234,39 @@ describe('favorites store', () => {
 		expect(threw).toBe(false);
 		expect(store.pinnedId).toBe(3570);
 	});
+
+	it('loadPinnedId rejects non-number pinned IDs from localStorage', async () => {
+		const station = { id: 3570, name: 'Piata Unirii', description: '', lat: 44.4, lon: 26.1 };
+		localStorage.setItem('alt-stb-favorites', JSON.stringify([station]));
+		localStorage.setItem('alt-stb-pinned', '"not-a-number"');
+
+		const { createFavoritesStore } = await import('./favorites.svelte.js');
+		const store = createFavoritesStore();
+		expect(store.pinnedId).toBeNull();
+	});
+
+	it('togglePin unpin removes the pinned key from localStorage via removeItem', async () => {
+		const station = { id: 3570, name: 'Piata Unirii', description: '', lat: 44.4, lon: 26.1 };
+
+		let removeItemCalls = 0;
+		vi.stubGlobal('localStorage', {
+			getItem: (key: string) => key === 'alt-stb-favorites' ? JSON.stringify([station]) : null,
+			setItem: () => {},
+			removeItem: () => { removeItemCalls++; },
+			clear: () => {}
+		});
+
+		const { createFavoritesStore } = await import('./favorites.svelte.js');
+		const store = createFavoritesStore();
+
+		expect(removeItemCalls).toBe(0);
+		expect(store.pinnedId).toBeNull();
+
+		store.togglePin(3570); // pin
+		expect(store.pinnedId).toBe(3570);
+
+		store.togglePin(3570); // unpin — should trigger removeItem
+		expect(store.pinnedId).toBeNull();
+		expect(removeItemCalls).toBeGreaterThanOrEqual(1);
+	});
 });
