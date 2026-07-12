@@ -107,6 +107,41 @@ test.describe('Station Arrivals', () => {
 		await expect(errorMsg).not.toBeVisible();
 	});
 
+	test('handles consecutive API failures before eventual recovery', async ({ page }) => {
+		let requestCount = 0;
+
+		await page.route('**/stb-api/**', async (route) => {
+			requestCount += 1;
+			if (requestCount <= 3) {
+				return route.abort();
+			}
+			return route.continue();
+		});
+
+		await page.goto('/');
+
+		const errorMsg = page.locator('.error-message');
+		await expect(errorMsg).toBeVisible({ timeout: 15_000 });
+
+		const retryBtn = page.locator('.retry-btn');
+		await expect(retryBtn).toBeVisible();
+
+		await retryBtn.click();
+
+		const direction = page.locator('.direction').first();
+		await expect(direction).toBeVisible({ timeout: 20_000 });
+
+		await expect(errorMsg).not.toBeVisible();
+
+		for (let i = 0; i < (await page.locator('.arrival-row').count()); i++) {
+			const row = page.locator('.arrival-row').nth(i);
+			const badge = row.locator('.line-badge');
+			await expect(badge).toBeVisible();
+			const text = await badge.textContent();
+			expect(text!.length).toBeGreaterThan(0);
+		}
+	});
+
 	test('refreshes on resume signal and continues 20s polling', async ({ page }) => {
 		let stopRequests = 0;
 		page.on('request', (request) => {
