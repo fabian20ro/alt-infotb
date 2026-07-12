@@ -106,4 +106,21 @@ describe('isNewRomanianDay', () => {
 		const nextMorning = new Date('2026-10-25T04:00:00Z').getTime(); // 07:00 EEST / 06:00 EET, both >= 4
 		expect(isNewRomanianDay(beforeTransition, nextMorning)).toBe(false);
 	});
+
+	it('detects the 4 AM Bucharest boundary under EEST (UTC+3) in pure summer time', () => {
+		// In June, Bucharest is in EEST (UTC+3).
+		//   00:59 UTC → 03:59 EEST (< 4) → previous transit day
+		//   01:00 UTC → 04:00 EEST (= 4)  → current transit day
+		const beforeBoundary = new Date('2026-06-16T00:59:59Z').getTime(); // 03:59 EEST, crosses into next transit day below
+		const afterBoundary = new Date('2026-06-16T01:00:01Z').getTime(); // 04:00 EEST, same calendar date but next transit day
+		expect(isNewRomanianDay(beforeBoundary, afterBoundary)).toBe(true);
+
+		// Both at or after the 4 AM boundary — same transit day under EEST
+		const laterSameDay = new Date('2026-06-16T05:00:00Z').getTime(); // 08:00 EEST
+		expect(isNewRomanianDay(afterBoundary, laterSameDay)).toBe(false);
+
+		// Both before the boundary — same transit day under EEST
+		const earlier = new Date('2026-06-16T00:30:00Z').getTime(); // 03:30 EEST
+		expect(isNewRomanianDay(earlier, beforeBoundary)).toBe(false);
+	});
 });

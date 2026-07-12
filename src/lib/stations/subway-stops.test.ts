@@ -51,6 +51,16 @@ describe('resolveStopIds', () => {
 		expect(resolveStopIds(14735)).toEqual([9652, 9655]); // Păcii (M3)
 	});
 
+	it('resolves M2 stations specifically', () => {
+		expect(resolveStopIds(14725)).toEqual([9596, 9597]); // Universitate (M2)
+		expect(resolveStopIds(14727)).toEqual([9587, 9588]); // Tineretului (M2)
+	});
+
+	it('resolves M1-only stations specifically', () => {
+		expect(resolveStopIds(14703)).toEqual([9751, 9752]); // Gara de Nord 1 (M1)
+		expect(resolveStopIds(14708)).toEqual([9578, 9579]); // Eroilor (M1+M3)
+	});
+
 	it('every subway station entry has no duplicate stop IDs', () => {
 		for (const [gtfsId, apiIds] of Object.entries(SUBWAY_STOP_IDS)) {
 			const unique = new Set(apiIds);

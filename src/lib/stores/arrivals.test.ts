@@ -292,6 +292,54 @@ describe('createArrivalsStore lifecycle polling', () => {
 
 		store.cleanup();
 	});
+
+	it('ignores in-flight fetch result after cleanup', async () => {
+		const pending = createDeferred<StationArrivals>();
+
+		fetchArrivalsMock.mockImplementationOnce(() => pending.promise);
+
+		const store = await createStore();
+		store.selectStation(3570);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(store.state.status).toBe('loading');
+
+		store.cleanup();
+		pending.resolve(makeArrivals('Late station'));
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(store.state.data).toBeNull();
+		expect(store.state.status).not.toBe('success');
+
+		store.cleanup();
+	});
+
+	it('resolves only the last request when stations are selected rapidly', async () => {
+		const initial = createDeferred<StationArrivals>();
+		const queued = createDeferred<StationArrivals>();
+
+		fetchArrivalsMock
+			.mockImplementationOnce(() => initial.promise)
+			.mockImplementation(() => queued.promise);
+
+		const store = await createStore();
+		store.selectStation(1001);
+		store.selectStation(2002);
+		store.selectStation(3003);
+
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(1); // only first fires; rest queue via refresh() early-return
+		expect(store.state.status).toBe('loading');
+
+		initial.resolve(makeArrivals('Stale'));
+		await vi.advanceTimersByTimeAsync(0);
+
+		// stale response discarded by version check, queued refresh runs immediately with current selection (3003)
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(2);
+		queued.resolve(makeArrivals('Current')); // resolve the queued call's promise
+		await vi.advanceTimersByTimeAsync(100); // give async chain time to complete
+		expect(store.state.data?.stationName).toBe('Current'); // queued call's data from current stopId 3003
+
+		store.cleanup();
+	});
 });
 
 describe('fetchArrivals input validation', () => {
