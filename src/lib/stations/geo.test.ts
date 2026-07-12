@@ -199,5 +199,53 @@ describe('geo', () => {
 			const results = findStationsInBounds(bounds, stations, 10, 1);
 			expect(results.map((s) => s.id)).toEqual([1]);
 		});
+
+		it('includes a station exactly at the south boundary', () => {
+			const bounds = { south: 44.4, north: 44.4001, west: 26, east: 27 };
+			const results = findStationsInBounds(bounds, stations, 10);
+			expect(results.map((s) => s.id).sort()).toEqual([1, 3]); // S1 and S3 at lat=44.4
+		});
+
+		it('includes a station exactly at the north boundary', () => {
+			const bounds = { south: 44.499, north: 44.5, west: 26.2, east: 26.2 };
+			const results = findStationsInBounds(bounds, stations, 10);
+			expect(results.map((s) => s.id)).toEqual([2]); // S2 at lat=44.5, lon=26.2
+		});
+
+		it('includes a station exactly at the west boundary', () => {
+			const bounds = { south: 44.399, north: 44.401, west: 26.1, east: 26.1 };
+			const results = findStationsInBounds(bounds, stations, 10);
+			expect(results.map((s) => s.id)).toEqual([1]); // S1 at lat=44.4, lon=26.1
+		});
+
+		it('includes a station exactly at the east boundary', () => {
+			const bounds = { south: 44.399, north: 44.501, west: 26.2, east: 26.2 };
+			const results = findStationsInBounds(bounds, stations, 10);
+			expect(results.map((s) => s.id).sort()).toEqual([2, 3]); // S2 and S3 at lon=26.2
+		});
+
+		it('excludes a station just beyond the south boundary', () => {
+			const bounds = { south: 44.401, north: 44.6, west: 26, east: 27 };
+			const results = findStationsInBounds(bounds, stations, 10);
+			expect(results.map((s) => s.id).sort()).toEqual([2]); // S1 and S3 excluded (lat=44.4 < 44.401), only S2 remains
+		});
+
+		it('returns only the selected station when bounds are zero-area at that station', () => {
+			const bounds = { south: 44.4, north: 44.4, west: 26.1, east: 26.1 };
+			const results = findStationsInBounds(bounds, stations, 10);
+			expect(results.map((s) => s.id)).toEqual([1]); // S1 at exactly (44.4, 26.1)
+		});
+
+		it('returns empty when bounds are zero-area and no station matches', () => {
+			const bounds = { south: 45, north: 45, west: 27, east: 27 };
+			const results = findStationsInBounds(bounds, stations, 10);
+			expect(results).toHaveLength(0);
+		});
+
+		it('excludes a station just beyond the north boundary', () => {
+			const bounds = { south: 40, north: 44.40001, west: 26, east: 26.15 };
+			const results = findStationsInBounds(bounds, stations, 10);
+			expect(results.map((s) => s.id)).toEqual([1]); // S2 excluded (lat=44.5 > 44.40001), S3 excluded (lon=26.2 > 26.15), only S1 remains
+		});
 	});
 });
