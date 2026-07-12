@@ -122,4 +122,37 @@ describe('Regression tests for punctuation', () => {
 		];
 		expect(searchStations('CFR Calatori', stations)).toHaveLength(1);
 	});
+
+	it('strips untested punctuation (parens, brackets, slashes, @, !, #) via normalize non-alnum rule', () => {
+		const stations: Station[] = [
+			{ id: 50, name: 'Gara (Centrală)', description: '', lat: 0, lon: 0 },
+			{ id: 51, name: 'Strada [Nouă]', description: '', lat: 0, lon: 0 },
+			{ id: 52, name: 'Piața / Nord', description: '', lat: 0, lon: 0 }
+		];
+		expect(searchStations('Gara Centrală', stations)).toHaveLength(1);
+		expect(searchStations('Strada Noua', stations)).toHaveLength(1);
+		expect(searchStations('Piața Nord', stations)).toHaveLength(1);
+		expect(normalize('(test) [foo] bar/baz').toLowerCase()).toBe('test foo bar baz');
+	});
+
+	it('strips special characters @ ! # ; , from names and queries via normalize', () => {
+		const stations: Station[] = [
+			{ id: 60, name: 'Station @ Hub!', description: '', lat: 0, lon: 0 }
+		];
+		expect(searchStations('station hub', stations)).toHaveLength(1);
+		expect(normalize('test # hash ; semicolon , comma').toLowerCase()).toBe('test hash semicolon comma');
+	});
+
+	it('handles mixed punctuation with diacritics in station name and query', () => {
+		const stations: Station[] = [
+			{ id: 70, name: 'Gara (Piața) Șosea! Centrală', description: '', lat: 0, lon: 0 }
+		];
+		expect(searchStations('Gara Piața Sosea Centrală', stations)).toHaveLength(1);
+	});
+
+	it('handles normalize with multiple consecutive special characters collapsing to single space', () => {
+		const result = normalize('a!!!b@@c//d[e]f').toLowerCase();
+		expect(result).toBe('a b c d e f');
+		expect(normalize('x;;;y,,,z???w##v').toLowerCase()).toBe('x y z w v');
+	});
 });
