@@ -137,4 +137,11 @@ describe('recents store', () => {
 		expect(() => store.add(b)).not.toThrow();
 		expect(store.recents.map((r) => r.id)).toEqual([20, 10]);
 	});
+
+	it('getExcluding returns empty array when recents has no stations', async () => {
+		const { createRecentsStore } = await import('./recents.svelte.js');
+		const store = createRecentsStore();
+
+		expect(store.getExcluding(new Set([1, 2]))).toEqual([]);
+	});
 });
