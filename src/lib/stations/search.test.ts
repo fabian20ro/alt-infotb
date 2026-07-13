@@ -154,6 +154,36 @@ describe('searchStations', () => {
 		expect(alfaScore!.score).toBeGreaterThan(centauriScore!.score!);
 	});
 
+	it('ranks ends-with match above description-only but below starts-with', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Unirii Piata', description: '', lat: 0, lon: 0 },   // query "piata" at end → ends-with score 60
+			{ id: 2, name: 'Piata Unirii', description: '', lat: 0, lon: 0 },   // query "piata" at start → starts-with score 80
+			{ id: 3, name: 'XYZ Hub', description: 'unirii piata text here', lat: 0, lon: 0 }, // desc only → score 20
+		];
+		const results = searchStations('piata', stations);
+		expect(results.map(s => s.id)).toEqual([2, 1, 3]);
+	});
+
+	it('excludes stations when multi-word query has partial (not full) word match', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Hello World Extra', description: '', lat: 0, lon: 0 },       // all 3 words in name → included
+			{ id: 2, name: 'Foo Bar Baz', description: '', lat: 0, lon: 0 },              // no match at all → excluded
+			{ id: 3, name: 'Partial Hello Only', description: '', lat: 0, lon: 0 },       // only "hello" in name (1/3) → excluded
+		];
+		const results = searchStations('hello world extra', stations);
+		expect(results.map(s => s.id)).toEqual([1]);
+	});
+
+	it('scores all-words match with name+description split correctly', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Hello World', description: '', lat: 0, lon: 0 },              // 2 word matches in name → 10 + 2*5 = 20
+			{ id: 2, name: 'Foo Bar Baz', description: 'Hello World text', lat: 0, lon: 0 }, // 0 name + 2 desc = 2 → 10 + 0*5 = 10
+			{ id: 3, name: 'Partial Hello Only', description: '', lat: 0, lon: 0 },       // only "hello" in name → partial → excluded
+		];
+		const results = searchStations('hello world', stations);
+		expect(results.map(s => s.id)).toEqual([1, 2]);
+	});
+
 	it('ranks all-word match above description-only when both exist for a multi-word query', () => {
 		const stations: Station[] = [
 			{ id: 20, name: 'Hello World', description: '', lat: 0, lon: 0 },
