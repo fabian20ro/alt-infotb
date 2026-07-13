@@ -74,6 +74,19 @@ describe('formatLastUpdate', () => {
 		expect(formatLastUpdate(ts, 'ro')).toBe('Acum');
 	});
 
+	it('treats sub-second boundary (59.5s ago) as "Just now"', () => {
+		const ts = Date.now() - 59_500; // diffSeconds ≈ 59.5 — still < 60
+		expect(formatLastUpdate(ts, 'en')).toBe('Just now');
+		expect(formatLastUpdate(ts, 'ro')).toBe('Acum');
+	});
+
+	it('treats sub-second boundary (60.1s ago) as date, not "Just now"', () => {
+		const ts = Date.now() - 60_100; // diffSeconds ≈ 60.1 — past < 60 threshold
+		expect(formatLastUpdate(ts, 'en')).not.toBe('Just now');
+		expect(formatLastUpdate(ts, 'ro')).not.toBe('Acum');
+		expect(formatLastUpdate(ts, 'en')).toMatch(/\d{4}/);
+	});
+
 	it('handles timestamp from the distant past without falling into "now"', () => {
 		const old = new Date('2020-01-01T00:00:00Z').getTime();
 		expect(formatLastUpdate(old, 'en')).not.toBe('Just now');
