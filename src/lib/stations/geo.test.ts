@@ -247,5 +247,35 @@ describe('geo', () => {
 			const results = findStationsInBounds(bounds, stations, 10);
 			expect(results.map((s) => s.id)).toEqual([1]); // S2 excluded (lat=44.5 > 44.40001), S3 excluded (lon=26.2 > 26.15), only S1 remains
 		});
+
+		it('returns selected station when no stations fall within bounds', () => {
+			const bounds = { south: 48, north: 49, west: 30, east: 31 };
+			const results = findStationsInBounds(bounds, stations, 10, 1);
+			expect(results.map((s) => s.id)).toEqual([1]); // No in-bounds stations; selectedId=1 should still be returned
+		});
+
+		it('returns empty when no stations fall within bounds and no selected station', () => {
+			const bounds = { south: 48, north: 49, west: 30, east: 31 };
+			const results = findStationsInBounds(bounds, stations, 10);
+			expect(results).toHaveLength(0); // No in-bounds, no selectedId → empty array
+		});
+
+		it('returns only the selected station when bounds are zero-area and exclude all stations', () => {
+			const bounds = { south: 48, north: 48, west: 30, east: 30 };
+			const results = findStationsInBounds(bounds, stations, 10, 2);
+			expect(results.map((s) => s.id)).toEqual([2]); // Zero-area bounds at (48,30); selectedId=2 should still be returned
+		});
+
+		it('returns empty when zero-area bounds exclude all stations and no selected', () => {
+			const bounds = { south: 48, north: 48, west: 30, east: 30 };
+			const results = findStationsInBounds(bounds, stations, 10);
+			expect(results).toHaveLength(0); // Zero-area bounds with no station and no selectedId → empty
+		});
+
+		it('does not return the selected station when it has a negative id', () => {
+			const bounds = { south: 48, north: 49, west: 30, east: 31 };
+			const results = findStationsInBounds(bounds, stations, 10, -1);
+			expect(results).toHaveLength(0); // selectedId=-1 is not a valid station id; no in-bounds → empty
+		});
 	});
 });
