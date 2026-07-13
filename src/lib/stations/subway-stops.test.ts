@@ -67,4 +67,11 @@ describe('resolveStopIds', () => {
 			expect(unique.size, `station ${gtfsId} should have no duplicates`).toBe(apiIds.length);
 		}
 	});
+
+	it('falls back to stationId for unknown IDs that look like valid API stop IDs', () => {
+		// An ID in the 9xxx range (which is an API stop ID range) but not in the map
+		// should still return [stationId] rather than [] — it's a "valid-looking" integer.
+		expect(resolveStopIds(9645)).toEqual([9645]); // valid-looking, just unknown station
+		expect(resolveStopIds(9700)).toEqual([9700]); // another 9xxx value not in map
+	});
 });
