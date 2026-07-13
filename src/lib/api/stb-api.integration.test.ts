@@ -169,6 +169,35 @@ describe('STB API (real network)', () => {
 		}
 	});
 
+	it('returns multiple distinct lines at the configured stop', async () => {
+		const headers = { ...STB_SERVER_HEADERS, 'User-Info': authToken };
+		const response = await fetch(STB_API_URL, { headers });
+		expect(response.status).toBe(200);
+		const buf = new Uint8Array(await response.arrayBuffer());
+
+		const reader = new ProtoReader(buf);
+		const fields = reader.readAllFields();
+		const lineMessages = getMessages(fields, PROTO_FIELDS.STOP.LINES);
+
+		expect(lineMessages.length).toBeGreaterThanOrEqual(2);
+
+		// Each arrival entry must carry a schedule-flag sub-field (0=realtime, 1=estimated)
+		for (const lineData of lineMessages) {
+			const lineReader = new ProtoReader(lineData);
+			const lineFields = lineReader.readAllFields();
+			const arrivals = getMessages(lineFields, PROTO_FIELDS.LINE.ARRIVALS);
+
+			for (const arrivalData of arrivals) {
+				const arrivalReader = new ProtoReader(arrivalData);
+				const arrivalFields = arrivalReader.readAllFields();
+
+				const isScheduled = getVarint(arrivalFields, PROTO_FIELDS.ARRIVAL.IS_SCHEDULED);
+				expect(isScheduled).toBeDefined();
+				expect([0, 1]).toContain(isScheduled);
+			}
+		}
+	});
+
 	it('full protobuf read completes without throwing (error boundary)', async () => {
 		const headers = { ...STB_SERVER_HEADERS, 'User-Info': authToken };
 		const response = await fetch(STB_API_URL, { headers });
