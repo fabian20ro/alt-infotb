@@ -49,6 +49,14 @@ describe('Regression tests for punctuation', () => {
 		expect(searchStations('', stations)).toHaveLength(0);
 	});
 
+	it('normalizes pure-punctuation input to an empty string and searchStations returns no matches for such queries', () => {
+		const stations: Station[] = [{ id: 80, name: 'Centrală', description: '', lat: 0, lon: 0 }];
+		expect(normalize('!!!')).toBe('');
+		expect(normalize('@#@#')).toBe('');
+		expect(normalize('...,,,,;;;').toLowerCase()).toBe('');
+		expect(searchStations('!!!', stations)).toHaveLength(0);
+	});
+
 	it('handles numeric query "0" when no station has id 0', () => {
 		const stations: Station[] = [
 			{ id: 1, name: 'A', description: '', lat: 0, lon: 0 },
