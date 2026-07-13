@@ -123,4 +123,56 @@ describe('isNewRomanianDay', () => {
 		const earlier = new Date('2026-06-16T00:30:00Z').getTime(); // 03:30 EEST
 		expect(isNewRomanianDay(earlier, beforeBoundary)).toBe(false);
 	});
+
+	it('detects cross-midnight UTC within the same transit day', () => {
+		// Two timestamps on different calendar dates but mapping to the
+		// SAME Bucharest local date — both before 4 AM EET. They must be
+		// in the *same* transit day because getRomanianDayNumber uses
+		// Bucharest local date as its base, adjusted only for hour < 4.
+		//   Jan 15, 23:30Z → 01:30 EET (day=16, hour<4) → day N transit
+		//   Jan 16, 00:30Z → 02:30 EET (day=16, hour<4) → same day N transit
+		const beforeMidnight = new Date('2026-01-15T23:30:00Z').getTime(); // 01:30 EET on Jan 16 local
+		const afterMidnight = new Date('2026-01-16T00:30:00Z').getTime();   // 02:30 EET on same day
+		expect(isNewRomanianDay(beforeMidnight, afterMidnight)).toBe(false);
+
+		// Same Bucharest date but both at or after boundary — still same transit day
+		const beforeBoundary = new Date('2026-01-15T23:40:00Z').getTime(); // 01:40 EET, day 16 local, hour<4 → adjusted day
+		const atBoundary = new Date('2026-01-16T02:00:00Z').getTime();     // 04:00 EET, day 16 local, hour=4 → same base day (no -1)
+		// beforeBoundary: day=16, hour=1 (<4), so dayNumber = Date.UTC(2026,0,16)/86_400_000 - 1
+		// atBoundary: day=16, hour=4 (>=4), so dayNumber = Date.UTC(2026,0,16)/86_400_000
+		// Different! atBoundary is in next transit day.
+		expect(isNewRomanianDay(beforeBoundary, atBoundary)).toBe(true);
+
+		// Reversed: going back from after to before boundary = false (day decreases)
+		expect(isNewRomanianDay(atBoundary, beforeMidnight)).toBe(false);
+	});
+
+	it('detects the same transit day across two calendar nights', () => {
+		// Two timestamps in UTC both on the SAME Bucharest local date
+		// and both before 4 AM — must yield false.
+		const a = new Date('2026-01-15T23:00:00Z').getTime(); // 01:00 EET, day 16 local
+		const b = new Date('2026-01-16T00:00:00Z').getTime(); // 02:00 EET, same day 16 local
+		expect(isNewRomanianDay(a, b)).toBe(false);
+
+		// Same calendar date but both after boundary — still same transit day
+		const c = new Date('2026-01-15T23:45:00Z').getTime(); // 01:45 EET (day 16 local, hour<4) → adjusted day
+		expect(isNewRomanianDay(c, a)).toBe(false);
+
+		// Same UTC date but one before boundary and one after — different transit days
+		const d = new Date('2026-01-15T23:59:00Z').getTime(); // 01:59 EET (day 16 local, hour<4) → adjusted day N-1
+		const e = new Date('2026-01-16T02:00:00Z').getTime(); // 04:00 EET (day 16 local, hour>=4) → same base day N
+		expect(isNewRomanianDay(d, e)).toBe(true); // crosses boundary into new transit day
+	});
+
+	it('detects the boundary crossing under EET within one calendar day', () => {
+		// Both on Jan 15, 2026 in Bucharest time:
+		//   01:30Z = 03:30 EET (< 4) → previous transit day (N-1)
+		//   02:30Z = 04:30 EET (>= 4) → current transit day (N)
+		const before = new Date('2026-01-15T01:30:00Z').getTime(); // 03:30 EET
+		const after = new Date('2026-01-15T02:30:00Z').getTime(); // 04:30 EET
+		expect(isNewRomanianDay(before, after)).toBe(true);
+
+		// Reversed — going back in time should give false (day N → day N-1)
+		expect(isNewRomanianDay(after, before)).toBe(false);
+	});
 });

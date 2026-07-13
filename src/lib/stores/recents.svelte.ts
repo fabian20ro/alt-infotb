@@ -26,6 +26,7 @@ export function createRecentsStore() {
 
 	/** Add a station to recents (moves to front if already present) */
 	function add(station: Station) {
+		if (!station || typeof station.id !== 'number' || !Number.isFinite(station.id)) return;
 		const filtered = recents.filter((r) => r.id !== station.id);
 		recents = [station, ...filtered].slice(0, MAX_RECENTS);
 		persistRecents(recents);
