@@ -178,6 +178,24 @@ describe('searchStations', () => {
 		expect(results).toHaveLength(1);
 	});
 
+	it('scores a station higher when all query words appear in its name vs only in description', () => {
+		const stations = [
+			{ id: 1, name: 'Piata Unirii Hub', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'Alpha', description: 'Piata Unirii is a hub here', lat: 0, lon: 0 }
+		] as Station[];
+		const results = searchStations('piata unirii', stations);
+		expect(results).toHaveLength(2);
+		expect(results[0].id).toBe(1);
+	});
+
+	it('includes a station when query words are split between its name and description', () => {
+		const stations = [
+			{ id: 1, name: 'Piata', description: 'near Unirii', lat: 0, lon: 0 }
+		] as Station[];
+		const results = searchStations('piata unirii', stations);
+		expect(results).toHaveLength(1);
+	});
+
 	it('returns [] for null stations', () => {
 		const results = searchStations('abc', null as unknown as Station[]);
 		expect(results).toEqual([]);
