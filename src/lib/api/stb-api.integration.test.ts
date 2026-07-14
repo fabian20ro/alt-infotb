@@ -212,4 +212,69 @@ describe('STB API (real network)', () => {
 		}
 		expect(threw).toBe(false);
 	});
+
+	it('each line entry carries a LINE.COLOR hex string (field 4)', async () => {
+		const headers = { ...STB_SERVER_HEADERS, 'User-Info': authToken };
+		const response = await fetch(STB_API_URL, { headers });
+		expect(response.status).toBe(200);
+		const buf = new Uint8Array(await response.arrayBuffer());
+
+		const reader = new ProtoReader(buf);
+		const fields = reader.readAllFields();
+		const lineMessages = getMessages(fields, PROTO_FIELDS.STOP.LINES);
+
+		for (const lineData of lineMessages) {
+			const lineReader = new ProtoReader(lineData);
+			const lineFields = lineReader.readAllFields();
+			const colorStr = getString(lineFields, PROTO_FIELDS.LINE.COLOR);
+			expect(colorStr).toBeTruthy();
+			expect(colorStr).toMatch(/^#[0-9A-Fa-f]{6}$/);
+		}
+	});
+
+	it('each arrival carries IS_SCHEDULED and SECONDS with valid range', async () => {
+		const headers = { ...STB_SERVER_HEADERS, 'User-Info': authToken };
+		const response = await fetch(STB_API_URL, { headers });
+		expect(response.status).toBe(200);
+		const buf = new Uint8Array(await response.arrayBuffer());
+
+		const reader = new ProtoReader(buf);
+		const fields = reader.readAllFields();
+		const { LINE, ARRIVAL } = PROTO_FIELDS;
+
+		const lineMessages = getMessages(fields, PROTO_FIELDS.STOP.LINES);
+		let totalArrivals = 0;
+		let scheduledCount = 0;
+		let estimatedCount = 0;
+
+		for (const lineData of lineMessages) {
+			const lineReader = new ProtoReader(lineData);
+			const lineFields = lineReader.readAllFields();
+			const arrivals = getMessages(lineFields, LINE.ARRIVALS);
+
+			for (const arrivalData of arrivals) {
+				const arrivalReader = new ProtoReader(arrivalData);
+				const arrivalFields = arrivalReader.readAllFields();
+
+				const isScheduled = getVarint(arrivalFields, ARRIVAL.IS_SCHEDULED);
+				expect(isScheduled).toBeDefined();
+				expect([0, 1]).toContain(isScheduled);
+
+				const seconds = getVarint(arrivalFields, ARRIVAL.SECONDS);
+				expect(seconds).toBeDefined();
+				// Per schema: valid arrivals are within MAX_ARRIVAL_SECONDS (7200)
+				expect(seconds).toBeGreaterThanOrEqual(0);
+				expect(seconds).toBeLessThanOrEqual(7200);
+
+				totalArrivals++;
+				if (isScheduled === 1) scheduledCount++;
+				else estimatedCount++;
+			}
+		}
+
+		expect(totalArrivals).toBeGreaterThan(0);
+		// Both schedule types should be present in a real-world stop response
+		expect(scheduledCount).toBeGreaterThan(0);
+		expect(estimatedCount).toBeGreaterThan(0);
+	});
 });
