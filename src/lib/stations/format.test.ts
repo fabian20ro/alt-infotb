@@ -2,11 +2,19 @@ import { describe, it, expect } from 'vitest';
 import { formatLastUpdate } from './format.js';
 
 describe('formatLastUpdate', () => {
-	it('formats date in English', () => {
+	it('formats date in English with AM/PM time', () => {
 		const ts = new Date('2026-06-11T10:11:00Z').getTime();
-		// Note: exact format can depend on environment, but should be close to 'Jun 11, 2026, 10:11 AM'
 		const formatted = formatLastUpdate(ts, 'en');
 		expect(formatted).toContain('Jun 11, 2026');
+		expect(formatted).toMatch(/\d{1,2}:\d{2}\s?(AM|PM)/);
+	});
+
+	it('formats date in Romanian with abbreviated month and period', () => {
+		const ts = new Date('2026-06-11T10:11:00Z').getTime();
+		const formatted = formatLastUpdate(ts, 'ro');
+		expect(formatted).toContain('11');
+		expect(formatted).toMatch(/iun\./);
+		expect(formatted).toContain('2026');
 	});
 
 	it('formats date in Romanian', () => {
