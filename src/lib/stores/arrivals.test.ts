@@ -279,6 +279,48 @@ describe('createArrivalsStore lifecycle polling', () => {
 		store.cleanup();
 	});
 
+	it('resumes polling immediately when onVisible fires within the hidden grace period', async () => {
+		fetchArrivalsMock.mockResolvedValue(makeArrivals('A'));
+
+		const store = await createStore();
+		store.selectStation(3570);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(1);
+
+		// onHidden starts a grace period (60s countdown) — polling still active during this window.
+		// onVisible immediately clears the grace timer, re-arms poll, and triggers an immediate refresh.
+		store.onHidden();
+		const callsBeforeVisible = fetchArrivalsMock.mock.calls.length;
+
+		store.onVisible(); // triggers immediate refresh via scheduleNextPoll() + refresh()
+		await vi.advanceTimersByTimeAsync(0);
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(callsBeforeVisible + 1);
+
+		store.cleanup();
+	});
+
+	it('clears hidden-pause state when cleanup is called during the grace period', async () => {
+		fetchArrivalsMock.mockResolvedValue(makeArrivals('A'));
+
+		const store = await createStore();
+		store.selectStation(3570);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(1);
+
+		store.onHidden();
+		// advance to 40s — inside the 60s grace period (not yet paused)
+		await vi.advanceTimersByTimeAsync(40_000);
+		expect(store.state.data?.stationName).toBe('A');
+
+		store.cleanup();
+
+		// after cleanup, polling is disabled; no further calls even if timers fire
+		const countAfterCleanup = fetchArrivalsMock.mock.calls.length;
+
+		await vi.advanceTimersByTimeAsync(61_000); // past the original grace timeout + one poll interval
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(countAfterCleanup);
+	});
+
 	it('sets normalized error message when fetch throws a non-Error value', async () => {
 		fetchArrivalsMock.mockRejectedValue('string error');
 
