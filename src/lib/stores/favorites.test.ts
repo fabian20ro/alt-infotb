@@ -269,4 +269,43 @@ describe('favorites store', () => {
 		expect(store.pinnedId).toBeNull();
 		expect(removeItemCalls).toBeGreaterThanOrEqual(1);
 	});
+
+	it('remove() leaves favorites unchanged when stationId does not exist', async () => {
+		const station = { id: 3570, name: 'Piata Unirii', description: '', lat: 44.4, lon: 26.1 };
+		localStorage.setItem('alt-stb-favorites', JSON.stringify([station]));
+
+		const { createFavoritesStore } = await import('./favorites.svelte.js');
+		const store = createFavoritesStore();
+
+		expect(() => store.remove(9999)).not.toThrow();
+		expect(store.favorites).toHaveLength(1);
+		expect(store.favorites[0].id).toBe(3570);
+	});
+
+	it('persistFavorites writes correct JSON after remove', async () => {
+		const stationA = { id: 3570, name: 'Piata Unirii', description: '', lat: 44.4, lon: 26.1 };
+		const stationB = { id: 9999, name: 'Gara de Nord', description: '', lat: 44.43, lon: 26.08 };
+		localStorage.setItem('alt-stb-favorites', JSON.stringify([stationA, stationB]));
+
+		const { createFavoritesStore } = await import('./favorites.svelte.js');
+		const store = createFavoritesStore();
+
+		store.remove(9999);
+		const stored = JSON.parse(localStorage.getItem('alt-stb-favorites')!);
+		expect(stored).toHaveLength(1);
+		expect(stored[0].id).toBe(3570);
+	});
+
+	it('togglePin() does not change pinnedId when station is not in favorites (non-empty list)', async () => {
+		const existingStation = { id: 3570, name: 'Piata Unirii', description: '', lat: 44.4, lon: 26.1 };
+		localStorage.setItem('alt-stb-favorites', JSON.stringify([existingStation]));
+
+		const { createFavoritesStore } = await import('./favorites.svelte.js');
+		const store = createFavoritesStore();
+
+		expect(store.pinnedId).toBeNull();
+
+		store.togglePin(9999); // 9999 is not in favorites
+		expect(store.pinnedId).toBeNull();
+	});
 });
