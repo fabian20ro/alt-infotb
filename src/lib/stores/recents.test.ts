@@ -144,4 +144,49 @@ describe('recents store', () => {
 
 		expect(store.getExcluding(new Set([1, 2]))).toEqual([]);
 	});
+
+	it('getExcluding filters out stations with matching favorite IDs only', async () => {
+		const stations = [
+			{ id: 1, name: 'A', description: '', lat: 44.4, lon: 26.1 },
+			{ id: 2, name: 'B', description: '', lat: 44.4, lon: 26.1 },
+			{ id: 3, name: 'C', description: '', lat: 44.4, lon: 26.1 }
+		];
+
+		const { createRecentsStore } = await import('./recents.svelte.js');
+		const store = createRecentsStore();
+		store.add(stations[0]);
+		store.add(stations[1]);
+		store.add(stations[2]);
+
+		// Favorites include ID 2 — should be excluded from result
+		const result = store.getExcluding(new Set([2]));
+		expect(result.map((r) => r.id)).toEqual([3, 1]);
+	});
+
+	it('add silently ignores null and undefined station objects', async () => {
+		const a = { id: 10, name: 'A', description: '', lat: 44.4, lon: 26.1 };
+
+		const { createRecentsStore } = await import('./recents.svelte.js');
+		const store = createRecentsStore();
+
+		expect(() => store.add(null as any)).not.toThrow();
+		expect(() => store.add(undefined as any)).not.toThrow();
+		expect(store.recents).toEqual([]);
+
+		store.add(a);
+		expect(store.recents.map((r) => r.id)).toEqual([10]);
+	});
+
+	it('add silently ignores stations with non-finite IDs', async () => {
+		const a = { id: 10, name: 'A', description: '', lat: 44.4, lon: 26.1 };
+
+		const { createRecentsStore } = await import('./recents.svelte.js');
+		const store = createRecentsStore();
+
+		expect(() => store.add({ id: NaN, name: 'Bad', description: '', lat: 0, lon: 0 })).not.toThrow();
+		expect(() => store.add({ id: Infinity, name: 'Inf', description: '', lat: 0, lon: 0 })).not.toThrow();
+
+		store.add(a);
+		expect(store.recents.map((r) => r.id)).toEqual([10]);
+	});
 });
