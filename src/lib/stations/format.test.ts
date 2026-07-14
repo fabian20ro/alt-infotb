@@ -88,11 +88,10 @@ describe('formatLastUpdate', () => {
 		expect(formatLastUpdate(ts, 'ro')).toBe('Acum');
 	});
 
-	it('treats sub-second boundary (60.1s ago) as date, not "Just now"', () => {
-		const ts = Date.now() - 60_100; // diffSeconds ≈ 60.1 — past < 60 threshold
+	it('treats sub-second boundary (60.1s ago) as relative time, not "Just now"', () => {
+		const ts = Date.now() - 60_100; // ~60.1s ago — past < 60 threshold
 		expect(formatLastUpdate(ts, 'en')).not.toBe('Just now');
 		expect(formatLastUpdate(ts, 'ro')).not.toBe('Acum');
-		expect(formatLastUpdate(ts, 'en')).toMatch(/\d{4}/);
 	});
 
 	it('handles timestamp from the distant past without falling into "now"', () => {
@@ -116,5 +115,46 @@ describe('formatLastUpdate', () => {
 		// diffSeconds would be -30, failing the >= 0 guard → falls through to Intl formatting
 		expect(formatLastUpdate(future, 'en')).not.toBe('Just now');
 		expect(formatLastUpdate(future, 'ro')).not.toBe('Acum');
+	});
+
+	it('formats minutes-ago relative time in English', () => {
+		const ts = Date.now() - 5 * 60 * 1000; // 5 minutes ago
+		expect(formatLastUpdate(ts, 'en')).toBe('5 minutes ago');
+	});
+
+	it('formats minutes-ago relative time in Romanian', () => {
+		const ts = Date.now() - 5 * 60 * 1000; // 5 minutes ago
+		expect(formatLastUpdate(ts, 'ro')).toBe('5 min');
+	});
+
+	it('formats hours-ago relative time in English', () => {
+		const ts = Date.now() - 3 * 3600 * 1000; // 3 hours ago
+		expect(formatLastUpdate(ts, 'en')).toBe('3 hours ago');
+	});
+
+	it('formats hours-ago relative time in Romanian', () => {
+		const ts = Date.now() - 3 * 3600 * 1000; // 3 hours ago
+		expect(formatLastUpdate(ts, 'ro')).toBe('3 h');
+	});
+
+	it('formats days-ago relative time in English', () => {
+		const ts = Date.now() - 5 * 24 * 3600 * 1000; // 5 days ago
+		expect(formatLastUpdate(ts, 'en')).toBe('5 days ago');
+	});
+
+	it('formats days-ago relative time in Romanian', () => {
+		const ts = Date.now() - 5 * 24 * 3600 * 1000; // 5 days ago
+		expect(formatLastUpdate(ts, 'ro')).toBe('5 z');
+	});
+
+	it('falls back to full date for timestamps older than ~7 days', () => {
+		const old = new Date('2020-06-11T10:00:00Z').getTime();
+		const formattedEn = formatLastUpdate(old, 'en');
+		expect(formattedEn).toMatch(/\d{4}/);
+	});
+
+	it('formats near-future timestamps as empty string', () => {
+		const future = Date.now() + 30 * 1000; // 30s in the future
+		expect(formatLastUpdate(future, 'en')).toBe('');
 	});
 });
