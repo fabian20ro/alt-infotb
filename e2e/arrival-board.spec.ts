@@ -225,6 +225,28 @@ test.describe('Station Arrivals', () => {
 		const text = await errorMsg.textContent();
 		expect(text!.length).toBeGreaterThan(0);
 	});
+
+	test('shows "no lines" message when API returns empty arrivals', async ({ page }) => {
+		await page.route('**/stb-api/**', async (route) => {
+			if (!route.request().url().includes('/lines/stop?')) return route.continue();
+			return route.fulfill({
+				status: 200,
+				contentType: 'application/octet-stream',
+				body: new ArrayBuffer(0),
+			});
+		});
+
+		await page.goto('/');
+
+		const direction = page.locator('.direction').first();
+		await expect(direction).toBeVisible({ timeout: 15_000 });
+
+		const noArrivals = page.locator('p.no-arrivals');
+		await expect(noArrivals).toBeVisible();
+
+		const text = await noArrivals.textContent();
+		expect(text!.length).toBeGreaterThan(0);
+	});
 });
 
 test.describe('Hamburger Drawer', () => {
