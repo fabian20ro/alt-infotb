@@ -1,5 +1,13 @@
-import { describe, it, expect } from 'vitest';
-import { isNewRomanianDay } from './data.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { isNewRomanianDay, loadStations } from './data.js';
+
+// Mock the db module so we can control getStations/saveStations/getLastRefreshTime/updateLastRefreshTime
+vi.mock('./db.js', () => ({
+	getStations: vi.fn().mockResolvedValue([]),
+	saveStations: vi.fn().mockResolvedValue(undefined),
+	getLastRefreshTime: vi.fn().mockResolvedValue(0),
+	updateLastRefreshTime: vi.fn().mockResolvedValue(undefined)
+}));
 
 describe('isNewRomanianDay', () => {
 	// Fixed timestamps in Bucharest time to ensure determinism
