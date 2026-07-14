@@ -245,6 +245,29 @@ describe('ProtoReader', () => {
 		expect(getMessages(fields, 1)).toEqual([]);
 	});
 
+	it('readAllFields skips fixed-size fields (types 1 and 5) without breaking subsequent parsing', () => {
+		// Wire type 1 (64-bit fixed) consumes 8 bytes; wire type 5 (32-bit fixed) consumes 4 bytes.
+		// readAllFields must advance past both and keep parsing the next varint correctly.
+		const data = new Uint8Array([
+			0x19, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, // field 3, type 1 — skip 8 bytes
+			0x2d, 0x04, 0x05, 0x06, 0x07,                          // field 5, type 5 — skip 4 bytes
+			0x08, 0x42,                                            // field 1, type 0, value 66
+		]);
+		const reader = new ProtoReader(data);
+		const fields = reader.readAllFields();
+		expect(fields.size).toBe(3);
+		expect(fields.get(5)).toHaveLength(1); // fixed-size field was skipped but still recorded
+		expect(fields.get(1)).toEqual([66]);   // subsequent varint parsed correctly after the skips
+	});
+
+	it('readAllFields handles a single zero-value varint', () => {
+		// Varint 0 is a valid encoding and must not be confused with end-of-buffer.
+		const data = new Uint8Array([0x08, 0x00]); // field 1, type 0, value 0
+		const reader = new ProtoReader(data);
+		const fields = reader.readAllFields();
+		expect(fields.get(1)).toEqual([0]);
+	});
+
 	it('returns replacement characters for invalid UTF-8 in getString', () => {
 		// TextDecoder does NOT reject invalid sequences — it substitutes U+FFFD.
 		// getString returns the decoded text, even if garbled; callers must handle this at their level.
