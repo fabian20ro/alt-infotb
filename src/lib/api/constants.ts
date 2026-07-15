@@ -40,9 +40,12 @@ function _resolveApiBase(): string {
 		if (env) {
 			if (env.DEV) return '/stb-api';
 			if (env.VITE_STB_API_BASE) return env.VITE_STB_API_BASE;
+		} else {
+			return 'https://info.stb.ro/api/web/v2-6';
 		}
-	} catch {
-		// import.meta.env not available during Vite config loading — fall through
+	} catch (e) {
+		console.warn('_resolveApiBase: import.meta.env unavailable, falling back to hardcoded URL', e);
+		return 'https://info.stb.ro/api/web/v2-6';
 	}
 	return 'https://info.stb.ro/api/web/v2-6';
 }
