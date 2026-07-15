@@ -9,6 +9,10 @@ vi.mock('./db.js', () => ({
 	updateLastRefreshTime: vi.fn().mockResolvedValue(undefined)
 }));
 
+import { getStations, saveStations } from './db.js';
+
+const cachedStation = [{ id: 'test-1', name: 'Test Station' }] as const;
+
 describe('isNewRomanianDay', () => {
 	// Fixed timestamps in Bucharest time to ensure determinism
 	// We use UTC times that are guaranteed to fall on different Romanian days
@@ -182,5 +186,44 @@ describe('isNewRomanianDay', () => {
 
 		// Reversed — going back in time should give false (day N → day N-1)
 		expect(isNewRomanianDay(after, before)).toBe(false);
+	});
+});
+
+describe('loadStations', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('returns cached stations from IndexedDB without saving bundled data', async () => {
+		(getStations as ReturnType<typeof vi.fn>).mockResolvedValue(cachedStation);
+
+		const { stations, refreshDone } = await loadStations();
+
+		expect(stations).toEqual(cachedStation);
+		expect(saveStations).not.toHaveBeenCalled();
+		await expect(refreshDone).resolves.toBeUndefined(); // resolves silently
+	});
+
+	it('falls back to bundled data when cache is empty', async () => {
+		const defaultGetStations = (getStations as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+		const result = await loadStations();
+
+		// Cache was empty → should fall through to bundled fallback and call saveStations
+		expect(saveStations).toHaveBeenCalledTimes(1);
+		// Bundled data is loaded from stations.json — not controllable, but must be a real array
+		expect(result.stations).toBeInstanceOf(Array);
+		expect(result.stations.length).toBeGreaterThan(100); // real bundled stations
+	});
+
+	it('falls back to bundled data when IndexedDB throws (private browsing)', async () => {
+		(getStations as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('IndexedDB unavailable'));
+
+		const result = await loadStations();
+
+		// Should not crash and should return the bundled station list via fallback path
+		expect(saveStations).toHaveBeenCalledTimes(1);
+		expect(result.stations).toBeInstanceOf(Array);
+		expect(result.stations.length).toBeGreaterThan(100); // real bundled data
 	});
 });
