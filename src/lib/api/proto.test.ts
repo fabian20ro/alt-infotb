@@ -286,4 +286,50 @@ describe('ProtoReader', () => {
 		const slice = new Uint8Array(full.slice(4, 8)); // bytes at indices 4..7 of full
 		expect(slice).toEqual(new Uint8Array([8, 10, 12, 14]));
 	});
+
+	it('decodes multi-byte UTF-8 sequences in getString', () => {
+		// Real-world protobuf strings often contain non-ASCII characters.
+		// "é" = 0xC3 0xA9 (2 bytes), "€" = 0xE2 0x82 0xAC (3 bytes).
+		const utf8Bytes = new Uint8Array([
+			0xc3, 0xa9, // é
+			0xe2, 0x82, 0xac // €
+		]);
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [utf8Bytes]);
+		expect(getString(fields, 1)).toBe('é€');
+	});
+
+	it('readAllFields handles multiple zero-value varints on different fields', () => {
+		// Varint 0 is valid encoding; multiple zero-value fields must all parse correctly.
+		// Field number = tag >> 3; wire type = tag & 7. Field 4, varint 0 → 0x20, 0x00.
+		const data = new Uint8Array([
+			0x08, 0x00, // field 1, value 0
+			0x12, 0x03, 0x61, 0x62, 0x63, // field 2, "abc"
+			0x20, 0x00, // field 4, value 0
+		]);
+		const reader = new ProtoReader(data);
+		const fields = reader.readAllFields();
+		expect(fields.get(1)).toEqual([0]);
+		expect(fields.get(2)).toEqual([new Uint8Array([0x61, 0x62, 0x63])]);
+		expect(fields.get(4)).toEqual([0]);
+	});
+
+	it('getMessages returns empty array when field exists but holds only varints', () => {
+		// When a repeated message field contains no Uint8Array entries, getMessages must return [].
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [42, 99]); // purely numeric
+		expect(getMessages(fields, 1)).toEqual([]);
+	});
+
+	it('getMessages returns empty array when field does not exist', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(2, [new Uint8Array([0x01])]); // only field 2 exists
+		expect(getMessages(fields, 99)).toEqual([]);
+	});
+
+	it('getString returns empty string for zero-length Uint8Array', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [new Uint8Array([])]); // empty bytes → empty string
+		expect(getString(fields, 1)).toBe('');
+	});
 });
