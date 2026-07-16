@@ -277,5 +277,23 @@ describe('geo', () => {
 			const results = findStationsInBounds(bounds, stations, 10, -1);
 			expect(results).toHaveLength(0); // selectedId=-1 is not a valid station id; no in-bounds → empty
 		});
+
+		it('returns only the overflow-selected station when bounds exceed maxCount and selected is outside them', () => {
+			// When too many stations are in-bounds, the function short-circuits to return just [selected]
+			// regardless of whether selected is inside or outside bounds. This tests that priority.
+			const wideBounds = { south: 40, north: 50, west: 20, east: 30 };
+			const results = findStationsInBounds(wideBounds, stations, 2, 99);
+			// inBounds.length(3) > maxCount(2), so early-return with [selected] even though selectedId=99 is not a real station
+			expect(results).toHaveLength(0); // selectedId=99 does not match any station → falls through to []
+		});
+
+		it('returns only the overflow-selected station when bounds exceed maxCount and selected is outside them (valid id)', () => {
+			// Wide bounds contain all 3 stations, but maxCount=2 means we short-circuit.
+			// SelectedId=4 is valid in-station list but OUTSIDE these specific wideBounds (lat=44.5, lon=26.2 → actually inside)
+			const bounds = { south: 40, north: 44.401, west: 20, east: 30 }; // only S1(44.4,26.1) and S3(44.4,26.2) in-bounds
+			const results = findStationsInBounds(bounds, stations, 1, 2);
+			// inBounds.length(2) > maxCount(1), early-return [selected] → [S2], even though S2 is OUT of bounds (lat=44.5)
+			expect(results.map((s) => s.id)).toEqual([2]);
+		});
 	});
 });
