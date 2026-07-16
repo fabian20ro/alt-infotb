@@ -244,4 +244,32 @@ describe('searchStations', () => {
 		expect(results).toHaveLength(1);
 		expect(results[0].id).toBe(2);
 	});
+
+	it('returns [] for an empty stations array', () => {
+		const results = searchStations('abc', [] as Station[]);
+		expect(results).toEqual([]);
+	});
+
+	it('respects maxResults=0 by returning no matches', () => {
+		const results = searchStations('Piata', stations, 0);
+		expect(results).toHaveLength(0);
+	});
+
+	it('matches a partial substring within a station name token at phrase-score level', () => {
+		// "piat" is contained in "Piata Unirii" — the includes() branch on line 50 fires.
+		const results = searchStations('piat', [{ id: 1, name: 'Piata Unirii', description: '', lat: 0, lon: 0 }] as Station[]);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Piata Unirii');
+	});
+
+	it('description-only multi-word match scores lower than a name-match in the same query', () => {
+		const stations = [
+			{ id: 1, name: 'Alpha', description: 'contains piata unirii text', lat: 0, lon: 0 },
+			{ id: 2, name: 'Piata Unirii', description: '', lat: 0, lon: 0 }
+		] as Station[];
+		const results = searchStations('piata unirii', stations);
+		expect(results).toHaveLength(2);
+		// Name phrase match (score ~60-70) should rank above description-only (score 20).
+		expect(results[0].name).toBe('Piata Unirii');
+	});
 });
