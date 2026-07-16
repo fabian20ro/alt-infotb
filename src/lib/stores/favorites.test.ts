@@ -308,4 +308,20 @@ describe('favorites store', () => {
 		store.togglePin(9999); // 9999 is not in favorites
 		expect(store.pinnedId).toBeNull();
 	});
+
+	it('toggle() clears pinnedId when un-favoriting a pinned station', async () => {
+		const station = { id: 3570, name: 'Piata Unirii', description: '', lat: 44.4, lon: 26.1 };
+		localStorage.setItem('alt-stb-favorites', JSON.stringify([station]));
+
+		const { createFavoritesStore } = await import('./favorites.svelte.js');
+		const store = createFavoritesStore();
+
+		store.togglePin(3570);
+		expect(store.pinnedId).toBe(3570);
+
+		store.toggle(station); // un-favorite — should also clear pin
+		expect(store.favorites).toHaveLength(0);
+		expect(store.isFavorite(3570)).toBe(false);
+		expect(store.pinnedId).toBeNull();
+	});
 });
