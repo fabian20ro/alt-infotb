@@ -103,7 +103,7 @@ describe('formatTime', () => {
 	it('formats date to HH:MM', () => {
 		const date = new Date('2025-01-15T14:30:00');
 		const result = formatTime(date);
-		expect(result).toMatch(/14[:\.]30/);
+		expect(result).toMatch(/14[:\\.]30/);
 	});
 });
 
