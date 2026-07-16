@@ -189,4 +189,30 @@ describe('recents store', () => {
 		store.add(a);
 		expect(store.recents.map((r) => r.id)).toEqual([10]);
 	});
+
+	it('add rejects station objects with missing or non-number id fields', async () => {
+		const a = { id: 10, name: 'A', description: '', lat: 44.4, lon: 26.1 };
+
+		const { createRecentsStore } = await import('./recents.svelte.js');
+		const store = createRecentsStore();
+
+		expect(() => (store.add as any)({ id: undefined as any, name: 'NoId', description: '', lat: 0, lon: 0 })).not.toThrow();
+		expect(() => (store.add as any)({ id: 'string-id' as any, name: 'StrId', description: '', lat: 0, lon: 0 })).not.toThrow();
+
+		store.add(a);
+		expect(store.recents.map((r) => r.id)).toEqual([10]);
+	});
+
+	it('add rejects stations whose id is a boolean', async () => {
+		const a = { id: 10, name: 'A', description: '', lat: 44.4, lon: 26.1 };
+
+		const { createRecentsStore } = await import('./recents.svelte.js');
+		const store = createRecentsStore();
+
+		expect(() => store.add({ id: true as any, name: 'BoolId', description: '', lat: 0, lon: 0 })).not.toThrow();
+		expect(() => store.add({ id: false as any, name: 'FalseId', description: '', lat: 0, lon: 0 })).not.toThrow();
+
+		store.add(a);
+		expect(store.recents.map((r) => r.id)).toEqual([10]);
+	});
 });
