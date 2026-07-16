@@ -10,6 +10,7 @@ const SHARED = {
 };
 
 export const TILE_CONFIGS: Record<string, TileConfig> = {
-	light: { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', ...SHARED },
-	dark:  { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', ...SHARED }
+	light:     { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', ...SHARED },
+	dark:      { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', ...SHARED },
+	satellite: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: '&copy; Esri, Maxar, Earthstar Geographics © OpenStreetMap contributors, USDA, USGS, AeroGRID, IGN Spain', maxZoom: 19 as const }
 };
