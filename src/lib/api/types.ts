@@ -9,6 +9,15 @@ export interface ArrivalInfo {
 	arrivingTimes: number[];
 }
 
+/** Raw `StationArrivals` read back from localStorage (fetchedAt is a Date). */
+export type DeserializedStationArrivals = Omit<StationArrivals, 'fetchedAt'> & { fetchedAt: string };
+
+/** Convert raw deserialized data so callers always see a real `Date`. */
+export const deserializeStationArrivals = (raw: DeserializedStationArrivals): StationArrivals => ({
+	...raw,
+	fetchedAt: new Date(raw.fetchedAt),
+});
+
 /** The full arrival response for a station.
  *  NOTE: `fetchedAt` is `Date` in the API layer (decodeStopResponse) but becomes
  *  `string` when deserialized from localStorage (getCachedArrivals). Callers that
