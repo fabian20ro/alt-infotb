@@ -332,4 +332,66 @@ describe('ProtoReader', () => {
 		fields.set(1, [new Uint8Array([])]); // empty bytes → empty string
 		expect(getString(fields, 1)).toBe('');
 	});
+
+	it('decodes multi-byte varint values (>127) in readField', () => {
+		// Value 300 = 0xAC 0x02 (two-byte varint). Tests the shift/accumulate path.
+		const data = new Uint8Array([0x08, 0xac, 0x02]); // field 1, type 0, value 300
+		const reader = new ProtoReader(data);
+		const field = reader.readField();
+		expect(field?.fieldNumber).toBe(1);
+		expect(field?.wireType).toBe(0);
+		expect(field?.value).toBe(300);
+	});
+
+	it('readAllFields accumulates multi-byte varints across fields', () => {
+		// Value 256 = 0x80 0x02; value 33554431 = 0xFF 0xFF 0xFF 0x0F.
+		const data = new Uint8Array([
+			0x08, 0x80, 0x02, // field 1, type 0, value 256
+			0x12, 0x03, 0x41, 0x42, 0x43, // field 2, "ABC"
+			0x28, 0xff, 0xff, 0xff, 0x0f, // field 5, type 0, value 33554431
+		]);
+		const reader = new ProtoReader(data);
+		const fields = reader.readAllFields();
+		expect(fields.get(1)).toEqual([256]);
+		expect(fields.get(2)).toEqual([new Uint8Array([0x41, 0x42, 0x43])]);
+		expect(fields.get(5)).toEqual([33554431]);
+	});
+
+	it('decodes a large varint value near safe boundary', () => {
+		// Value 8388607 (2^23 - 1). Varint encoding: 0xFF 0xFF 0xFF 0x03.
+		const data = new Uint8Array([
+			0x08, // field 1, type 0
+			0xff, 0xff, 0xff, 0x03, // value = 8388607 (4-byte varint)
+		]);
+		const reader = new ProtoReader(data);
+		const field = reader.readField();
+		expect(field?.fieldNumber).toBe(1);
+		expect(field?.wireType).toBe(0);
+		expect(field?.value).toBe(8388607);
+	});
+
+	it('throws ProtoParseError when varint value exceeds MAX_SAFE_INTEGER', () => {
+		// Eight full-continuation bytes accumulate to well above 2^53.
+		const data = new Uint8Array([
+			0x08, // field 1, type 0
+			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // overflow
+		]);
+		const reader = new ProtoReader(data);
+		expect(() => reader.readField()).toThrow(ProtoParseError);
+	});
+
+	it('readAllFields handles zero-value varint in a multi-field message', () => {
+		// Mix of zero varints and non-zero values on different fields.
+		const data = new Uint8Array([
+			0x08, 0x00, // field 1, value 0
+			0x12, 0x04, 0xf0, 0xde, 0xad, 0xbe, // field 2, "binary blob"
+			0x20, 0x00, // field 4, value 0
+		]);
+		const reader = new ProtoReader(data);
+		const fields = reader.readAllFields();
+		expect(fields.get(1)).toEqual([0]);
+		expect(fields.get(2)).toHaveLength(1);
+		expect((fields.get(2)![0] as Uint8Array).byteLength).toBe(4);
+		expect(fields.get(4)).toEqual([0]);
+	});
 });

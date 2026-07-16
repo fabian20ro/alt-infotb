@@ -9,7 +9,9 @@ vi.mock('./db.js', () => ({
 	updateLastRefreshTime: vi.fn().mockResolvedValue(undefined)
 }));
 
-import { getStations, saveStations } from './db.js';
+import { getStations, saveStations, getLastRefreshTime, updateLastRefreshTime } from './db.js';
+
+// Import checkAndRefresh indirectly via loadStations so the stale-refresh path runs.
 
 const cachedStation = [{ id: 'test-1', name: 'Test Station' }] as const;
 
@@ -202,6 +204,31 @@ describe('loadStations', () => {
 		expect(stations).toEqual(cachedStation);
 		expect(saveStations).not.toHaveBeenCalled();
 		await expect(refreshDone).resolves.toBeUndefined(); // resolves silently
+	});
+
+	it('calls updateLastRefreshTime when cached data is stale', async () => {
+		const nowMs = Date.now();
+		const twoDaysAgoMs = nowMs - 2 * 86_400_000;
+
+		(getStations as ReturnType<typeof vi.fn>).mockResolvedValue(cachedStation);
+		(getLastRefreshTime as ReturnType<typeof vi.fn>).mockResolvedValue(twoDaysAgoMs);
+
+		const { refreshDone } = await loadStations();
+		await refreshDone;
+
+		expect(updateLastRefreshTime).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not call updateLastRefreshTime when cached data is fresh', async () => {
+		const nowMs = Date.now();
+
+		(getStations as ReturnType<typeof vi.fn>).mockResolvedValue(cachedStation);
+		(getLastRefreshTime as ReturnType<typeof vi.fn>).mockResolvedValue(nowMs);
+
+		const { refreshDone } = await loadStations();
+		await refreshDone;
+
+		expect(updateLastRefreshTime).not.toHaveBeenCalled();
 	});
 
 	it('falls back to bundled data when cache is empty', async () => {
