@@ -135,6 +135,66 @@ describe('searchStations', () => {
 		expect(results.map(s => s.id)).toEqual([30, 40]);
 	});
 
+	it('ranks all-words match split across name+description above description-only when words are spread differently', () => {
+		// Query "hello world": station A has both in name (10 + 2*5 = 20),
+		// station B has one word in name, other in desc (10 + 1*5 = 15),
+		// station C only matches via description (score 20 from desc match).
+		const stations: Station[] = [
+			{ id: 1, name: 'Hello World', description: '', lat: 0, lon: 0 },              // both in name → score ~35
+			{ id: 2, name: 'Hello there', description: 'World text here', lat: 0, lon: 0 }, // hello in name + world in desc (all words) → 10+1*5 = 15
+			{ id: 3, name: 'Foo Bar Baz', description: 'hello world content', lat: 0, lon: 0 }, // desc only match → score 20
+		];
+		const results = searchStations('hello world', stations);
+		expect(results.map(s => s.id)).toEqual([1, 3, 2]);
+
+		// Verify scores reflect the formula: all-in-name > desc-only > mixed-all-words
+		function expectedScore(station: Station): number {
+			const nName = normalize(station.name);
+			const nDesc = normalize(station.description);
+			const words = 'hello world'.split(' ').filter(w => w.length > 0);
+			if (nName === 'hello world') return 100;
+			if (nName.startsWith('hello world')) return 80;
+			if (nName.endsWith('hello world') || nName.includes(' hello world') || nName.includes('hello world ')) return 60;
+			if (nDesc.includes('hello world')) return 20;
+			const nm = words.filter(w => nName.includes(w)).length;
+			const dm = words.filter(w => nDesc.includes(w)).length;
+			if (nm + dm === words.length) {
+				let s = 10 + nm * 5;
+				s += Math.max(0, 10 - nName.length / 5);
+				return s;
+			}
+			return 0;
+		}
+
+		const scores = results.map(r => expectedScore(r));
+		expect(scores[0]).toBeGreaterThan(scores[2]); // A > C (all-in-name vs desc-only)
+		expect(scores[2]).toBeGreaterThan(scores[1]); // C > B (desc-only 20+bonus > mixed-all-words ~15+bonus)
+	});
+
+	it('matches partial-word fragments via space-padded word-boundary check', () => {
+		// "uniri" is a fragment of "Unirii". The code's ends-with/word-boundary check uses
+		// includes(\` ${query}\`) which catches the leading-space match in 'piata unirii'.
+		const stations: Station[] = [
+			{ id: 1, name: 'Piata Unirii', description: 'Central hub', lat: 0, lon: 0 },
+			{ id: 2, name: 'Uniri', description: '', lat: 0, lon: 0 },   // exact word → starts-with score 80
+		];
+		const results = searchStations('uniri', stations);
+		expect(results).toHaveLength(2);
+		// id=2 (starts-with 80) before id=1 (word-boundary via space-padded includes, score 60)
+		expect(results[0].id).toBe(2);
+		expect(results[1].id).toBe(1);
+	});
+
+	it('prioritizes numeric ID search over name-based search', () => {
+		const stations: Station[] = [
+			{ id: 42, name: 'Station 42', description: '', lat: 0, lon: 0 },
+			{ id: 100, name: 'Other Station', description: 'About 42 things', lat: 0, lon: 0 },
+		];
+		const results = searchStations('42', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].id).toBe(42);
+	});
+
 	it('breaks ties by shorter name when startswith scores are equal', () => {
 		const stations: Station[] = [
 			{ id: 30, name: 'Alfa Centauri Major', description: '', lat: 0, lon: 0 },

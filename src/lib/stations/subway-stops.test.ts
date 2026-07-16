@@ -7,6 +7,11 @@ describe('resolveStopIds', () => {
 		expect(resolveStopIds(14697)).toEqual([9653, 9654, 9656, 9657]); // Dristor 1+2 (M1+M3 interchange)
 	});
 
+	it('resolves three-line interchange stations correctly', () => {
+		// Piața Unirii is the only M1+M2+M3 interchange in Bucharest
+		expect(resolveStopIds(15100)).toEqual([9543, 9544, 9552, 9553]);
+	});
+
 	it('resolves known station with two stops', () => {
 		expect(resolveStopIds(14718)).toEqual([9629, 9630]); // Pantelimon
 	});
