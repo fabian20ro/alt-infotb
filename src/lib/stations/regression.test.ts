@@ -163,4 +163,27 @@ describe('Regression tests for punctuation', () => {
 		expect(result).toBe('a b c d e f');
 		expect(normalize('x;;;y,,,z???w##v').toLowerCase()).toBe('x y z w v');
 	});
+
+	it('trims leading and trailing punctuation in normalize without leaving extra spaces', () => {
+		expect(normalize('!!!test!!!').toLowerCase()).toBe('test');
+		expect(normalize('...hello world...').toLowerCase()).toBe('hello world');
+		expect(searchStations('test', [{ id: 1, name: '!!!Test!!!', description: '', lat: 0, lon: 0 }])).toHaveLength(1);
+	});
+
+	it('returns empty array when maxResults is zero', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Alpha', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'Beta', description: '', lat: 0, lon: 0 }
+		];
+		expect(searchStations('alpha', stations, 0)).toHaveLength(0);
+	});
+
+	it('handles stations with empty name and description fields without crashing', () => {
+		const stations: Station[] = [
+			{ id: 90, name: '', description: '', lat: 0, lon: 0 },
+			{ id: 91, name: 'Real', description: 'found', lat: 0, lon: 0 }
+		];
+		expect(searchStations('real', stations)).toHaveLength(1);
+		expect(searchStations('anything', stations)).toHaveLength(0);
+	});
 });
