@@ -10,6 +10,9 @@ const TYPE_COLORS: Record<string, string> = {
 
 const DEFAULT_COLOR = '#888888';
 
+/** Base size for the selected (highlighted) station icon */
+const SELECTED_SIZE = 28;
+
 interface VariantOpts {
 	color: string;
 	baseSize: number;
@@ -20,7 +23,7 @@ interface VariantOpts {
 function buildVariant(opts: VariantOpts): L.DivIcon {
 	const s = opts.baseSize + 6;
 	return L.divIcon({
-		className: `station-marker${opts.baseSize === 28 ? '-selected' : ''}`,
+		className: `station-marker${opts.baseSize === SELECTED_SIZE ? '-selected' : ''}`,
 		html: `<div style="
 			width: ${opts.baseSize}px;
 			height: ${opts.baseSize}px;
@@ -47,7 +50,7 @@ export function createStationIcon(vehicleType?: string): L.DivIcon {
 export function createSelectedStationIcon(): L.DivIcon {
 	return buildVariant({
 		color: '#4cc9f0',
-		baseSize: 28,
+		baseSize: SELECTED_SIZE,
 		shadows: '0 0 0 3px rgba(76, 201, 240, 0.3), 0 1px 4px rgba(0,0,0,0.4)'
 	});
 }
