@@ -186,4 +186,29 @@ describe('Regression tests for punctuation', () => {
 		expect(searchStations('real', stations)).toHaveLength(1);
 		expect(searchStations('anything', stations)).toHaveLength(0);
 	});
+
+	it('matches pure numeric query against station names containing digits via prefix — guards startsWith path in ID-exact-match fallback', () => {
+		const stations: Station[] = [
+			{ id: 1, name: '42nd Street', description: '', lat: 0, lon: 0 },
+			{ id: 999, name: 'Gara de Nord', description: '', lat: 0, lon: 0 }
+		];
+		expect(searchStations('42', stations)).toHaveLength(1);
+		expect(searchStations('42', stations)[0].id).toBe(1);
+		expect(searchStations('42nd street', stations)).toHaveLength(1);
+	});
+
+	it('returns results in deterministic order across repeated calls — guards sort by score stability', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Alpha Station', description: '', lat: 0, lon: 0 },
+			{ id: 2, name: 'Beta Station', description: '', lat: 0, lon: 0 },
+			{ id: 3, name: 'Gamma Station', description: '', lat: 0, lon: 0 }
+		];
+		const results1 = searchStations('station', stations);
+		const results2 = searchStations('station', stations);
+		expect(results1.map(s => s.id)).toEqual(results2.map(s => s.id));
+	});
+
+	it('returns empty array for whitespace-only query after normalize collapses to empty string', () => {
+		expect(searchStations('   ', [{ id: 1, name: 'Any', description: '', lat: 0, lon: 0 }])).toHaveLength(0);
+	});
 });
