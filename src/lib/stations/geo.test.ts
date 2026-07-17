@@ -112,6 +112,21 @@ describe('geo', () => {
 			expect(nearest[0].id).toBe(50);
 			expect(nearest[1].id).toBe(51);
 		});
+
+		it('excludes a station exactly at the initial radiusDeg boundary on first pass', () => {
+			// Initial radiusDeg = 0.018, filter uses strict `<`.
+			// A station at exactly lat diff = 0.018 is excluded in the first pass
+			// and must wait for expansion to be found.
+			const boundaryStation: Station[] = [
+				{ id: 40, name: 'Boundary', description: '', lat: 44.4 + 0.018, lon: 26.1 }, // exactly at radiusDeg
+				{ id: 41, name: 'Close', description: '', lat: 44.4 + 0.01, lon: 26.1 },     // inside first pass
+			];
+			const nearest = findNearestStations(44.4, 26.1, boundaryStation, 2);
+
+			expect(nearest).toHaveLength(2);
+			expect(nearest[0].id).toBe(41); // closer by distance
+			expect(nearest[1].id).toBe(40); // found after expansion
+		});
 	});
 
 	describe('findStationsInBounds', () => {
@@ -285,6 +300,16 @@ describe('geo', () => {
 			const results = findStationsInBounds(wideBounds, stations, 2, 99);
 			// inBounds.length(3) > maxCount(2), so early-return with [selected] even though selectedId=99 is not a real station
 			expect(results).toHaveLength(0); // selectedId=99 does not match any station → falls through to []
+		});
+
+		it('treats selectedId=0 as a valid selection', () => {
+			const stationsWithZero: Station[] = [
+				{ id: 0, name: 'S0', description: '', lat: 44.8, lon: 26.5 },
+				{ id: 1, name: 'S1', description: '', lat: 45.2, lon: 27.5 },
+			];
+			const bounds = { south: 40, north: 50, west: 20, east: 30 };
+			const results = findStationsInBounds(bounds, stationsWithZero, 10, 0);
+			expect(results.map((s) => s.id)).toEqual([0, 1]); // selectedId=0 is valid (not null/undefined)
 		});
 
 		it('returns only the overflow-selected station when bounds exceed maxCount and selected is outside them (valid id)', () => {
