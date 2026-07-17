@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { createStbServerHeaders, STB_AUTH_PATH, STOP_ID, PROTO_FIELDS } from './constants.js';
-import { ProtoReader, getString, getVarint, getMessages } from './proto.js';
+import { ProtoReader, ProtoParseError, getString, getVarint, getMessages } from './proto.js';
 
 const STB_API_BASE = 'https://info.stb.ro/api/web/v2-6';
 const STB_API_URL = `${STB_API_BASE}/lines/stop?stop_id=${STOP_ID}`;
@@ -276,5 +276,24 @@ describe('STB API (real network)', () => {
 		// Both schedule types should be present in a real-world stop response
 		expect(scheduledCount).toBeGreaterThan(0);
 		expect(estimatedCount).toBeGreaterThan(0);
+	});
+});
+
+describe('ProtoReader error boundary (integration)', () => {
+	it('rejects non-Uint8Array input at construction', () => {
+		expect(() => new ProtoReader(null)).toThrow(TypeError);
+		expect(() => new ProtoReader(undefined)).toThrow(TypeError);
+		expect(() => new ProtoReader(new Array(5))).toThrow(TypeError);
+	});
+
+	it('throws on truncated varint in embedded field', () => {
+		const reader = new ProtoReader(new Uint8Array([0x02, 0x80])); // length-delimited tag, but varint is incomplete
+		expect(() => reader.readAllFields()).toThrow(ProtoParseError);
+	});
+
+	it('throws on unknown wire type', () => {
+		// Tag byte: field_number=1, wire_type=3 (invalid — reserved)
+		const reader = new ProtoReader(new Uint8Array([0x16])); // field 3, wire type 3
+		expect(() => reader.readAllFields()).toThrow(ProtoParseError);
 	});
 });
