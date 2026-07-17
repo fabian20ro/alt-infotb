@@ -189,6 +189,17 @@ describe('isNewRomanianDay', () => {
 		// Reversed — going back in time should give false (day N → day N-1)
 		expect(isNewRomanianDay(after, before)).toBe(false);
 	});
+
+	it('returns false when both timestamps are at or after the 4 AM boundary on the same transit day', () => {
+		// Both well after 4 AM Bucharest — must be in the SAME transit day.
+		const a = new Date('2026-01-15T03:00:00Z').getTime(); // 05:00 EET (hour=5 >= 4)
+		const b = new Date('2026-01-15T12:00:00Z').getTime(); // 14:00 EET (hour=14 >= 4)
+		expect(isNewRomanianDay(a, b)).toBe(false);
+
+		// Exact boundary hour (=4 Bucharest) is still the same transit day.
+		const atBoundary = new Date('2026-01-15T02:00:00Z').getTime(); // 04:00 EET (hour=4 >= 4)
+		expect(isNewRomanianDay(atBoundary, b)).toBe(false);
+	});
 });
 
 describe('loadStations', () => {
@@ -252,5 +263,18 @@ describe('loadStations', () => {
 		expect(saveStations).toHaveBeenCalledTimes(1);
 		expect(result.stations).toBeInstanceOf(Array);
 		expect(result.stations.length).toBeGreaterThan(100); // real bundled data
+	});
+
+	it('refreshes stale cached data in the background and resolves silently', async () => {
+		const oldTimestamp = new Date('2026-01-14T12:00:00Z').getTime(); // yesterday UTC
+
+		(getStations as ReturnType<typeof vi.fn>).mockResolvedValue(cachedStation);
+		(getLastRefreshTime as ReturnType<typeof vi.fn>).mockResolvedValue(oldTimestamp);
+
+		const { stations, refreshDone } = await loadStations();
+
+		expect(stations).toEqual(cachedStation);
+		await expect(refreshDone).resolves.toBeUndefined(); // resolves silently after background check
+		expect(updateLastRefreshTime).toHaveBeenCalledTimes(1);
 	});
 });
