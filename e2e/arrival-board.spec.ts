@@ -247,9 +247,25 @@ test.describe('Station Arrivals', () => {
 		const text = await noArrivals.textContent();
 		expect(text!.length).toBeGreaterThan(0);
 	});
-});
 
-test.describe('Hamburger Drawer', () => {
+	test('renders formatted arrival times in Romanian locale', async ({ page }) => {
+		await page.goto('/');
+
+		const direction = page.locator('.direction').first();
+		await expect(direction).toBeVisible({ timeout: 15_000 });
+
+		const timeEls = page.locator('.time');
+		const count = await timeEls.count();
+		expect(count).toBeGreaterThanOrEqual(1);
+
+		for (let i = 0; i < count; i++) {
+			const text = await timeEls.nth(i).textContent();
+			expect(text!.length).toBeGreaterThan(0);
+			expect(text!).toMatch(/(\d+\s*(min|ore|oră))/i);
+		}
+	});
+
+	test.describe('Hamburger Drawer', () => {
 	test('opens when menu button is clicked', async ({ page }) => {
 		await page.goto('/');
 
