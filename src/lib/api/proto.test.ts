@@ -394,4 +394,57 @@ describe('ProtoReader', () => {
 		expect((fields.get(2)![0] as Uint8Array).byteLength).toBe(4);
 		expect(fields.get(4)).toEqual([0]);
 	});
+
+	it('parses multi-byte tag varint (field > 15, wire type 0)', () => {
+		// Field 20 encoded as a two-byte tag varint (tag value = 0xA0).
+		// Tag bytes [0xA0, 0x01] → fieldNumber=20, wireType=0; value=42.
+		const data = new Uint8Array([0xa0, 0x01, 0x2a]); // tag + varint(42)
+		const reader = new ProtoReader(data);
+		const field = reader.readField();
+		expect(field?.fieldNumber).toBe(20);
+		expect(field?.wireType).toBe(0);
+		expect(field?.value).toBe(42);
+		expect(reader.done).toBe(true);
+	});
+
+	it('parses three-byte tag varint (large field number)', () => {
+		// Field 1000 encoded as a two-byte tag varint (tag value = 8000 = 0xC0 0x3E).
+		const data = new Uint8Array([0xc0, 0x3e, 0x80, 0x02]); // field 1000, type 0, value 256
+		const reader = new ProtoReader(data);
+		const field = reader.readField();
+		expect(field?.fieldNumber).toBe(1000);
+		expect(field?.wireType).toBe(0);
+		expect(field?.value).toBe(256);
+		expect(reader.done).toBe(true);
+	});
+
+	it('parses consecutive 32-bit fixed-size fields via readField', () => {
+		// Two consecutive wire type 5 (32-bit fixed) fields must each consume exactly 4 bytes.
+		const data = new Uint8Array([
+			0x0d, // field 1, type 5
+			0x01, 0x02, 0x03, 0x04, // first fixed value
+			0x15, // field 2, type 5 (tag = (2 << 3) | 5 = 21 = 0x15)
+			0x05, 0x06, 0x07, 0x08, // second fixed value
+		]);
+		const reader = new ProtoReader(data);
+		const f1 = reader.readField();
+		expect(f1?.fieldNumber).toBe(1);
+		expect(f1?.wireType).toBe(5);
+		const f2 = reader.readField();
+		expect(f2?.fieldNumber).toBe(2);
+		expect(f2?.wireType).toBe(5);
+		expect(reader.done).toBe(true);
+	});
+
+	it('parses multi-byte tag with length-delimited content', () => {
+		// Field 16, wire type 2: two-byte tag varint (tag=130) + length varint + payload.
+		// Tag [0x82, 0x01] → fieldNumber=16, wireType=2; length=3; "xyz".
+		const data = new Uint8Array([0x82, 0x01, 0x03, 0x78, 0x79, 0x7a]); // tag + len(3) + "xyz"
+		const reader = new ProtoReader(data);
+		const field = reader.readField();
+		expect(field?.fieldNumber).toBe(16);
+		expect(field?.wireType).toBe(2);
+		expect(field?.value).toEqual(new Uint8Array([0x78, 0x79, 0x7a]));
+		expect(reader.done).toBe(true);
+	});
 });
