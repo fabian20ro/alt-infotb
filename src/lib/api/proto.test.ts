@@ -394,4 +394,105 @@ describe('ProtoReader', () => {
 		expect((fields.get(2)![0] as Uint8Array).byteLength).toBe(4);
 		expect(fields.get(4)).toEqual([0]);
 	});
+
+	it('parses multi-byte tag varint (field > 15, wire type 0)', () => {
+		// Field 20 encoded as a two-byte tag varint (tag value = 0xA0).
+		// Tag bytes [0xA0, 0x01] → fieldNumber=20, wireType=0; value=42.
+		const data = new Uint8Array([0xa0, 0x01, 0x2a]); // tag + varint(42)
+		const reader = new ProtoReader(data);
+		const field = reader.readField();
+		expect(field?.fieldNumber).toBe(20);
+		expect(field?.wireType).toBe(0);
+		expect(field?.value).toBe(42);
+		expect(reader.done).toBe(true);
+	});
+
+	it('parses three-byte tag varint (large field number)', () => {
+		// Field 1000 encoded as a two-byte tag varint (tag value = 8000 = 0xC0 0x3E).
+		const data = new Uint8Array([0xc0, 0x3e, 0x80, 0x02]); // field 1000, type 0, value 256
+		const reader = new ProtoReader(data);
+		const field = reader.readField();
+		expect(field?.fieldNumber).toBe(1000);
+		expect(field?.wireType).toBe(0);
+		expect(field?.value).toBe(256);
+		expect(reader.done).toBe(true);
+	});
+
+	it('parses consecutive 32-bit fixed-size fields via readField', () => {
+		// Two consecutive wire type 5 (32-bit fixed) fields must each consume exactly 4 bytes.
+		const data = new Uint8Array([
+			0x0d, // field 1, type 5
+			0x01, 0x02, 0x03, 0x04, // first fixed value
+			0x15, // field 2, type 5 (tag = (2 << 3) | 5 = 21 = 0x15)
+			0x05, 0x06, 0x07, 0x08, // second fixed value
+		]);
+		const reader = new ProtoReader(data);
+		const f1 = reader.readField();
+		expect(f1?.fieldNumber).toBe(1);
+		expect(f1?.wireType).toBe(5);
+		const f2 = reader.readField();
+		expect(f2?.fieldNumber).toBe(2);
+		expect(f2?.wireType).toBe(5);
+		expect(reader.done).toBe(true);
+	});
+
+	it('parses multi-byte tag with length-delimited content', () => {
+		// Field 16, wire type 2: two-byte tag varint (tag=130) + length varint + payload.
+		// Tag [0x82, 0x01] → fieldNumber=16, wireType=2; length=3; "xyz".
+		const data = new Uint8Array([0x82, 0x01, 0x03, 0x78, 0x79, 0x7a]); // tag + len(3) + "xyz"
+		const reader = new ProtoReader(data);
+		const field = reader.readField();
+		expect(field?.fieldNumber).toBe(16);
+		expect(field?.wireType).toBe(2);
+		expect(field?.value).toEqual(new Uint8Array([0x78, 0x79, 0x7a]));
+		expect(reader.done).toBe(true);
+	});
+
+	it('readAllFields handles consecutive multi-byte tag varints without state loss', () => {
+		// Two multi-byte tag varints back-to-back must each parse their full tag + value.
+		// Field 20 (tag=0xA0,0x01), value=1; then field 1 (tag=0x08), value=99.
+		const data = new Uint8Array([0xa0, 0x01, 0x01, 0x08, 0x63]); // tags + values
+		const reader = new ProtoReader(data);
+		const fields = reader.readAllFields();
+		expect(fields.get(20)).toEqual([1]);
+		expect(fields.get(1)).toEqual([99]);
+	});
+
+	it('getVarint returns undefined when all field entries are Uint8Array', () => {
+		// Regression: a field holding multiple Uint8Arrays must not return the first one as a number.
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [new Uint8Array([0x01]), new Uint8Array([0x02])]);
+		expect(getVarint(fields, 1)).toBeUndefined();
+	});
+
+	it('zero-length length-delimited field between non-empty fields parses correctly', () => {
+		// An empty embedded sub-message (length=0) must not consume or corrupt subsequent bytes.
+		const data = new Uint8Array([
+			0x12, 0x03, 0x41, 0x42, 0x43, // field 2, "ABC"
+			0x12, 0x00,                      // field 2, empty sub-message
+			0x12, 0x01, 0x58,                  // field 2, single byte "X"
+		]);
+		const reader = new ProtoReader(data);
+		const fields = reader.readAllFields();
+		expect(fields.get(2)).toHaveLength(3);
+		expect(getString(fields, 2)).toBe('ABC');
+		expect((fields.get(2)![1] as Uint8Array).byteLength).toBe(0);
+		expect((fields.get(2)![2] as Uint8Array)[0]).toBe(0x58);
+	});
+
+	it('readAllFields skips consecutive type-1 fixed-size fields without state loss', () => {
+		// Fixed-size (type 1) values are stored as position indices. Two consecutive ones on different field numbers,
+		// followed by a varint on the first field, must parse all three correctly in order.
+		const data = new Uint8Array([
+			0x09, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11, // field 1, type 1 (skip 8 bytes)
+			0x21, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, // field 4, type 1 (skip 8 bytes)
+			0x08, 0x42,                                              // field 1, varint value 66
+		]);
+		const reader = new ProtoReader(data);
+		const fields = reader.readAllFields();
+		expect(fields.get(4)).toHaveLength(1);   // position index stored as number
+		expect(typeof fields.get(4)![0]).toBe('number');
+		expect((fields.get(1) as number[]).length).toBe(2);  // position + varint
+		expect((fields.get(1) as number[])[1]).toBe(66);       // second entry is the varint value
+	});
 });
