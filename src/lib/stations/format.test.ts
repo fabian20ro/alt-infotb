@@ -1,10 +1,18 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { formatLastUpdate } from './format.js';
 
 const FIXED_NOW = 1_750_000_000_000; // 2025-06-15T14:13:20.000Z (non-leap-ish epoch)
 // Use vi.useFakeTimers in tests that assert boundary behavior, so Date.now() drift does not flake the <60s threshold.
 
 describe('formatLastUpdate', () => {
+	beforeEach(() => {
+		vi.useFakeTimers({ now: FIXED_NOW });
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	it('formats date in English with AM/PM time', () => {
 		const ts = new Date('2026-06-11T10:11:00Z').getTime();
 		const formatted = formatLastUpdate(ts, 'en');

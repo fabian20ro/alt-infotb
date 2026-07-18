@@ -32,43 +32,25 @@ describe('isNewRomanianDay', () => {
 		expect(isNewRomanianDay(lastRefresh, now)).toBe(false);
 	});
 
-	it('returns true when moving from before 4 AM to after 4 AM', () => {
-		// 00:00 UTC is 01:00 or 03:00 Bucharest (< 4)
-		// 05:00 UTC is 06:00 or 08:00 Bucharest (> 4)
-		const beforeBoundary = new Date('2026-06-15T00:00:00Z').getTime();
-		const afterBoundary = new Date('2026-06-15T05:00:00Z').getTime();
-		expect(isNewRomanianDay(beforeBoundary, afterBoundary)).toBe(true);
-	});
+	it('crosses the 4 AM Bucharest boundary between before/after timestamps', () => {
+		// Sub-case A: coarse boundary crossing (same as original tests at lines 35-41 and 56-60)
+		const coarseBefore = new Date('2026-06-15T00:00:00Z').getTime();   // ~01:00 EET (< 4)
+		const coarseAfter = new Date('2026-06-15T05:00:00Z').getTime();    // ~06:00 EET (>= 4)
+		expect(isNewRomanianDay(coarseBefore, coarseAfter)).toBe(true);
 
-	it('returns true when moving from before 4 AM to after 4 AM (case: exact boundary)', () => {
-		// Testing the exact boundary condition more explicitly
-		const beforeBoundary = new Date('2026-06-15T00:59:59Z').getTime();
-		const afterBoundary = new Date('2026-06-15T01:00:00Z').getTime();
-		expect(isNewRomanianDay(beforeBoundary, afterBoundary)).toBe(true);
-	});
+		// Sub-case B: exact boundary transition at 01:00 UTC / 03:59→04:00 Bucharest
+		const beforeExact = new Date('2026-06-15T00:59:59Z').getTime();     // 03:59:59 EET (< 4) → day N-1
+		const afterExact = new Date('2026-06-15T01:00:00Z').getTime();      // 04:00:00 EET (= 4) → day N
+		expect(isNewRomanianDay(beforeExact, afterExact)).toBe(true);
 
-	it('returns false if timestamp is recent and within the same transit day', () => {
+		// Sub-case C: same transit day when both at/after boundary
+		const afterBoundary = new Date('2026-06-15T01:00:01Z').getTime();   // 04:00:01 EEST (>= 4) → still day N
+		expect(isNewRomanianDay(afterExact, afterBoundary)).toBe(false);
+
+		// Sub-case D: same transit day when both before boundary (< 4 AM Bucharest)
 		const now = new Date('2026-06-15T12:00:00Z').getTime();
 		const recent = now - 1000;
 		expect(isNewRomanianDay(recent, now)).toBe(false);
-	});
-
-	it('respects the 4 AM boundary', () => {
-		const before = new Date('2026-06-15T00:00:00Z').getTime();
-		const after = new Date('2026-06-15T05:00:00Z').getTime();
-		expect(isNewRomanianDay(before, after)).toBe(true);
-	});
-
-	it('handles the boundary exactly at 4 AM Bucharest time', () => {
-		// 00:59:59 UTC is 03:59:59 Bucharest (Day N-1)
-		// 01:00:00 UTC is 04:00:00 Bucharest (Day N)
-		const before = new Date('2026-06-15T00:59:59Z').getTime();
-		const after = new Date('2026-06-15T01:00:00Z').getTime();
-		expect(isNewRomanianDay(before, after)).toBe(true);
-			
-		// 01:00:01 UTC is 04:00:01 Bucharest (Day N)
-		const after2 = new Date('2026-06-15T01:00:01Z').getTime();
-		expect(isNewRomanianDay(after, after2)).toBe(false);
 	});
 
 	it('returns true for an uninitialized timestamp (0)', () => {
@@ -275,6 +257,20 @@ describe('loadStations', () => {
 
 		expect(stations).toEqual(cachedStation);
 		await expect(refreshDone).resolves.toBeUndefined(); // resolves silently after background check
+		expect(updateLastRefreshTime).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not throw when updateLastRefreshTime fails during stale refresh', async () => {
+		const oldTimestamp = new Date('2026-01-14T12:00:00Z').getTime(); // yesterday UTC
+
+		(getStations as ReturnType<typeof vi.fn>).mockResolvedValue(cachedStation);
+		(getLastRefreshTime as ReturnType<typeof vi.fn>).mockResolvedValue(oldTimestamp);
+		(updateLastRefreshTime as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('IndexedDB unavailable'));
+
+		const { stations, refreshDone } = await loadStations();
+
+		expect(stations).toEqual(cachedStation);
+		await expect(refreshDone).resolves.toBeUndefined(); // must not reject even when timestamp write fails
 		expect(updateLastRefreshTime).toHaveBeenCalledTimes(1);
 	});
 });

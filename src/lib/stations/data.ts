@@ -86,5 +86,10 @@ export async function loadStations(): Promise<{ stations: Station[]; refreshDone
 async function checkAndRefresh(nowMs = Date.now()): Promise<void> {
 	const lastRefresh = await getLastRefreshTime();
 	if (!isNewRomanianDay(lastRefresh, nowMs)) return;
-	await updateLastRefreshTime();
+	try {
+		await updateLastRefreshTime();
+	} catch {
+		// Timestamp write failed (e.g., IndexedDB unavailable).
+		// Do not throw — the next load will re-evaluate staleness.
+	}
 }
