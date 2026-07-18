@@ -15,10 +15,13 @@ export function formatLastUpdate(timestamp: number | undefined | null, lang: 'ro
 		const abs = Math.abs(diffSeconds);
 
 		if (abs < 60 * 60) {
-			return lang === 'ro' ? `${Math.round(abs / 60)} min` : `${Math.round(abs / 60)} minutes ago`;
+			const mins = Math.round(abs / 60);
+			const minuteWord = mins === 1 && lang !== 'ro' ? 'minute' : 'minutes';
+			return lang === 'ro' ? `${mins} min` : `${mins} ${minuteWord} ago`;
 		} else if (abs < 24 * 3600) {
 			const hours = Math.floor(abs / 3600);
-			return lang === 'ro' ? `${hours} h` : `${hours} hours ago`;
+			const hourWord = hours === 1 && lang !== 'ro' ? 'hour' : 'hours';
+			return lang === 'ro' ? `${hours} h` : `${hours} ${hourWord} ago`;
 		} else {
 			const days = Math.floor(abs / 86400);
 			return lang === 'ro' ? `${days} z` : `${days} days ago`;
