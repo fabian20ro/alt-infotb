@@ -259,4 +259,18 @@ describe('loadStations', () => {
 		await expect(refreshDone).resolves.toBeUndefined(); // resolves silently after background check
 		expect(updateLastRefreshTime).toHaveBeenCalledTimes(1);
 	});
+
+	it('does not throw when updateLastRefreshTime fails during stale refresh', async () => {
+		const oldTimestamp = new Date('2026-01-14T12:00:00Z').getTime(); // yesterday UTC
+
+		(getStations as ReturnType<typeof vi.fn>).mockResolvedValue(cachedStation);
+		(getLastRefreshTime as ReturnType<typeof vi.fn>).mockResolvedValue(oldTimestamp);
+		(updateLastRefreshTime as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('IndexedDB unavailable'));
+
+		const { stations, refreshDone } = await loadStations();
+
+		expect(stations).toEqual(cachedStation);
+		await expect(refreshDone).resolves.toBeUndefined(); // must not reject even when timestamp write fails
+		expect(updateLastRefreshTime).toHaveBeenCalledTimes(1);
+	});
 });
