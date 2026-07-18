@@ -90,15 +90,19 @@ export async function updateLastRefreshTime(): Promise<void> {
 
 /** Check whether stations have been loaded into IndexedDB */
 export async function hasStations(): Promise<boolean> {
-	const db = await openDb();
-	return new Promise((resolve, reject) => {
-		const tx = db.transaction(STORE_NAME, 'readonly');
-		const store = tx.objectStore(STORE_NAME);
-		const request = store.getAllKeys();
-		request.onsuccess = () => resolve(request.result.length > 0);
-		tx.oncomplete = () => db.close();
-		tx.onerror = () => db.close();
-		tx.onabort = () => db.close();
-		request.onerror = () => reject(request.error);
-	});
+	try {
+		const db = await openDb();
+		return new Promise((resolve, reject) => {
+			const tx = db.transaction(STORE_NAME, 'readonly');
+			const store = tx.objectStore(STORE_NAME);
+			const request = store.getAllKeys();
+			request.onsuccess = () => resolve(request.result.length > 0);
+			tx.oncomplete = () => db.close();
+			tx.onerror = () => db.close();
+			tx.onabort = () => db.close();
+			request.onerror = () => reject(request.error);
+		});
+	} catch (e) {
+		return false;
+	}
 }
