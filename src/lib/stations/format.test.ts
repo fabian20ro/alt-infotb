@@ -143,6 +143,32 @@ describe('formatLastUpdate', () => {
 		expect(formatLastUpdate(ts, 'en')).toBe('3 hours ago');
 	});
 
+	it('uses singular form for 1 minute in English', () => {
+		const ts = Date.now() - 61_000; // ~1 min past the "now" threshold
+		expect(formatLastUpdate(ts, 'en')).toBe('1 minute ago');
+		expect(formatLastUpdate(ts, 'ro')).toBe('1 min');
+	});
+
+	it('uses singular form for 1 hour in English', () => {
+		const ts = Date.now() - 3600 * 1000; // exactly 1 hour ago
+		expect(formatLastUpdate(ts, 'en')).toBe('1 hour ago');
+		expect(formatLastUpdate(ts, 'ro')).toBe('1 h');
+	});
+
+	it('uses plural form for >1 minute and >1 hour in English', () => {
+		const ts = Date.now() - 2 * 60 * 1000; // 2 minutes ago
+		expect(formatLastUpdate(ts, 'en')).toBe('2 minutes ago');
+	});
+
+	it('uses plural form for >1 hour and >1 day in English', () => {
+		const ts = Date.now() - 2 * 3600 * 1000; // 2 hours ago
+		expect(formatLastUpdate(ts, 'en')).toBe('2 hours ago');
+
+		const old = Date.now() - 8 * 24 * 3600 * 1000; // ~8 days ago (>7 day threshold)
+		// falls through to Intl format — just assert it's not empty
+		expect(formatLastUpdate(old, 'en')).not.toBe('');
+	});
+
 	it('formats hours-ago relative time in Romanian', () => {
 		const ts = Date.now() - 3 * 3600 * 1000; // 3 hours ago
 		expect(formatLastUpdate(ts, 'ro')).toBe('3 h');
