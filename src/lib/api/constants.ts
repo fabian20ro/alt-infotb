@@ -81,14 +81,35 @@ export const MAX_ARRIVALS_PER_LINE = 3;
  *   4 = color (string, e.g. "#BE1622")
  *   5 = direction name (string, e.g. "Faur")
  *   6 = first arrival seconds (varint, redundant with arrivals[0])
+ *   8 = route direction (varint, 0 or 1)
  *   9 = arrival entries (repeated sub-message)
+ *   11 = standard Google encoded polyline (string, selected-line response)
+ *   12 = live vehicles (repeated sub-message, selected-line response)
  *
  * Arrival sub-message (ArrivalEntry):
  *   1 = is_scheduled flag (varint, 0=real-time, 1=estimated)
  *   2 = seconds until arrival (varint)
+ *
+ * Vehicle sub-message (VehicleEntry):
+ *   1 = vehicle id (varint)
+ *   2 = latitude (fixed64 little-endian double)
+ *   3 = longitude (fixed64 little-endian double)
+ *   4 = vehicle type (string)
+ *   5 = accessibility flag (varint)
  */
 export const PROTO_FIELDS = {
 	STOP: { NAME: 1, ADDRESS: 2, TYPE: 5, LINES: 10 },
-	LINE: { NAME: 1, ID: 2, VEHICLE_TYPE: 3, COLOR: 4, DIRECTION: 5, ARRIVALS: 9 },
-	ARRIVAL: { IS_SCHEDULED: 1, SECONDS: 2 }
+	LINE: {
+		NAME: 1,
+		ID: 2,
+		VEHICLE_TYPE: 3,
+		COLOR: 4,
+		DIRECTION: 5,
+		DIRECTION_ID: 8,
+		ARRIVALS: 9,
+		ENCODED_PATH: 11,
+		VEHICLES: 12
+	},
+	ARRIVAL: { IS_SCHEDULED: 1, SECONDS: 2 },
+	VEHICLE: { ID: 1, LATITUDE: 2, LONGITUDE: 3, VEHICLE_TYPE: 4, ACCESSIBLE: 5 }
 } as const;

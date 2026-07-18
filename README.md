@@ -11,6 +11,8 @@ No accounts, no tracking. The UI runs in your browser; transit requests go throu
 
 - Real-time arrivals for all 2,710 STB stations (bus, tram, trolleybus, subway M1–M4)
 - Interactive map with GPS-based station discovery
+- Tap any arrival line to show its full route and every live vehicle STB returns
+- Direction-aware opposite-route fallback when no vehicle is approaching the selected station
 - Map caps visible markers at 100 and always keeps the selected station on screen
 - Favorites and recent stations
 - Station search tolerates Romanian diacritics, punctuation, dash separators, and extra whitespace
@@ -19,7 +21,7 @@ No accounts, no tracking. The UI runs in your browser; transit requests go throu
 - Fixed auto-refresh every 20s, with immediate refresh when you return to the tab
 - Station data freshness follows the 4 AM Romanian transit-day boundary
 - Drawer shows the last successful station data update time
-- Offline support with cached data
+- Offline support with cached arrivals (live positions are never stored as current data)
 
 ## Tech Stack
 

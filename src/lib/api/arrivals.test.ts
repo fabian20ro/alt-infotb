@@ -27,6 +27,12 @@ function encodeVarintField(fieldNumber: number, value: number): number[] {
 	return [...encodeTag(fieldNumber, 0), ...encodeVarint(value)];
 }
 
+function encodeFixed64Field(fieldNumber: number, value: number): number[] {
+	const payload = new Uint8Array(8);
+	new DataView(payload.buffer).setFloat64(0, value, true);
+	return [...encodeTag(fieldNumber, 1), ...payload];
+}
+
 function encodeMessageField(fieldNumber: number, content: number[]): number[] {
 	return [...encodeTag(fieldNumber, 2), ...encodeVarint(content.length), ...content];
 }
@@ -39,13 +45,38 @@ function encodeArrivalEntry(seconds: number, isScheduled = 0): number[] {
 	];
 }
 
+function encodeVehicleEntry(vehicle: {
+	id: number;
+	lat: number;
+	lng: number;
+	type: string;
+	accessible?: boolean;
+}): number[] {
+	return [
+		...encodeVarintField(1, vehicle.id),
+		...encodeFixed64Field(2, vehicle.lat),
+		...encodeFixed64Field(3, vehicle.lng),
+		...encodeStringField(4, vehicle.type),
+		...encodeVarintField(5, vehicle.accessible ? 1 : 0)
+	];
+}
+
 function buildStopResponse(lines: Array<{
 	name: string;
 	id: number;
 	type: string;
 	color: string;
 	direction: string;
+	directionId?: 0 | 1;
 	arrivals: Array<{ seconds: number; isScheduled?: number }>;
+	encodedPath?: string;
+	vehicles?: Array<{
+		id: number;
+		lat: number;
+		lng: number;
+		type: string;
+		accessible?: boolean;
+	}>;
 }>, stationName = 'Piata Unirii', address = 'Bd. Regina Maria, Bucuresti'): Uint8Array {
 	const bytes: number[] = [
 		...encodeStringField(1, stationName),
@@ -58,12 +89,19 @@ function buildStopResponse(lines: Array<{
 			...encodeVarintField(2, line.id),
 			...encodeStringField(3, line.type),
 			...encodeStringField(4, line.color),
-			...encodeStringField(5, line.direction)
+			...encodeStringField(5, line.direction),
+			...encodeVarintField(8, line.directionId ?? 0)
 		];
 		// Encode field 9 repeated arrival sub-messages
 		for (const arr of line.arrivals) {
 			const entryBytes = encodeArrivalEntry(arr.seconds, arr.isScheduled ?? 0);
 			lineBytes.push(...encodeMessageField(9, entryBytes));
+		}
+		if (line.encodedPath !== undefined) {
+			lineBytes.push(...encodeStringField(11, line.encodedPath));
+		}
+		for (const vehicle of line.vehicles ?? []) {
+			lineBytes.push(...encodeMessageField(12, encodeVehicleEntry(vehicle)));
 		}
 		bytes.push(...encodeMessageField(10, lineBytes));
 	}
@@ -314,6 +352,172 @@ describe('fetchArrivals', () => {
 		const { fetchArrivals } = await import('./arrivals.js');
 		const result = await fetchArrivals(3570);
 		expect(result.arrivals[0].color).toBe('#006600');
+	});
+});
+
+describe('selected line route contract', () => {
+	beforeEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('decodes direction, Google polyline, fixed64 vehicles, and source stop', async () => {
+		const encodedPath = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
+		const responseData = buildStopResponse([{
+			name: 'N111',
+			id: 208,
+			type: 'BUS',
+			color: '#005BBB',
+			direction: 'Valea Oltului',
+			directionId: 1,
+			arrivals: [{ seconds: 180 }],
+			encodedPath,
+			vehicles: [
+				{ id: 9021, lat: 44.4268, lng: 26.1025, type: 'BUS', accessible: true },
+				{ id: 77, lat: 44.4301, lng: 26.1102, type: 'SUBWAY' }
+			]
+		}]);
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals(6886, {
+			sourceStopId: 6886,
+			lineId: 208,
+			directionId: 1
+		});
+		const line = result.arrivals[0];
+
+		expect(line.directionId).toBe(1);
+		expect(line.sourceStopId).toBe(6886);
+		expect(line.encodedPath).toBe(encodedPath);
+		expect(line.path).toEqual([
+			{ lat: 38.5, lng: -120.2 },
+			{ lat: 40.7, lng: -120.95 },
+			{ lat: 43.252, lng: -126.453 }
+		]);
+		expect(line.vehicles).toEqual([
+			{
+				id: 9021,
+				lat: 44.4268,
+				lng: 26.1025,
+				vehicleType: 'BUS',
+				accessible: true
+			},
+			{
+				id: 77,
+				lat: 44.4301,
+				lng: 26.1102,
+				vehicleType: 'SUBWAY',
+				accessible: false
+			}
+		]);
+	});
+
+	it('adds selected-line query parameters only to the matching platform request', async () => {
+		const plain = buildStopResponse([]);
+		const selected = buildStopResponse([{
+			name: 'M2', id: 519, type: 'SUBWAY', color: '#005BBB', direction: 'Pipera',
+			directionId: 0, arrivals: [], encodedPath: '??'
+		}]);
+		const fetchMock = vi.fn().mockImplementation((url: string) => {
+			const params = new URL(url, 'http://localhost').searchParams;
+			return Promise.resolve({
+				ok: true,
+				arrayBuffer: () => Promise.resolve(
+					(params.get('stop_id') === '9543' ? selected : plain).buffer
+				)
+			});
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		const result = await fetchArrivals([9552, 9543, 9544], {
+			sourceStopId: 9543,
+			lineId: 519,
+			directionId: 0
+		});
+
+		expect(fetchMock).toHaveBeenCalledTimes(3);
+		for (const [url] of fetchMock.mock.calls) {
+			const params = new URL(url, 'http://localhost').searchParams;
+			if (params.get('stop_id') === '9543') {
+				expect(params.get('selected_line_id')).toBe('519');
+				expect(params.get('direction')).toBe('0');
+			} else {
+				expect(params.has('selected_line_id')).toBe(false);
+				expect(params.has('direction')).toBe(false);
+			}
+		}
+		expect(result.arrivals[0].sourceStopId).toBe(9543);
+		expect(result.arrivals[0].path).toEqual([{ lat: 0, lng: 0 }]);
+	});
+
+	it('fetchLineRoute requests one direction and returns its decoded line', async () => {
+		const responseData = buildStopResponse([
+			{ name: 'N101', id: 208, type: 'BUS', color: '#123456', direction: 'Valea Oltului', directionId: 0, arrivals: [] },
+			{ name: 'N101', id: 208, type: 'BUS', color: '#123456', direction: 'Piata Unirii', directionId: 1, arrivals: [], encodedPath: '??' }
+		]);
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		const { fetchLineRoute } = await import('./arrivals.js');
+		const line = await fetchLineRoute({ sourceStopId: 6886, lineId: 208, directionId: 1 });
+
+		const params = new URL(fetchMock.mock.calls[0][0], 'http://localhost').searchParams;
+		expect(params.get('stop_id')).toBe('6886');
+		expect(params.get('selected_line_id')).toBe('208');
+		expect(params.get('direction')).toBe('1');
+		expect(line).toMatchObject({
+			lineName: 'N101',
+			lineId: 208,
+			directionId: 1,
+			sourceStopId: 6886,
+			path: [{ lat: 0, lng: 0 }]
+		});
+	});
+
+	it('validates selection values and membership before any network call', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+		const { fetchArrivals, fetchLineRoute } = await import('./arrivals.js');
+
+		await expect(fetchArrivals([9543], {
+			sourceStopId: 9544,
+			lineId: 519,
+			directionId: 0
+		})).rejects.toThrow('nu face parte');
+		await expect(fetchLineRoute({
+			sourceStopId: 9543,
+			lineId: 0,
+			directionId: 1
+		})).rejects.toThrow('liniei trebuie');
+		await expect(fetchLineRoute({
+			sourceStopId: 9543,
+			lineId: 519,
+			directionId: 2 as 0
+		})).rejects.toThrow('0 sau 1');
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('propagates failure of the selected platform instead of masking it', async () => {
+		const plain = buildStopResponse([]);
+		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+			const params = new URL(url, 'http://localhost').searchParams;
+			if (params.get('selected_line_id')) return Promise.resolve({ ok: false, status: 503 });
+			return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(plain.buffer) });
+		}));
+		const { fetchArrivals } = await import('./arrivals.js');
+
+		await expect(fetchArrivals([9552, 9543], {
+			sourceStopId: 9543,
+			lineId: 519,
+			directionId: 0
+		})).rejects.toMatchObject({ status: 503 });
 	});
 });
 
@@ -734,10 +938,9 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(byId.get(20)?.arrivingTimes).toEqual([200]);
 	});
 
-	it('ignores fields 6/7/8 and only reads arrival times from field 9 sub-messages', async () => {
-		// Per LESSONS_LEARNED: fields 6 (first-arrival seconds), 7 (always 0), 8 (always 1) are NOT
-		// the real arrival data. The actual arrival times live exclusively in field 9 repeated sub-messages.
-		// This test encodes conflicting values in fields 6/7/8 and verifies only field 9 is used.
+	it('uses field 8 for direction and only field 9 for arrival times', async () => {
+		// Field 6 is the redundant first arrival, field 7 is unrelated, field 8 is route direction,
+		// and the actual arrival list lives exclusively in field 9 repeated sub-messages.
 		const lineBytes: number[] = [
 			...encodeStringField(1, '7'),        // NAME
 			...encodeVarintField(2, 69),          // ID
@@ -748,7 +951,7 @@ describe('fetchArrivals multi-stop merging', () => {
 			...encodeVarintField(6, 9999),
 			// field 7 = always 0 (ignored)
 			...encodeVarintField(7, 0),
-			// field 8 = always 1 (ignored)
+			// field 8 = route direction
 			...encodeVarintField(8, 1),
 			// field 9 = real arrival sub-messages
 			...encodeMessageField(9, encodeArrivalEntry(300)),
@@ -769,6 +972,7 @@ describe('fetchArrivals multi-stop merging', () => {
 		const { fetchArrivals } = await import('./arrivals.js');
 		const result = await fetchArrivals(3570);
 		const line7 = result.arrivals.find((a) => a.lineName === '7')!;
+		expect(line7.directionId).toBe(1);
 		expect(line7.arrivingTimes).toEqual([300, 600]);
 	});
 
@@ -1071,10 +1275,10 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(result.arrivals[0].direction).toBe('Faur');
 	});
 
-	it('ignores protobuf fields 6/7/8 and only reads arrivals from field 9', async () => {
-		// Manually build a line entry that includes redundant varint fields 6, 7, 8.
+	it('reads route direction from field 8 without treating it as an arrival', async () => {
+		// Manually build a line entry that includes fields 6, 7, and direction field 8.
 		// The decoder must read ONLY field 9 (repeated sub-messages) for arrival times;
-		// fields 6/7/8 should be ignored entirely.
+		// fields 6/7 must not contaminate the arrival list.
 		const lineBytes: number[] = [
 			...encodeStringField(1, '7'),        // field 1: NAME
 			...encodeVarintField(2, 69),          // field 2: ID
@@ -1083,7 +1287,7 @@ describe('fetchArrivals multi-stop merging', () => {
 			...encodeStringField(5, 'Faur'),      // field 5: DIRECTION
 			...encodeVarintField(6, 99),          // redundant field 6 (ignored)
 			...encodeVarintField(7, 88),          // redundant field 7 (ignored)
-			...encodeVarintField(8, 77),          // redundant field 8 (ignored)
+			...encodeVarintField(8, 1),           // direction field 8
 		];
 		const arrivalBytes = encodeArrivalEntry(120);
 		lineBytes.push(...encodeMessageField(9, arrivalBytes));
@@ -1107,6 +1311,7 @@ describe('fetchArrivals multi-stop merging', () => {
 		expect(line7.direction).toBe('Faur');
 		expect(line7.vehicleType).toBe('TRAM');
 		expect(line7.color).toBe('#BE1622');
+		expect(line7.directionId).toBe(1);
 		expect(line7.arrivingTimes).toEqual([120]);
 	});
 

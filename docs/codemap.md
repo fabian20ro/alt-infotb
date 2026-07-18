@@ -13,17 +13,18 @@ src/
 │   │   ├── proto.test.ts           Tests for protobuf decoding
 │   │   ├── client.ts               HTTP fetch wrapper (binary)
 │   │   ├── client.test.ts          Tests for HTTP client
-│   │   ├── arrivals.ts             Decode stop response, extract field 9 arrivals
+│   │   ├── arrivals.ts             Decode arrivals, selected route, live vehicles
 │   │   ├── arrivals.test.ts        Tests for arrival decoding
 │   │   ├── constants.ts            API config, auth, proto field numbers
 │   │   ├── stb-api.integration.test.ts  Real API integration tests (network)
 │   │   └── types.ts                TypeScript interfaces
 │   ├── components/
-│   │   ├── ArrivalRow.svelte       Single line row (badge, direction, times)
+│   │   ├── ArrivalRow.svelte       Selectable line row (badge, direction, times)
 │   │   ├── DrawerMenu.svelte       Hamburger drawer (favorites, recents, settings)
 │   │   ├── LastUpdated.svelte      "actualizat: HH:MM" footer text
-│   │   ├── MapView.svelte          Leaflet map (viewport-based filtering, marker cache, debounce)
-│   │   ├── StationArrivals.svelte  Scrollable arrival list for selected station, retry button, loading bar
+│   │   ├── MapView.svelte          Leaflet stations, route paths, keyed live vehicles
+│   │   ├── RouteStatus.svelte      Selected route direction, count, overview, close
+│   │   ├── StationArrivals.svelte  Scrollable/selectable arrivals, retry, loading bar
 │   │   ├── StationHeader.svelte    Burger menu + station name + favorite button
 │   │   └── map/
 │   │       ├── station-icons.ts    Station marker icons by transport type
@@ -32,6 +33,9 @@ src/
 │   ├── i18n/
 │   │   ├── translations.ts        RO + EN translation strings
 │   │   └── index.ts                t() translation function
+│   ├── route-map/
+│   │   ├── vehicle-selection.ts    Directed route projection and fallback classification
+│   │   └── vehicle-selection.test.ts  Geometry, ambiguity, and turnaround tests
 │   ├── stations/
 │   │   ├── types.ts                Station, StationWithDistance interfaces
 │   │   ├── stations.json           Bundled station data (2710 stops, from GTFS)
@@ -65,7 +69,8 @@ scripts/
 └── fetch-stations.ts               Extract stations from GTFS stops.txt
 
 e2e/
-└── arrival-board.spec.ts           Playwright E2E tests
+├── arrival-board.spec.ts           General Playwright E2E tests
+└── route-map.spec.ts               Mocked selected-route desktop/mobile E2E
 
 worker/                              Cloudflare Worker (auto-deploys on push)
 ├── src/
@@ -94,9 +99,10 @@ docs/
   │    ├─ map/station-icons.ts
   │    ├─ map/user-marker.ts
   │    └─ map/tiles.ts
+  ├─ RouteStatus.svelte
   ├─ DrawerMenu.svelte
   │    └─ stations/format.ts (formatLastUpdate)
-  ├─ stores/arrivals ─── api/arrivals
+  ├─ stores/arrivals ─── api/arrivals + route-map/vehicle-selection
   │   │                    ├── api/client (apiFetchBinary)
   │   │                    ├── api/proto (ProtoReader, helpers)
   │   │                    └── api/constants (API, PROTO_FIELDS)
@@ -137,6 +143,6 @@ All tunable values live in `src/lib/api/constants.ts`:
 
 | Script | What it runs | Tests | Network? |
 |---|---|---|---|
-| `npm test` | Unit tests (vitest) | 95 | No |
+| `npm test` | Unit tests (vitest) | 503 | No |
 | `npm run test:integration` | Real STB API calls (vitest) | 6 | Yes |
 | `npm run test:e2e` | Playwright browser tests | varies | Yes (via proxy) |

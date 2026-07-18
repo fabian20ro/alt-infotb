@@ -4,6 +4,7 @@
 
 ```
 GET https://info.stb.ro/api/web/v2-6/lines/stop?stop_id={stop_id}
+GET https://info.stb.ro/api/web/v2-6/lines/stop?stop_id={stop_id}&selected_line_id={line_id}&direction={0|1}
 ```
 
 ## Authentication
@@ -66,7 +67,7 @@ Both proxies:
 
 ## Response format
 
-The response body is **Protocol Buffers** binary, not JSON. See [architecture.md](./architecture.md) for the decoded schema.
+The response body is **Protocol Buffers** binary, not JSON. A selected-line response still includes all station arrivals and adds the selected route polyline plus live vehicle positions, so it replaces the ordinary arrivals refresh rather than adding a second poll. See [architecture.md](./architecture.md) for the decoded schema.
 
 ## Known stop IDs
 

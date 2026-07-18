@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { ArrivalInfo, VehiclePosition } from '$lib/api/types.js';
 	import type { Station } from '$lib/stations/types.js';
 	import type { GeoPosition } from '$lib/stores/geolocation.svelte.js';
 	import { findStationsInBounds, type LatLngBounds } from '$lib/stations/geo.js';
@@ -7,16 +8,36 @@
 	const MAX_VISIBLE_MARKERS = 100;
 	const DEBOUNCE_MS = 150;
 
+	export interface MapRouteOverlay {
+		key: string;
+		lineName: string;
+		primary: ArrivalInfo | null;
+		opposite: ArrivalInfo | null;
+		approachingVehicleIds: number[];
+		turnaroundVehicleIds: number[];
+	}
+
 	interface Props {
 		allStations: Station[];
 		selectedStationId: number | null;
 		userPosition: GeoPosition | null;
 		locationPermission: 'granted' | 'denied' | 'prompt';
 		theme: 'light' | 'dark';
+		route?: MapRouteOverlay | null;
+		overviewRequest?: number;
 		onStationSelect: (station: Station) => void;
 	}
 
-	let { allStations, selectedStationId, userPosition, locationPermission, theme, onStationSelect }: Props = $props();
+	let {
+		allStations,
+		selectedStationId,
+		userPosition,
+		locationPermission,
+		theme,
+		route = null,
+		overviewRequest = 0,
+		onStationSelect
+	}: Props = $props();
 
 	let mapContainer: HTMLDivElement;
 	let map: L.Map | null = null;
@@ -25,6 +46,12 @@
 	let currentSelectedId: number | null = null;
 	let userMarker: L.Marker | null = null;
 	let accuracyCircle: L.Circle | null = null;
+	let routeCasing: L.Polyline | null = null;
+	let primaryRouteLine: L.Polyline | null = null;
+	let oppositeRouteLine: L.Polyline | null = null;
+	let primaryVehicleMarkers = new Map<number, L.Marker>();
+	let oppositeVehicleMarkers = new Map<number, L.Marker>();
+	let lastFittedRouteKey: string | null = null;
 	let loaded = $state(false);
 	let initialViewSet = false;
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -39,6 +66,7 @@
 		loadMap();
 		return () => {
 			if (debounceTimer) clearTimeout(debounceTimer);
+			removeRouteOverlay();
 			markerCache.clear();
 			map?.remove();
 			map = null;
@@ -132,7 +160,11 @@
 					? stationIcons.createSelectedStationIcon()
 					: stationIcons.createStationIcon();
 
-				const marker = L.marker([station.lat, station.lon], { icon })
+				const marker = L.marker([station.lat, station.lon], {
+					icon,
+					title: station.name,
+					alt: station.name
+				})
 					.addTo(map!)
 					.on('click', () => onStationSelect(station));
 
@@ -218,6 +250,191 @@
 		console.warn('[MapView] Recenter failed: no user position or marker');
 	}
 
+	function safeColor(color: string | undefined): string {
+		return color && /^#[0-9a-f]{3,8}$/i.test(color) ? color : '#0077b6';
+	}
+
+	function escapeHtml(value: string): string {
+		return value.replace(/[&<>'"]/g, (char) => ({
+			'&': '&amp;',
+			'<': '&lt;',
+			'>': '&gt;',
+			"'": '&#39;',
+			'"': '&quot;'
+		})[char]!);
+	}
+
+	function vehicleIcon(lineName: string, color: string, variant: 'primary' | 'opposite', emphasized: boolean) {
+		if (!L) throw new Error('Leaflet is not loaded');
+		const label = escapeHtml(lineName);
+		return L.divIcon({
+			className: 'vehicle-marker-shell',
+			html: `<span class="vehicle-marker ${variant}${emphasized ? ' emphasized' : ''}" style="--vehicle-color:${safeColor(color)}">${label}</span>`,
+			iconSize: [44, 44],
+			iconAnchor: [22, 22]
+		});
+	}
+
+	function syncVehicleMarkers(
+		markers: Map<number, L.Marker>,
+		vehicles: VehiclePosition[],
+		arrival: ArrivalInfo,
+		variant: 'primary' | 'opposite',
+		emphasizedIds: Set<number>
+	) {
+		if (!map || !L) return;
+		const currentIds = new Set(vehicles.map((vehicle) => vehicle.id));
+		for (const [id, marker] of markers) {
+			if (!currentIds.has(id)) {
+				marker.remove();
+				markers.delete(id);
+			}
+		}
+
+		for (const vehicle of vehicles) {
+			const latLng: [number, number] = [vehicle.lat, vehicle.lng];
+			const emphasized = emphasizedIds.has(vehicle.id);
+			const title = `${arrival.lineName} · ${arrival.direction || arrival.vehicleType}`;
+			const existing = markers.get(vehicle.id);
+			if (existing) {
+				existing.setLatLng(latLng);
+				existing.setIcon(vehicleIcon(arrival.lineName, arrival.color, variant, emphasized));
+				continue;
+			}
+			const marker = L.marker(latLng, {
+				icon: vehicleIcon(arrival.lineName, arrival.color, variant, emphasized),
+				title,
+				alt: title,
+				zIndexOffset: variant === 'primary' ? 800 : 700
+			}).addTo(map);
+			marker.bindTooltip(title, { direction: 'top', offset: [0, -17] });
+			markers.set(vehicle.id, marker);
+		}
+	}
+
+	function clearVehicleMarkers(markers: Map<number, L.Marker>) {
+		for (const marker of markers.values()) marker.remove();
+		markers.clear();
+	}
+
+	function removeRouteOverlay() {
+		routeCasing?.remove();
+		primaryRouteLine?.remove();
+		oppositeRouteLine?.remove();
+		routeCasing = null;
+		primaryRouteLine = null;
+		oppositeRouteLine = null;
+		clearVehicleMarkers(primaryVehicleMarkers);
+		clearVehicleMarkers(oppositeVehicleMarkers);
+		lastFittedRouteKey = null;
+	}
+
+	function drawRouteOverlay() {
+		if (!map || !L) return;
+		if (!route) {
+			removeRouteOverlay();
+			return;
+		}
+
+		const primary = route.primary;
+		const opposite = route.opposite;
+		const primaryCoordinates = primary?.path.map((point) => [point.lat, point.lng] as [number, number]) ?? [];
+		const oppositeCoordinates = opposite?.path.map((point) => [point.lat, point.lng] as [number, number]) ?? [];
+
+		if (primaryCoordinates.length >= 2) {
+			if (!routeCasing) {
+				routeCasing = L.polyline(primaryCoordinates, {
+					className: 'selected-route-casing',
+					color: theme === 'dark' ? '#10121c' : '#ffffff',
+					weight: 8,
+					opacity: 0.86,
+					interactive: false
+				}).addTo(map);
+			} else {
+				routeCasing.setLatLngs(primaryCoordinates);
+				routeCasing.setStyle({ color: theme === 'dark' ? '#10121c' : '#ffffff' });
+			}
+			if (!primaryRouteLine) {
+				primaryRouteLine = L.polyline(primaryCoordinates, {
+					className: 'selected-route-line',
+					color: safeColor(primary?.color),
+					weight: 5,
+					opacity: 1,
+					interactive: false
+				}).addTo(map);
+			} else {
+				primaryRouteLine.setLatLngs(primaryCoordinates);
+				primaryRouteLine.setStyle({ color: safeColor(primary?.color) });
+			}
+		} else {
+			routeCasing?.remove();
+			primaryRouteLine?.remove();
+			routeCasing = null;
+			primaryRouteLine = null;
+		}
+
+		if (oppositeCoordinates.length >= 2) {
+			if (!oppositeRouteLine) {
+				oppositeRouteLine = L.polyline(oppositeCoordinates, {
+					className: 'opposite-route-line',
+					color: safeColor(opposite?.color),
+					weight: 4,
+					opacity: 0.72,
+					dashArray: '8 9',
+					interactive: false
+				}).addTo(map);
+			} else {
+				oppositeRouteLine.setLatLngs(oppositeCoordinates);
+				oppositeRouteLine.setStyle({ color: safeColor(opposite?.color) });
+			}
+		} else {
+			oppositeRouteLine?.remove();
+			oppositeRouteLine = null;
+		}
+
+		if (primary) {
+			syncVehicleMarkers(
+				primaryVehicleMarkers,
+				primary.vehicles,
+				primary,
+				'primary',
+				new Set(route.approachingVehicleIds)
+			);
+		} else {
+			clearVehicleMarkers(primaryVehicleMarkers);
+		}
+		if (opposite) {
+			syncVehicleMarkers(
+				oppositeVehicleMarkers,
+				opposite.vehicles,
+				opposite,
+				'opposite',
+				new Set(route.turnaroundVehicleIds)
+			);
+		} else {
+			clearVehicleMarkers(oppositeVehicleMarkers);
+		}
+
+		if (lastFittedRouteKey !== route.key && (primaryCoordinates.length >= 2 || oppositeCoordinates.length >= 2)) {
+			lastFittedRouteKey = route.key;
+			fitRouteOverview();
+		}
+	}
+
+	function fitRouteOverview() {
+		if (!map || !L || !route) return;
+		const points = [
+			...(route.primary?.path ?? []),
+			...(route.opposite?.path ?? [])
+		].map((point) => [point.lat, point.lng] as [number, number]);
+		if (points.length < 2) return;
+		map.fitBounds(L.latLngBounds(points), {
+			paddingTopLeft: [24, 24],
+			paddingBottomRight: [64, 24],
+			animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+		});
+	}
+
 	// Set initial view once allStations first populates
 	$effect(() => {
 		if (loaded && allStations.length > 0) {
@@ -248,9 +465,23 @@
 		const config = tileConfigs[t];
 		tileLayer.setUrl(config.url);
 	});
+
+	// Route geometry and positions update independently from station markers.
+	$effect(() => {
+		if (!loaded) return;
+		route;
+		theme;
+		drawRouteOverlay();
+	});
+
+	$effect(() => {
+		if (!loaded || !route) return;
+		overviewRequest;
+		if (overviewRequest > 0) fitRouteOverview();
+	});
 </script>
 
-<div class="map-wrapper">
+<div class="map-wrapper" class:route-mode={!!route}>
 	<div class="map-container" bind:this={mapContainer}>
 		{#if !loaded}
 			<div class="map-loading">
@@ -349,5 +580,41 @@
 	:global(.user-location-marker) {
 		background: transparent !important;
 		border: none !important;
+	}
+
+	.route-mode :global(.station-marker) {
+		opacity: 0.32;
+	}
+
+	:global(.vehicle-marker-shell) {
+		background: transparent !important;
+		border: none !important;
+	}
+
+	:global(.vehicle-marker) {
+		display: grid;
+		place-items: center;
+		width: 2rem;
+		height: 2rem;
+		margin: 0.375rem;
+		border: 3px solid #fff;
+		border-radius: 50%;
+		background: var(--vehicle-color);
+		color: #fff;
+		box-shadow: 0 2px 7px rgb(0 0 0 / 0.45);
+		font-size: 0.65rem;
+		font-weight: 800;
+		line-height: 1;
+	}
+
+	:global(.vehicle-marker.opposite) {
+		border-color: var(--vehicle-color);
+		background: var(--color-surface);
+		color: var(--color-text);
+	}
+
+	:global(.vehicle-marker.emphasized) {
+		outline: 3px solid var(--color-warning);
+		outline-offset: 2px;
 	}
 </style>

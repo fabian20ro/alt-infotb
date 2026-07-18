@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ArrivalInfo } from '$lib/api/types.js';
 	import { translations } from '$lib/i18n/translations.js';
+	import { getArrivalSelectionKey } from '$lib/stores/arrivals.svelte.js';
 	import type { Lang } from '$lib/stores/settings.svelte.js';
 	import ArrivalRow from './ArrivalRow.svelte';
 
@@ -10,12 +11,41 @@
 		error: string | null;
 		lang: Lang;
 		onRefresh: () => void;
+		selectedKey?: string | null;
+		selecting?: boolean;
+		onLineSelect?: (arrival: ArrivalInfo) => void;
 	}
 
-	let { arrivals, loading, error, lang, onRefresh }: Props = $props();
+	let {
+		arrivals,
+		loading,
+		error,
+		lang,
+		onRefresh,
+		selectedKey = null,
+		selecting = false,
+		onLineSelect
+	}: Props = $props();
+
+	const skeletonArrival: ArrivalInfo = {
+		lineName: '',
+		lineId: 0,
+		vehicleType: '',
+		color: '#888',
+		direction: '',
+		directionId: 0,
+		sourceStopId: 0,
+		arrivingTimes: [],
+		encodedPath: '',
+		path: [],
+		vehicles: []
+	};
 
 	let strings = $derived(translations[lang]);
 	let isFirstLoad = $derived(loading && arrivals.length === 0);
+	let selectableArrivals = $derived(
+		arrivals.map((arrival) => ({ arrival, key: getArrivalSelectionKey(arrival) }))
+	);
 </script>
 
 <div class="station-arrivals">
@@ -28,18 +58,20 @@
 	{:else if isFirstLoad}
 		<div class="arrivals-list">
 			{#each [1, 2, 3] as i (i)}
-				<ArrivalRow
-					arrival={{ lineName: '', lineId: 0, vehicleType: '', color: '#888', direction: '', arrivingTimes: [] }}
-					loading={true}
-				/>
+				<ArrivalRow arrival={skeletonArrival} loading={true} />
 			{/each}
 		</div>
 	{:else if arrivals.length === 0}
 		<p class="no-arrivals">{strings.noLines}</p>
 	{:else}
 		<div class="arrivals-list">
-			{#each arrivals as arrival (arrival.lineName + arrival.direction)}
-				<ArrivalRow {arrival} />
+			{#each selectableArrivals as item (item.key)}
+				<ArrivalRow
+					arrival={item.arrival}
+					selected={selectedKey === item.key}
+					busy={selecting && selectedKey === item.key}
+					onSelect={onLineSelect ? () => onLineSelect(item.arrival) : undefined}
+				/>
 			{/each}
 		</div>
 	{/if}

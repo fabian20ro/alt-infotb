@@ -149,3 +149,25 @@ export function getVarints(fields: Map<number, Array<number | Uint8Array>>, num:
 	if (!vals) return [];
 	return vals.filter((v): v is number => typeof v === 'number');
 }
+
+/** Decode a protobuf fixed64 payload as a little-endian IEEE-754 double. */
+export function decodeFixed64Double(data: Uint8Array, offset: number): number {
+	if (!(data instanceof Uint8Array)) {
+		throw new TypeError('decodeFixed64Double requires a Uint8Array');
+	}
+	if (!Number.isInteger(offset) || offset < 0 || offset + 8 > data.byteLength) {
+		throw new ProtoParseError('Invalid fixed64 double offset');
+	}
+	const view = new DataView(data.buffer, data.byteOffset + offset, 8);
+	return view.getFloat64(0, true);
+}
+
+/** Get the first fixed64 double for a schema-known field, or undefined. */
+export function getFixed64Double(
+	fields: Map<number, Array<number | Uint8Array>>,
+	num: number,
+	source: Uint8Array
+): number | undefined {
+	const offset = fields.get(num)?.[0];
+	return typeof offset === 'number' ? decodeFixed64Double(source, offset) : undefined;
+}

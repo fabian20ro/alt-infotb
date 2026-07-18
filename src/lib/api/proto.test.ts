@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { ProtoReader, ProtoParseError, getVarint, getMessages, getString, getVarints } from './proto.js';
+import {
+	ProtoReader,
+	ProtoParseError,
+	decodeFixed64Double,
+	getFixed64Double,
+	getVarint,
+	getMessages,
+	getString,
+	getVarints
+} from './proto.js';
 
 describe('ProtoReader', () => {
 	it('handles varint (type 0)', () => {
@@ -494,5 +503,33 @@ describe('ProtoReader', () => {
 		expect(typeof fields.get(4)![0]).toBe('number');
 		expect((fields.get(1) as number[]).length).toBe(2);  // position + varint
 		expect((fields.get(1) as number[])[1]).toBe(66);       // second entry is the varint value
+	});
+});
+
+describe('fixed64 doubles', () => {
+	it('decodes a little-endian fixed64 double from a protobuf field offset', () => {
+		const payload = new Uint8Array(8);
+		new DataView(payload.buffer).setFloat64(0, 44.4268, true);
+		const data = new Uint8Array([0x11, ...payload]);
+		const fields = new ProtoReader(data).readAllFields();
+
+		expect(getFixed64Double(fields, 2, data)).toBeCloseTo(44.4268, 10);
+		expect(decodeFixed64Double(data, 1)).toBeCloseTo(44.4268, 10);
+	});
+
+	it('respects Uint8Array byte offsets when decoding', () => {
+		const backing = new Uint8Array(20);
+		const slice = backing.subarray(5, 14);
+		slice[0] = 0x19;
+		new DataView(slice.buffer, slice.byteOffset + 1, 8).setFloat64(0, 26.1025, true);
+		const fields = new ProtoReader(slice).readAllFields();
+
+		expect(getFixed64Double(fields, 3, slice)).toBeCloseTo(26.1025, 10);
+	});
+
+	it('rejects out-of-bounds offsets and returns undefined for an absent field', () => {
+		const data = new Uint8Array(8);
+		expect(() => decodeFixed64Double(data, 1)).toThrow(ProtoParseError);
+		expect(getFixed64Double(new Map(), 2, data)).toBeUndefined();
 	});
 });

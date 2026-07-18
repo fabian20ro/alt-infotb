@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StationArrivals } from '$lib/api/types.js';
+import type { ArrivalInfo, StationArrivals } from '$lib/api/types.js';
 import { formatArrivalTime, formatTime } from './arrivals.svelte.js';
 
 const fetchArrivalsMock = vi.hoisted(() => vi.fn());
+const fetchLineRouteMock = vi.hoisted(() => vi.fn());
 
 vi.mock('$lib/api/arrivals.js', () => ({
-	fetchArrivals: fetchArrivalsMock
+	fetchArrivals: fetchArrivalsMock,
+	fetchLineRoute: fetchLineRouteMock
 }));
 
 function makeArrivals(stationName: string): StationArrivals {
@@ -14,6 +16,33 @@ function makeArrivals(stationName: string): StationArrivals {
 		address: 'Bucharest',
 		arrivals: [],
 		fetchedAt: new Date('2026-02-26T00:00:00.000Z')
+	};
+}
+
+function makeLine(overrides: Partial<ArrivalInfo> = {}): ArrivalInfo {
+	return {
+		lineName: 'N101',
+		lineId: 208,
+		vehicleType: 'BUS',
+		color: '#006b3c',
+		direction: 'Valea Oltului',
+		directionId: 0,
+		sourceStopId: 6886,
+		arrivingTimes: [300],
+		encodedPath: 'test-path',
+		path: [
+			{ lat: 44.42, lng: 26.1 },
+			{ lat: 44.42, lng: 26.13 }
+		],
+		vehicles: [],
+		...overrides
+	};
+}
+
+function makeArrivalsWithLine(line: ArrivalInfo): StationArrivals {
+	return {
+		...makeArrivals('Piata Unirii 2'),
+		arrivals: [line]
 	};
 }
 
@@ -35,6 +64,7 @@ beforeEach(() => {
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2026-02-26T10:00:00.000Z'));
 	fetchArrivalsMock.mockReset();
+	fetchLineRouteMock.mockReset();
 });
 
 afterEach(() => {
@@ -380,6 +410,154 @@ describe('createArrivalsStore lifecycle polling', () => {
 		await vi.advanceTimersByTimeAsync(100); // give async chain time to complete
 		expect(store.state.data?.stationName).toBe('Current'); // queued call's data from current stopId 3003
 
+		store.cleanup();
+	});
+});
+
+describe('createArrivalsStore selected route', () => {
+	it('uses the selected line response as the normal refresh and classifies approaching vehicles', async () => {
+		const plainLine = makeLine({ encodedPath: '', path: [], vehicles: [] });
+		const selectedLine = makeLine({
+			vehicles: [
+				{ id: 701, lat: 44.42, lng: 26.105, vehicleType: 'BUS', accessible: true },
+				{ id: 702, lat: 44.42, lng: 26.125, vehicleType: 'BUS', accessible: false }
+			]
+		});
+		fetchArrivalsMock
+			.mockResolvedValueOnce(makeArrivalsWithLine(plainLine))
+			.mockResolvedValueOnce(makeArrivalsWithLine(selectedLine));
+
+		const store = await createStore();
+		store.selectStation(6886);
+		await vi.advanceTimersByTimeAsync(0);
+		store.selectLine(plainLine, { lat: 44.42, lng: 26.115 });
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(fetchArrivalsMock).toHaveBeenLastCalledWith([6886], {
+			sourceStopId: 6886,
+			lineId: 208,
+			directionId: 0
+		});
+		expect(store.state.data?.arrivals[0].vehicles).toHaveLength(2);
+		expect(store.route?.status).toBe('ready');
+		expect(store.route?.approachingVehicleIds).toEqual([701]);
+		expect(fetchLineRouteMock).not.toHaveBeenCalled();
+		store.cleanup();
+	});
+
+	it('checks the opposite direction and labels near-origin turnaround candidates', async () => {
+		const plainLine = makeLine({ encodedPath: '', path: [], vehicles: [] });
+		const selectedLine = makeLine({
+			vehicles: [
+				{ id: 801, lat: 44.42, lng: 26.12, vehicleType: 'BUS', accessible: false }
+			]
+		});
+		const oppositeLine = makeLine({
+			direction: 'Piata Unirii 2',
+			directionId: 1,
+			path: [...selectedLine.path].reverse(),
+			vehicles: [
+				{ id: 901, lat: 44.42, lng: 26.102, vehicleType: 'BUS', accessible: true }
+			]
+		});
+		fetchArrivalsMock
+			.mockResolvedValueOnce(makeArrivalsWithLine(plainLine))
+			.mockResolvedValueOnce(makeArrivalsWithLine(selectedLine));
+		fetchLineRouteMock.mockResolvedValueOnce(oppositeLine);
+
+		const store = await createStore();
+		store.selectStation(6886);
+		await vi.advanceTimersByTimeAsync(0);
+		store.selectLine(plainLine, { lat: 44.42, lng: 26.101 });
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(fetchLineRouteMock).toHaveBeenCalledWith({
+			sourceStopId: 6886,
+			lineId: 208,
+			directionId: 1
+		});
+		expect(store.route?.status).toBe('fallback');
+		expect(store.route?.opposite?.directionId).toBe(1);
+		expect(store.route?.turnaroundVehicleIds).toEqual([901]);
+		store.cleanup();
+	});
+
+	it('clears route mode on a second tap and on station change', async () => {
+		const line = makeLine({ encodedPath: '', path: [], vehicles: [] });
+		fetchArrivalsMock.mockResolvedValue(makeArrivalsWithLine(line));
+
+		const store = await createStore();
+		store.selectStation(6886);
+		await vi.advanceTimersByTimeAsync(0);
+		store.selectLine(line, { lat: 44.42, lng: 26.101 });
+		expect(store.route).not.toBeNull();
+		store.selectLine(line, { lat: 44.42, lng: 26.101 });
+		expect(store.route).toBeNull();
+
+		store.selectLine(line, { lat: 44.42, lng: 26.101 });
+		expect(store.route).not.toBeNull();
+		store.selectStation(3570);
+		expect(store.route).toBeNull();
+		store.cleanup();
+	});
+
+	it('does not claim an empty opposite direction when that request fails', async () => {
+		const line = makeLine({ vehicles: [] });
+		fetchArrivalsMock.mockResolvedValue(makeArrivalsWithLine(line));
+		fetchLineRouteMock.mockRejectedValue(new Error('opposite unavailable'));
+
+		const store = await createStore();
+		store.selectStation(6886);
+		await vi.advanceTimersByTimeAsync(0);
+		store.selectLine(line, { lat: 44.42, lng: 26.115 });
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(store.route?.status).toBe('positions-error');
+		expect(store.route?.error).toContain('opposite unavailable');
+		store.cleanup();
+	});
+
+	it('ends initial route loading on a selected-line request failure', async () => {
+		const line = makeLine({ encodedPath: '', path: [], vehicles: [] });
+		fetchArrivalsMock
+			.mockResolvedValueOnce(makeArrivalsWithLine(line))
+			.mockRejectedValueOnce(new Error('route unavailable'));
+
+		const store = await createStore();
+		store.selectStation(6886);
+		await vi.advanceTimersByTimeAsync(0);
+		store.selectLine(line, { lat: 44.42, lng: 26.115 });
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(store.route?.status).toBe('error');
+		expect(store.route?.primary).toBeNull();
+		expect(store.route?.error).toContain('route unavailable');
+		store.cleanup();
+	});
+
+	it('preserves a successful route overlay when a later poll fails', async () => {
+		const line = makeLine({
+			vehicles: [
+				{ id: 701, lat: 44.42, lng: 26.105, vehicleType: 'BUS', accessible: true }
+			]
+		});
+		fetchArrivalsMock
+			.mockResolvedValueOnce(makeArrivalsWithLine(line))
+			.mockResolvedValueOnce(makeArrivalsWithLine(line))
+			.mockRejectedValueOnce(new Error('temporary poll failure'));
+
+		const store = await createStore();
+		store.selectStation(6886);
+		await vi.advanceTimersByTimeAsync(0);
+		store.selectLine(line, { lat: 44.42, lng: 26.115 });
+		await vi.advanceTimersByTimeAsync(0);
+		const previousPrimary = store.route?.primary;
+
+		await store.refresh();
+
+		expect(store.route?.status).toBe('ready');
+		expect(store.route?.primary).toBe(previousPrimary);
+		expect(store.route?.error).toBeNull();
 		store.cleanup();
 	});
 });

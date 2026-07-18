@@ -31,6 +31,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-15]** Server-side proxy is required — The STB API requires custom headers (`User-Info`, `App-Id`, `Lang`, etc.) that CORS blocks from browsers. A proxy injects these headers server-side. Vite plugin for dev (`/stb-api/*`), Cloudflare Worker for production.
 
+**[2026-07-19]** New STB API paths need explicit dev/production proxy parity — The Vite dev proxy currently forwards any `/stb-api/*` target, while the production Cloudflare Worker only allows `/lines/stop`. Any route or vehicle-position endpoint must be allowlisted and validated in production as part of the same change, or it can pass locally and fail after deployment.
+
 **[2026-02-15]** STB API requires User-Info auth token — The API returns 400 without a `User-Info` header. Get a bcrypt token from `GET /proxy/user/auth` (requires `App-key` and `App-Id` headers). Token expires (412 response) and must be re-fetched. The official STB web app does this automatically.
 
 **[2026-02-15]** STB auth credentials — `App-key` and `App-Id` values are extracted from the official STB web app's main JS bundle. They are stored in environment variables (`STB_APP_KEY`, `STB_APP_ID`), not in source code. See `.env.example` for setup. If auth stops working, re-check the bundle at `info.stb.ro/main-es2015.*.js` and update `.env`.
@@ -39,7 +41,13 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-14]** DOMException.name is read-only — When mocking `AbortError` in tests, use the constructor `new DOMException('message', 'AbortError')` instead of `Object.assign(new DOMException(...), { name: 'AbortError' })`. The `name` property on `DOMException` is a getter and cannot be overwritten.
 
-**[2026-02-15]** Protobuf arrival data is in field 9 sub-messages — Fields 6/7/8 in the line sub-message are NOT three arrival times. Field 6 = first arrival seconds (redundant), field 7 = always 0, field 8 = always 1. The real arrival data lives in field 9 as repeated sub-messages with `{1: is_scheduled (0=GPS, 1=estimated), 2: seconds}`. See `docs/proto-analysis.md`.
+**[2026-02-15] Corrected [2026-07-19]** Protobuf arrival data is in field 9 sub-messages — Field 6 is the optional/redundant first-arrival value. The real arrival list lives in repeated field 9 messages with `{1: timetable/scheduled flag, 2: seconds, 3: accessibility flag}`. Field 8 is a `0|1` route direction, not an arrival value or constant; the official app passes it as the `direction` query parameter.
+
+**[2026-07-19]** Selected-line maps use the existing stop endpoint — Request `/lines/stop?stop_id={sourceStopId}&selected_line_id={lineId}&direction={0|1}`. The selected line gains field 11, a standard Google encoded polyline, and repeated field 12 vehicle messages with ID, fixed64 latitude/longitude, transport type, and an accessibility flag. The response still contains all station arrivals, so use it as the normal refresh response instead of adding a duplicate route/vehicle poll.
+
+**[2026-07-19]** Preserve the source stop ID for selectable merged arrivals — Surface arrivals use the selected station ID, but metro arrivals are merged from platform-specific API stop IDs. A route-map request must use the platform stop that produced the tapped line/direction; line ID and display direction alone are insufficient after merging.
+
+**[2026-07-19]** Directional vehicle fallback must fail closed — Project the station and vehicles onto the ordered route, show every returned vehicle, and call a vehicle “approaching” only when both projections are uniquely on-route. Query the opposite direction only after a conclusive zero-approaching result. Network failure, an off-route station, or overlapping/loop ambiguity is not an empty fleet. Near the first 15% of the selected route, vehicles in the final 15% of the reverse route are turnaround candidates, never guaranteed continuations or invented ETAs.
 
 **[2026-02-15]** GTFS stop_id maps to STB API stop_id — ROTI GTFS feed uses format `1008-{numeric_id}` where the numeric suffix is the STB API `stop_id`. Filter to Bucharest bounding box (lat 44.3-44.6, lon 25.9-26.3) to get ~2710 valid stations.
 

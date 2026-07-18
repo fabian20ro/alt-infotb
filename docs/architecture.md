@@ -15,7 +15,7 @@ Browser ──fetch──▸ Proxy ──fetch + headers──▸ info.stb.ro (p
    ◂── protobuf ─────┘
    │
    ├── decode (proto.ts)
-   ├── extract arrivals from field 9 sub-messages (arrivals.ts)
+   ├── extract arrivals, selected route, and live vehicles (arrivals.ts)
    ├── render (Svelte components)
    ├── cache (localStorage + IndexedDB)
    └── display on map (Leaflet)
@@ -42,13 +42,13 @@ Both proxies handle the same auth flow:
 2. The proxy forwards the request to `info.stb.ro/api/web/v2-6/lines/stop?stop_id={id}` with injected headers
 3. The response is **Protocol Buffers** binary (not JSON)
 4. A minimal protobuf reader (`proto.ts`) decodes the wire format
-5. `arrivals.ts` extracts arrival times from **field 9 repeated sub-messages** in each line entry
+5. `arrivals.ts` extracts field 8 direction, field 9 arrivals, and selected-line fields 11/12
 6. The Svelte store pushes data to components for rendering
-7. Results are cached in localStorage for offline display
+7. Arrival rows are cached for offline display; live coordinates are deliberately stripped
 
 ## Key design decisions
 
-- **No protobuf library** — The response schema is small and stable. A ~100-line reader handles varint and length-delimited wire types, which is all we need. This keeps the bundle tiny.
+- **No protobuf library** — The response schema is small. The custom reader handles varint, length-delimited, and fixed-size wire types, keeping the bundle small.
 - **Proxy required** — The STB API requires custom headers (`User-Info`, `App-Id`, etc.) that CORS blocks from browsers. A server-side proxy injects them. Vite handles dev, Cloudflare Worker handles prod.
 - **Static adapter** — SvelteKit prerenders a single HTML shell. All logic runs client-side (`ssr = false`).
 - **PWA** — The app is installable via `vite-plugin-pwa`. Static assets are precached; API calls use `NetworkOnly`; map tiles use `StaleWhileRevalidate`.
@@ -56,7 +56,7 @@ Both proxies handle the same auth flow:
 - **Station data from GTFS** — 2,710 station coordinates are bundled from ROTI GTFS data (`scripts/fetch-stations.ts`). The GTFS stop_id format `1008-{stb_id}` maps directly to the STB API `stop_id`. IndexedDB provides caching.
 - **Immutable state** — All stores use Svelte 5 `$state` runes. State updates create new values rather than mutating.
 
-## Protobuf schema (verified 2026-02-15)
+## Protobuf schema (verified 2026-02-15, expanded 2026-07-19)
 
 See `docs/proto-analysis.md` for full evidence from `scripts/dump-proto.ts`.
 
@@ -71,13 +71,23 @@ message StopResponse {
 message LineEntry {
   string name = 1;                    // "27"
   int32  id = 2;                      // 66
-  string vehicle_type = 3;            // "TRAM", "BUS", "TROLLEYBUS"
+  string vehicle_type = 3;            // "TRAM", "BUS", "TROLLEYBUS", "SUBWAY"
   string color = 4;                   // "#BE1622"
   string direction = 5;               // "Faur"
   int32  first_arrival_seconds = 6;   // seconds (redundant with arrivals[0])
   int32  unknown_7 = 7;              // always 0
-  int32  unknown_8 = 8;              // always 1
+  int32  direction_id = 8;           // 0 or 1
   repeated ArrivalEntry arrivals = 9; // THE REAL ARRIVAL DATA
+  string encoded_path = 11;          // selected-line response only
+  repeated Vehicle vehicles = 12;    // selected-line response only
+}
+
+message Vehicle {
+  int32 id = 1;
+  double latitude = 2;
+  double longitude = 3;
+  string vehicle_type = 4;
+  int32 accessible = 5;
 }
 
 message ArrivalEntry {
@@ -86,7 +96,7 @@ message ArrivalEntry {
 }
 ```
 
-**Important**: Fields 6, 7, 8 were originally misidentified as three separate arrival times. The actual arrival data lives in field 9 as repeated sub-messages.
+**Important**: Fields 6, 7, 8 were originally misidentified as three separate arrival times. Arrival data lives in field 9; field 8 is the selected-line direction ID.
 
 ## UI Architecture
 
@@ -99,8 +109,9 @@ message ArrivalEntry {
 ||  [Line] Direction    Time Time   |     ArrivalRow per line
 ||  loading bar                     |
 |==================================|
+| [Line] Towards ...  live status  |  <- RouteStatus (only after row tap)
 |          Leaflet Map             |  <- MapView (50dvh)
-|     Station markers + GPS dot    |     Viewport-filtered, 100-marker cap
+| Stations + route + live vehicles |     Viewport-filtered, 100-station cap
 +----------------------------------+
 
 Hamburger drawer (left slide):
@@ -125,6 +136,14 @@ When a user taps a metro station on the map:
 4. Partial failures are tolerated — if one platform fails, others still show
 
 For surface transport (bus, tram, trolleybus), the GTFS ID maps directly to the API stop ID, so `resolveStopIds` returns `[stationId]` unchanged.
+
+## Selected-line map flow
+
+1. Tapping an arrival row selects its exact `sourceStopId`, `lineId`, and field-8 direction.
+2. The regular 20-second refresh adds `selected_line_id` and `direction` only to that source platform request.
+3. The selected response updates arrivals, route geometry, and every returned live vehicle together.
+4. Vehicles are projected onto the directed path. A conclusive zero-approaching result triggers one reverse-direction request; ambiguous loops and network failures fail closed.
+5. The route is fitted once. Later polls update keyed markers without resetting the user's pan/zoom.
 
 ## Station data flow
 

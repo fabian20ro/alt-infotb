@@ -30,6 +30,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-07-19] Implement selected-line routes and live vehicles
+
+**Context:** Implement the verified official-STB line-selection behavior in the single alt-stb station view, including all returned transport types, directed “approaching” detection, and opposite-direction fallback near a route origin.
+**What happened:** Extended the custom protobuf reader for fixed64 doubles and decoded line direction, Google polyline shapes, and live vehicle messages. Preserved the source platform through multi-stop metro merges. Added a single selected-line arrivals refresh path, conditional opposite-direction request, directed route projection with loop/overlap ambiguity rejection, native selectable arrival buttons, route status, solid/dashed Leaflet paths, keyed filled/hollow vehicle markers, overview/close controls, and RO/EN states. Added API, geometry, store concurrency, and desktop/mobile Playwright coverage. Simplification review fixed first-load route errors and preserved the last successful overlay on transient polling failures.
+**Outcome:** Success — `npm run check`, 503 unit tests, production build, and 4 focused desktop/mobile E2E cases pass. In-app browser verification against the final local production preview selected live N111 at Piața Unirii, drew its full route, and showed one real vehicle. The preview prints a missing-dev-credentials warning even though its compiled production API base correctly reaches the deployed Worker; this warning was surprising but did not affect the live check.
+**Insight:** Opposite fallback is safe only after a conclusive zero-approaching result; network errors and ambiguous route projections must not be presented as “no vehicles.” Preserve the current map overlay across transient refresh failures, but never persist live coordinates as current data.
+**Promoted to Lessons Learned:** Yes
+
+---
+
 ### [2026-02-14] Add tests, documentation, AGENTS.md, and CI improvements
 
 **Context:** Project had no tests, no docs folder, no AGENTS.md, and the CI workflow only ran `build` without checks.
@@ -541,6 +551,16 @@ Each entry should follow this structure:
 **Outcome:** Success — the opening copy is now more accurate about the browser/proxy split.
 **Insight:** Intro copy should match the real network boundary, not just the user-facing UI surface.
 **Promoted to Lessons Learned:** No
+
+---
+
+### [2026-07-19] Plan route paths and live vehicle overlays
+
+**Context:** Requested a thorough implementation analysis for showing a selected surface line's city route and live bus/tram/trolley positions from the single station view, including opposite-direction and near-origin fallback behavior.
+**What happened:** Audited the Svelte station/arrival/map flow, protobuf decoder, PWA rules, development proxy, production Worker, tests, and architecture docs. After Chrome extension installation was blocked, the user approved the in-app browser. Inspected the official station/line interaction with active night line N101, compared the deployed app, captured the selected-line requests, decoded both directions through the public production proxy, verified tram and subway shapes, and designed a topology-aware fallback contract plus phased implementation, verification, rollout, and rollback.
+**Outcome:** Planning complete; implementation intentionally not started. Verified contract: the existing stop endpoint accepts `selected_line_id` and `direction`; selected line field 11 is an encoded route polyline and field 12 contains live vehicles. Subway returns route shapes even when no vehicle positions are supplied.
+**Insight:** The selected-line response still contains every arrival, so arrivals and live-map refresh should share one request. Field 8 is the direction query value, and merged metro rows must retain their source platform stop ID. General dev/production proxy path parity remains important, though this feature needs no new STB path.
+**Promoted to Lessons Learned:** Yes
 
 ---
 

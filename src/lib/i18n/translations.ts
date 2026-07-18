@@ -24,7 +24,20 @@ export const translations = {
 		noRecents: 'Nicio stație recentă',
 		close: 'Închide',
 		pinStation: 'Fixează ca stație principală',
-		unpinStation: 'Elimină fixarea'
+		unpinStation: 'Elimină fixarea',
+		routeLoading: 'Se încarcă traseul…',
+		vehicleCountOne: '1 vehicul pe traseu',
+		vehicleCountMany: '{count} vehicule pe traseu',
+		checkingOpposite: 'Niciun vehicul nu se apropie în acest sens. Verificăm sensul opus…',
+		oppositeFound: '{count} vehicule pe sensul opus',
+		turnaroundCandidate: 'Vine spre capăt și s-ar putea întoarce pe traseu.',
+		noLiveVehicles: 'Niciun vehicul live pe niciun sens.',
+		routeUnavailable: 'Traseul nu este disponibil. Sosirile continuă să se actualizeze.',
+		positionsUnavailable: 'Pozițiile live nu sunt disponibile.',
+		routeDetails: 'Detalii traseu',
+		towards: 'Spre',
+		routeOverview: 'Vezi întregul traseu',
+		closeRoute: 'Închide traseul'
 	},
 	en: {
 		appTitle: 'Better STB',
@@ -51,7 +64,20 @@ export const translations = {
 		noRecents: 'No recent stations',
 		close: 'Close',
 		pinStation: 'Pin as startup station',
-		unpinStation: 'Unpin station'
+		unpinStation: 'Unpin station',
+		routeLoading: 'Loading route…',
+		vehicleCountOne: '1 vehicle on the route',
+		vehicleCountMany: '{count} vehicles on the route',
+		checkingOpposite: 'No vehicle is approaching in this direction. Checking the opposite direction…',
+		oppositeFound: '{count} vehicles in the opposite direction',
+		turnaroundCandidate: 'Approaching the terminus; it may continue back on this route.',
+		noLiveVehicles: 'No live vehicles in either direction.',
+		routeUnavailable: 'Route unavailable. Arrivals are still updating.',
+		positionsUnavailable: 'Live positions are unavailable.',
+		routeDetails: 'Route details',
+		towards: 'Towards',
+		routeOverview: 'Show full route',
+		closeRoute: 'Close route'
 	}
 } as const;
 
