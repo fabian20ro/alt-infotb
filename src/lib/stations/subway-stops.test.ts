@@ -79,4 +79,16 @@ describe('resolveStopIds', () => {
 		expect(resolveStopIds(9645)).toEqual([9645]); // valid-looking, just unknown station
 		expect(resolveStopIds(9700)).toEqual([9700]); // another 9xxx value not in map
 	});
+
+	it('SUBWAY_STOP_IDS keys never appear as values (GTFS/API namespace separation)', () => {
+		// GTFS parent IDs (14xxx-57xxx) must never equal API stop IDs (95xx-98xx).
+		// A data-entry typo mixing the two namespaces would silently break lookups.
+		const allValues = new Set(Object.values(SUBWAY_STOP_IDS).flatMap((v) => v));
+		for (const gtfsId of Object.keys(SUBWAY_STOP_IDS)) {
+			expect(
+				allValues.has(Number(gtfsId)),
+				`GTFS parent ${gtfsId} must not appear as an API stop value`,
+			).toBe(false);
+		}
+	});
 });
