@@ -219,6 +219,13 @@ describe('geo', () => {
 			const bounds = { south: 44.4, north: 44.4001, west: 26, east: 27 };
 			const results = findStationsInBounds(bounds, stations, 10);
 			expect(results.map((s) => s.id).sort()).toEqual([1, 3]); // S1 and S3 at lat=44.4
+			// Explicit coordinate-range check: catches >= vs > regression on south boundary
+			results.forEach((s) => {
+				expect(s.lat).toBeGreaterThanOrEqual(bounds.south);
+				expect(s.lat).toBeLessThanOrEqual(bounds.north);
+				expect(s.lon).toBeGreaterThanOrEqual(bounds.west);
+				expect(s.lon).toBeLessThanOrEqual(bounds.east);
+			});
 		});
 
 		it('includes a station exactly at the north boundary', () => {
