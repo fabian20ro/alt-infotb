@@ -97,6 +97,14 @@ describe('searchStations', () => {
 		expect(searchStations(42 as any, stations)).toEqual([]);
 	});
 
+	it('returns empty array for numeric query with no matching station ID', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Alpha', description: 'test', lat: 0, lon: 0 },
+			{ id: 2, name: 'Beta', description: 'data', lat: 0, lon: 0 },
+		];
+		expect(searchStations('9999', stations)).toEqual([]);
+	});
+
 	it('does not throw on non-array station list', () => {
 		expect(() => searchStations('test', null as any)).not.toThrow();
 		expect(searchStations('test', null as any)).toEqual([]);
