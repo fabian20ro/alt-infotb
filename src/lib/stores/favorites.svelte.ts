@@ -32,13 +32,17 @@ function loadPinnedId(): number | null {
 	}
 }
 
-function persistPinnedId(id: number | null): void {
+function persist(key: string, value: unknown): void {
 	try {
-		if (id === null) {
-			localStorage.removeItem(PINNED_KEY);
-		} else {
-			localStorage.setItem(PINNED_KEY, JSON.stringify(id));
-		}
+		localStorage.setItem(key, JSON.stringify(value));
+	} catch {
+		// Silently fail
+	}
+}
+
+function removeItemSafely(key: string): void {
+	try {
+		localStorage.removeItem(key);
 	} catch {
 		// Silently fail
 	}
@@ -59,7 +63,7 @@ export function createFavoritesStore() {
 		persistFavorites(favorites);
 		if (pinnedId === stationId) {
 			pinnedId = null;
-			persistPinnedId(null);
+			removeItemSafely(PINNED_KEY);
 		}
 	}
 
@@ -78,7 +82,7 @@ export function createFavoritesStore() {
 	function togglePin(id: number) {
 		if (pinnedId === id) {
 			pinnedId = null;
-			persistPinnedId(null);
+			removeItemSafely(PINNED_KEY);
 			return;
 		}
 
@@ -87,7 +91,7 @@ export function createFavoritesStore() {
 		if (!station) return;
 
 		pinnedId = id;
-		persistPinnedId(id);
+		persist(PINNED_KEY, id);
 	}
 
 	return {
