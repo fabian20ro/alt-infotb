@@ -294,6 +294,20 @@ describe('geo', () => {
 			expect(results).toHaveLength(0); // Zero-area bounds with no station and no selectedId → empty
 		});
 
+		it('does not return more than maxCount items when selected is outside and in-bounds fill the cap', () => {
+			const stationsWithOverlap = [
+				{ id: 1, name: 'S1', description: '', lat: 44.42, lon: 26.1 }, // in bounds
+				{ id: 2, name: 'S2', description: '', lat: 44.5, lon: 26.2 },  // in bounds
+				{ id: 3, name: 'S3', description: '', lat: 48, lon: 30 },      // outside bounds (selected)
+			];
+			const bounds = { south: 44.3, north: 44.6, west: 26.0, east: 26.3 };
+			// selectedId=3 is a valid station but OUTSIDE bounds; inBounds.length === 2 equals maxCount —
+			// merging would overflow to 3 items; the fix should keep only [S1, S2]
+			const results = findStationsInBounds(bounds, stationsWithOverlap, 2, 3);
+			expect(results).toHaveLength(2); // must not exceed maxCount
+			expect(results.map((s) => s.id)).toEqual([1, 2]);
+		});
+
 		it('does not return the selected station when it has a negative id', () => {
 			const bounds = { south: 48, north: 49, west: 30, east: 31 };
 			const results = findStationsInBounds(bounds, stations, 10, -1);

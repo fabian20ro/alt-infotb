@@ -88,7 +88,9 @@ export function findStationsInBounds(
 	}
 
 	if (selected && !inBounds.some((s) => s.id === selected.id)) {
-		return [selected, ...inBounds];
+		const merged = [selected, ...inBounds];
+		if (merged.length <= maxCount || inBounds.length === 0) return merged;
+		return inBounds;
 	}
 
 	return inBounds;
