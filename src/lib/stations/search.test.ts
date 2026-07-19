@@ -204,8 +204,14 @@ describe('searchStations', () => {
 			{ id: 100, name: 'Other Station', description: 'About 42 things', lat: 0, lon: 0 },
 		];
 		const results = searchStations('42', stations);
-		expect(results).toHaveLength(1);
-		expect(results[0].id).toBe(42);
+
+		// Failure-specific assertions — catches regressions where numeric ID priority
+		// is lost (e.g. if the early return on line 28-29 is removed or the sort breaks):
+		expect(results).toHaveLength(1); // station id=100 excluded despite "42" in description
+		expect(results[0].id).toBe(42);   // exact numeric match wins
+
+		const ids = results.map(s => s.id);
+		expect(ids).toEqual([42]);         // no name-based match leaks through
 	});
 
 	it('breaks ties by shorter name when startswith scores are equal', () => {
