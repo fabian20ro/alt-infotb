@@ -97,6 +97,14 @@ describe('searchStations', () => {
 		expect(searchStations(42 as any, stations)).toEqual([]);
 	});
 
+	it('returns empty array for numeric query with no matching station ID', () => {
+		const stations: Station[] = [
+			{ id: 1, name: 'Alpha', description: 'test', lat: 0, lon: 0 },
+			{ id: 2, name: 'Beta', description: 'data', lat: 0, lon: 0 },
+		];
+		expect(searchStations('9999', stations)).toEqual([]);
+	});
+
 	it('does not throw on non-array station list', () => {
 		expect(() => searchStations('test', null as any)).not.toThrow();
 		expect(searchStations('test', null as any)).toEqual([]);
@@ -123,7 +131,12 @@ describe('searchStations', () => {
 			{ id: 22, name: 'XYZ', description: 'StartWithMe content here', lat: 0, lon: 0 },
 		];
 		const results = searchStations('startwithme', stations);
-		expect(results.map(s => s.id)).toEqual([10, 11, 22]);
+
+		// Three individual assertions make failures failure-specific:
+		// if any rank breaks, you immediately know which match type is wrong.
+		expect(results[0].id).toBe(10); // starts-with (score ~85) ranks first
+		expect(results[1].id).toBe(11); // word-boundary (score ~65) ranks second
+		expect(results[2].id).toBe(22); // description-only (score ~29) ranks third
 	});
 
 	it('ranks starts-with above description-only when both exist for the same query', () => {
@@ -191,8 +204,14 @@ describe('searchStations', () => {
 			{ id: 100, name: 'Other Station', description: 'About 42 things', lat: 0, lon: 0 },
 		];
 		const results = searchStations('42', stations);
-		expect(results).toHaveLength(1);
-		expect(results[0].id).toBe(42);
+
+		// Failure-specific assertions — catches regressions where numeric ID priority
+		// is lost (e.g. if the early return on line 28-29 is removed or the sort breaks):
+		expect(results).toHaveLength(1); // station id=100 excluded despite "42" in description
+		expect(results[0].id).toBe(42);   // exact numeric match wins
+
+		const ids = results.map(s => s.id);
+		expect(ids).toEqual([42]);         // no name-based match leaks through
 	});
 
 	it('breaks ties by shorter name when startswith scores are equal', () => {
