@@ -91,4 +91,23 @@ describe('resolveStopIds', () => {
 			).toBe(false);
 		}
 	});
+
+	it('every stop ID value across the map is a positive integer', () => {
+		const allValues = Object.values(SUBWAY_STOP_IDS).flatMap((v) => v);
+		for (const id of allValues) {
+			expect(
+				Number.isInteger(id) && id > 0,
+				`stop ID ${id} must be a positive integer`,
+			).toBe(true);
+		}
+	});
+
+	it('no station entry exceeds the maximum expected number of platform stops (4)', () => {
+		for (const [gtfsId, apiIds] of Object.entries(SUBWAY_STOP_IDS)) {
+			expect(
+				apiIds.length <= 4,
+				`station ${gtfsId} has ${apiIds.length} stop IDs — max expected is 4 (M1+M2+M3 interchange)`,
+			).toBe(true);
+		}
+	});
 });
