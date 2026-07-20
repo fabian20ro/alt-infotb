@@ -1,4 +1,10 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function mapViewportSignature(page: Page): Promise<string | null> {
+	const selectedStationMarker = page.locator('.station-marker-selected');
+	await expect(selectedStationMarker).toHaveCount(1);
+	return selectedStationMarker.getAttribute('style');
+}
 
 function encodeVarint(value: number): number[] {
 	const bytes: number[] = [];
@@ -115,6 +121,7 @@ test.describe('Selected line route map', () => {
 		await page.goto('/');
 		const line = page.locator('button.arrival-row', { hasText: 'N111' });
 		await expect(line).toBeVisible();
+		const initialViewport = await mapViewportSignature(page);
 		await line.click();
 
 		await expect(line).toHaveAttribute('aria-pressed', 'true');
@@ -123,6 +130,24 @@ test.describe('Selected line route map', () => {
 		await expect(page.locator('.opposite-route-line')).toBeVisible();
 		await expect(page.locator('.vehicle-marker.primary')).toContainText('N111');
 		await expect(page.locator('.vehicle-marker.opposite')).toContainText('N111');
+		expect(await mapViewportSignature(page)).toBe(initialViewport);
+
+		await page.getByRole('button', { name: 'Vezi întregul traseu' }).click();
+		await page.waitForTimeout(500);
+		const overviewViewport = await mapViewportSignature(page);
+		expect(overviewViewport).not.toBe(initialViewport);
+
+		await page.getByRole('button', { name: 'Zoom in' }).click();
+		await page.waitForTimeout(500);
+		const userViewport = await mapViewportSignature(page);
+		expect(userViewport).not.toBe(overviewViewport);
+
+		const requestsBeforeRefresh = selectedRequests.length;
+		await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+		await expect.poll(() => selectedRequests.length).toBeGreaterThan(requestsBeforeRefresh);
+		await page.waitForTimeout(100);
+		expect(await mapViewportSignature(page)).toBe(userViewport);
+
 		expect(selectedRequests.every((request) => request.searchParams.get('selected_line_id') === '208')).toBe(true);
 		expect(selectedRequests.some((request) =>
 			request.searchParams.get('stop_id') === '3570' &&

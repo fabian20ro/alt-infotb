@@ -26,7 +26,8 @@
 	let selectedStation = $state<Station | null>(null);
 	let drawerOpen = $state(false);
 	let lastDataUpdate = $state<number>(0);
-	let overviewRequest = $state(0);
+	let overviewRequest = $state<{ id: number; routeKey: string } | null>(null);
+	let overviewRequestId = 0;
 
 	let stationName = $derived(arrivals.state.data?.stationName ?? selectedStation?.name ?? '');
 	let stationAddress = $derived(arrivals.state.data?.address ?? selectedStation?.description ?? '');
@@ -49,6 +50,15 @@
 
 	function selectLine(arrival: ArrivalInfo) {
 		arrivals.selectLine(arrival);
+	}
+
+	function showRouteOverview() {
+		if (!arrivals.route) return;
+		overviewRequestId += 1;
+		overviewRequest = {
+			id: overviewRequestId,
+			routeKey: arrivals.route.key
+		};
 	}
 
 	onMount(() => {
@@ -172,7 +182,7 @@
 				: null}
 			primaryColor={arrivals.route.primary?.color ?? arrivals.route.opposite?.color}
 			lang={settings.lang}
-			onOverview={() => overviewRequest += 1}
+			onOverview={showRouteOverview}
 			onClose={() => arrivals.clearLine()}
 		/>
 	{/if}

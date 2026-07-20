@@ -30,6 +30,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-07-20] Preserve map viewport across route selection and refresh
+
+**Context:** Selecting a vehicle line and the later polling refresh changed the Leaflet viewport, while the explicit route-overview control should remain the only action that fits the whole route.
+**What happened:** Removed automatic fitting from route drawing, replaced the persistent overview counter with a one-shot request ID scoped to the active route, and added E2E coverage for line selection, explicit overview, user zoom, and refresh. Verified the production build against live line 27 through an actual polling cycle.
+**Outcome:** Success — line selection and polling preserve the viewport; the overview control still zooms out. Type checks, 492 unit tests, build, four desktop/mobile route-map E2E cases, and the live browser console all passed.
+**Insight:** Route rendering and refresh should be viewport-pure; map fitting belongs to an explicit, consumable UI event.
+**Promoted to Lessons Learned:** Yes
+
+---
+
 ### [2026-07-20] Show selected-line vehicles in both directions
 
 **Context:** Vehicles approaching a route's first stop were hidden because the map conditionally queried the reverse direction only after route-projection heuristics classified the selected direction as empty.
@@ -663,4 +673,14 @@ Each entry should follow this structure:
 **What happened:** Added and reviewed one-time opposite-terminus stop discovery, cached the discovered reverse source stop for steady-state polling, exercised the missing-same-platform case in unit and desktop/mobile E2E tests, and checked the final production preview with live line 27.
 **Outcome:** Success — live UI showed both destinations and 3 total vehicles split across both marker styles; checks, tests, build, E2E, and browser console all clean.
 **Insight:** Validate directional transport behavior against a live daytime line; mocked same-stop reverse responses can hide platform-specific API constraints.
+**Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-07-20] Preserve map viewport across route selection and refresh (final record)
+
+**Context:** Selecting a vehicle line and the later polling refresh changed the Leaflet viewport, while the explicit route-overview control should remain the only action that fits the whole route.
+**What happened:** Removed automatic fitting from route drawing, replaced the persistent overview counter with a one-shot request ID scoped to the active route, and added E2E coverage for line selection, explicit overview, user zoom, and refresh. Verified the production build against live line 27 through an actual polling cycle. This EOF record supersedes the identical entry accidentally inserted earlier in this append-only log.
+**Outcome:** Success — line selection and polling preserve the viewport; the overview control still zooms out. Type checks, 492 unit tests, build, four desktop/mobile route-map E2E cases, and the live browser console all passed.
+**Insight:** Route rendering and refresh should be viewport-pure; map fitting belongs to an explicit, consumable UI event.
 **Promoted to Lessons Learned:** Yes

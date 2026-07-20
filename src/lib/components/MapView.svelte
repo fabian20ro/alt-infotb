@@ -10,9 +10,13 @@
 
 	export interface MapRouteOverlay {
 		key: string;
-		lineName: string;
 		primary: ArrivalInfo | null;
 		opposite: ArrivalInfo | null;
+	}
+
+	export interface RouteOverviewRequest {
+		id: number;
+		routeKey: string;
 	}
 
 	interface Props {
@@ -22,7 +26,7 @@
 		locationPermission: 'granted' | 'denied' | 'prompt';
 		theme: 'light' | 'dark';
 		route?: MapRouteOverlay | null;
-		overviewRequest?: number;
+		overviewRequest?: RouteOverviewRequest | null;
 		onStationSelect: (station: Station) => void;
 	}
 
@@ -33,7 +37,7 @@
 		locationPermission,
 		theme,
 		route = null,
-		overviewRequest = 0,
+		overviewRequest = null,
 		onStationSelect
 	}: Props = $props();
 
@@ -49,7 +53,7 @@
 	let oppositeRouteLine: L.Polyline | null = null;
 	let primaryVehicleMarkers = new Map<number, L.Marker>();
 	let oppositeVehicleMarkers = new Map<number, L.Marker>();
-	let lastFittedRouteKey: string | null = null;
+	let handledOverviewRequestId = 0;
 	let loaded = $state(false);
 	let initialViewSet = false;
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -334,7 +338,6 @@
 		oppositeRouteLine = null;
 		clearVehicleMarkers(primaryVehicleMarkers);
 		clearVehicleMarkers(oppositeVehicleMarkers);
-		lastFittedRouteKey = null;
 	}
 
 	function drawRouteOverlay() {
@@ -402,25 +405,21 @@
 
 		syncDirectionVehicles(primaryVehicleMarkers, primary, 'primary');
 		syncDirectionVehicles(oppositeVehicleMarkers, opposite, 'opposite');
-
-		if (lastFittedRouteKey !== route.key && (primaryCoordinates.length >= 2 || oppositeCoordinates.length >= 2)) {
-			lastFittedRouteKey = route.key;
-			fitRouteOverview();
-		}
 	}
 
-	function fitRouteOverview() {
-		if (!map || !L || !route) return;
+	function fitRouteOverview(routeToFit: MapRouteOverlay): boolean {
+		if (!map || !L) return false;
 		const points = [
-			...(route.primary?.path ?? []),
-			...(route.opposite?.path ?? [])
+			...(routeToFit.primary?.path ?? []),
+			...(routeToFit.opposite?.path ?? [])
 		].map((point) => [point.lat, point.lng] as [number, number]);
-		if (points.length < 2) return;
+		if (points.length < 2) return false;
 		map.fitBounds(L.latLngBounds(points), {
 			paddingTopLeft: [24, 24],
 			paddingBottomRight: [64, 24],
 			animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches
 		});
+		return true;
 	}
 
 	// Set initial view once allStations first populates
@@ -463,9 +462,15 @@
 	});
 
 	$effect(() => {
-		if (!loaded || !route) return;
-		overviewRequest;
-		if (overviewRequest > 0) fitRouteOverview();
+		const request = overviewRequest;
+		if (!loaded || !request || request.id <= handledOverviewRequestId) return;
+
+		const currentRoute = route;
+		if (!currentRoute || request.routeKey !== currentRoute.key) {
+			handledOverviewRequestId = request.id;
+			return;
+		}
+		if (fitRouteOverview(currentRoute)) handledOverviewRequestId = request.id;
 	});
 </script>
 

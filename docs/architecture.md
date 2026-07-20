@@ -144,7 +144,7 @@ For surface transport (bus, tram, trolleybus), the GTFS ID maps directly to the 
 3. STB only returns selected geometry from a stop served in that direction. If the tapped platform cannot provide the reverse payload, the app finds that line/direction among stops nearest the tapped route's opposite terminus, requests it there, and reuses the discovered stop on later polls.
 4. The tapped-direction response updates normal arrivals; both selected responses publish their route geometry and every returned live vehicle as one snapshot.
 5. The tapped direction uses a solid route and filled line-color markers. The opposite direction uses a dashed route and hollow yellow markers.
-6. The union of both routes is fitted once. Later polls update keyed markers without resetting the user's pan/zoom.
+6. Selecting a line and later polls preserve the user's pan/zoom. Only the explicit route-overview control fits the union of both paths.
 7. A one-direction failure shows the successful direction only. Stale coordinates are cleared rather than presented as live.
 
 ## Station data flow
