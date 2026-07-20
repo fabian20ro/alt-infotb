@@ -4,6 +4,18 @@ import { API } from './constants.js';
  * Fetch binary data from the STB API.
  * The API returns Protocol Buffers, so we read as ArrayBuffer.
  */
+/** Human-readable hints for specific API status codes. */
+const STATUS_HINTS = new Map<number, string>([
+	[400, ' (Bad Request)'],
+	[401, ' (Check auth token/proxy configuration)'],
+	[403, ' (Check auth token/proxy configuration)'],
+	[412, ' (Token expired, check proxy retry)'],
+	[429, ' (Too many requests)'],
+	[500, ' (Internal Server Error)'],
+	[503, ' (Service Unavailable)'],
+	[504, ' (Gateway Timeout)']
+]);
+
 export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 	if (typeof url !== 'string') {
 		throw new ApiError('Invalid request URL', 0);
@@ -17,7 +29,7 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 	// Reject URLs with embedded control characters (tabs, newlines, etc.)
 	// The `URL` constructor and `fetch()` silently strip leading/trailing whitespace,
 	// but internal whitespace can produce malformed requests that fail obscurely.
-	const controlCharPattern = /[\t\n\r\f\v\0]/;
+	const controlCharPattern = /[	\n\r\f\v\0]/;
 	if (controlCharPattern.test(url)) {
 		throw new ApiError('Invalid request URL', 0);
 	}
@@ -50,21 +62,7 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		});
 
 		if (!response.ok) {
-			const hint = response.status === 401 || response.status === 403
-				? ' (Check auth token/proxy configuration)'
-				: response.status === 412
-				? ' (Token expired, check proxy retry)'
-				: response.status === 400
-				? ' (Bad Request)'
-				: response.status === 429
-				? ' (Too many requests)'
-				: response.status === 503
-				? ' (Service Unavailable)'
-				: response.status === 504
-				? ' (Gateway Timeout)'
-				: response.status === 500
-				? ' (Internal Server Error)'
-				: '';
+			const hint = STATUS_HINTS.get(response.status) ?? '';
 			throw new ApiError(`HTTP ${response.status}${hint}`, response.status);
 		}
 
