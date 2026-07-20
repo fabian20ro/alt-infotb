@@ -33,9 +33,6 @@ src/
 │   ├── i18n/
 │   │   ├── translations.ts        RO + EN translation strings
 │   │   └── index.ts                t() translation function
-│   ├── route-map/
-│   │   ├── vehicle-selection.ts    Directed route projection and fallback classification
-│   │   └── vehicle-selection.test.ts  Geometry, ambiguity, and turnaround tests
 │   ├── stations/
 │   │   ├── types.ts                Station, StationWithDistance interfaces
 │   │   ├── stations.json           Bundled station data (2710 stops, from GTFS)
@@ -102,7 +99,7 @@ docs/
   ├─ RouteStatus.svelte
   ├─ DrawerMenu.svelte
   │    └─ stations/format.ts (formatLastUpdate)
-  ├─ stores/arrivals ─── api/arrivals + route-map/vehicle-selection
+  ├─ stores/arrivals ─── api/arrivals + stations/geo
   │   │                    ├── api/client (apiFetchBinary)
   │   │                    ├── api/proto (ProtoReader, helpers)
   │   │                    └── api/constants (API, PROTO_FIELDS)
@@ -143,6 +140,6 @@ All tunable values live in `src/lib/api/constants.ts`:
 
 | Script | What it runs | Tests | Network? |
 |---|---|---|---|
-| `npm test` | Unit tests (vitest) | 503 | No |
+| `npm test` | Unit tests (vitest) | 492 | No |
 | `npm run test:integration` | Real STB API calls (vitest) | 6 | Yes |
 | `npm run test:e2e` | Playwright browser tests | varies | Yes (via proxy) |

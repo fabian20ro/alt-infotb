@@ -13,8 +13,6 @@
 		lineName: string;
 		primary: ArrivalInfo | null;
 		opposite: ArrivalInfo | null;
-		approachingVehicleIds: number[];
-		turnaroundVehicleIds: number[];
 	}
 
 	interface Props {
@@ -264,12 +262,12 @@
 		})[char]!);
 	}
 
-	function vehicleIcon(lineName: string, color: string, variant: 'primary' | 'opposite', emphasized: boolean) {
+	function vehicleIcon(lineName: string, color: string, variant: 'primary' | 'opposite') {
 		if (!L) throw new Error('Leaflet is not loaded');
 		const label = escapeHtml(lineName);
 		return L.divIcon({
 			className: 'vehicle-marker-shell',
-			html: `<span class="vehicle-marker ${variant}${emphasized ? ' emphasized' : ''}" style="--vehicle-color:${safeColor(color)}">${label}</span>`,
+			html: `<span class="vehicle-marker ${variant}" style="--vehicle-color:${safeColor(color)}">${label}</span>`,
 			iconSize: [44, 44],
 			iconAnchor: [22, 22]
 		});
@@ -279,8 +277,7 @@
 		markers: Map<number, L.Marker>,
 		vehicles: VehiclePosition[],
 		arrival: ArrivalInfo,
-		variant: 'primary' | 'opposite',
-		emphasizedIds: Set<number>
+		variant: 'primary' | 'opposite'
 	) {
 		if (!map || !L) return;
 		const currentIds = new Set(vehicles.map((vehicle) => vehicle.id));
@@ -293,16 +290,15 @@
 
 		for (const vehicle of vehicles) {
 			const latLng: [number, number] = [vehicle.lat, vehicle.lng];
-			const emphasized = emphasizedIds.has(vehicle.id);
 			const title = `${arrival.lineName} · ${arrival.direction || arrival.vehicleType}`;
 			const existing = markers.get(vehicle.id);
 			if (existing) {
 				existing.setLatLng(latLng);
-				existing.setIcon(vehicleIcon(arrival.lineName, arrival.color, variant, emphasized));
+				existing.setIcon(vehicleIcon(arrival.lineName, arrival.color, variant));
 				continue;
 			}
 			const marker = L.marker(latLng, {
-				icon: vehicleIcon(arrival.lineName, arrival.color, variant, emphasized),
+				icon: vehicleIcon(arrival.lineName, arrival.color, variant),
 				title,
 				alt: title,
 				zIndexOffset: variant === 'primary' ? 800 : 700
@@ -315,6 +311,18 @@
 	function clearVehicleMarkers(markers: Map<number, L.Marker>) {
 		for (const marker of markers.values()) marker.remove();
 		markers.clear();
+	}
+
+	function syncDirectionVehicles(
+		markers: Map<number, L.Marker>,
+		arrival: ArrivalInfo | null,
+		variant: 'primary' | 'opposite'
+	) {
+		if (arrival) {
+			syncVehicleMarkers(markers, arrival.vehicles, arrival, variant);
+		} else {
+			clearVehicleMarkers(markers);
+		}
 	}
 
 	function removeRouteOverlay() {
@@ -392,28 +400,8 @@
 			oppositeRouteLine = null;
 		}
 
-		if (primary) {
-			syncVehicleMarkers(
-				primaryVehicleMarkers,
-				primary.vehicles,
-				primary,
-				'primary',
-				new Set(route.approachingVehicleIds)
-			);
-		} else {
-			clearVehicleMarkers(primaryVehicleMarkers);
-		}
-		if (opposite) {
-			syncVehicleMarkers(
-				oppositeVehicleMarkers,
-				opposite.vehicles,
-				opposite,
-				'opposite',
-				new Set(route.turnaroundVehicleIds)
-			);
-		} else {
-			clearVehicleMarkers(oppositeVehicleMarkers);
-		}
+		syncDirectionVehicles(primaryVehicleMarkers, primary, 'primary');
+		syncDirectionVehicles(oppositeVehicleMarkers, opposite, 'opposite');
 
 		if (lastFittedRouteKey !== route.key && (primaryCoordinates.length >= 2 || oppositeCoordinates.length >= 2)) {
 			lastFittedRouteKey = route.key;
@@ -608,13 +596,8 @@
 	}
 
 	:global(.vehicle-marker.opposite) {
-		border-color: var(--vehicle-color);
+		border-color: var(--color-warning);
 		background: var(--color-surface);
 		color: var(--color-text);
-	}
-
-	:global(.vehicle-marker.emphasized) {
-		outline: 3px solid var(--color-warning);
-		outline-offset: 2px;
 	}
 </style>

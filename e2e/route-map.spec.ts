@@ -58,17 +58,19 @@ function encodePolyline(points: Array<{ lat: number; lng: number }>): string {
 	return encoded;
 }
 
-function stopResponse(selected: boolean): Buffer {
-	const route = encodePolyline([
+function stopResponse(selectedDirection: 0 | 1 | null, responseDirection = selectedDirection ?? 0): Buffer {
+	const forwardPoints = [
 		{ lat: 44.42, lng: 26.1 },
 		{ lat: 44.43, lng: 26.101 },
 		{ lat: 44.44, lng: 26.105 }
-	]);
+	];
+	const direction = responseDirection;
+	const route = encodePolyline(direction === 0 ? forwardPoints : [...forwardPoints].reverse());
 	const arrival = [...varintField(1, 0), ...varintField(2, 300)];
 	const vehicle = [
-		...varintField(1, 7001),
-		...doubleField(2, 44.423),
-		...doubleField(3, 26.1003),
+		...varintField(1, direction === 0 ? 7001 : 8001),
+		...doubleField(2, direction === 0 ? 44.423 : 44.437),
+		...doubleField(3, direction === 0 ? 26.1003 : 26.1038),
 		...stringField(4, 'BUS'),
 		...varintField(5, 1)
 	];
@@ -77,11 +79,11 @@ function stopResponse(selected: boolean): Buffer {
 		...varintField(2, 208),
 		...stringField(3, 'BUS'),
 		...stringField(4, '#006b3c'),
-		...stringField(5, 'Valea Oltului'),
-		...varintField(8, 0),
+		...stringField(5, direction === 0 ? 'Valea Oltului' : 'Piata Unirii'),
+		...varintField(8, direction),
 		...bytesField(9, arrival),
-		...(selected ? stringField(11, route) : []),
-		...(selected ? bytesField(12, vehicle) : [])
+		...(selectedDirection !== null ? stringField(11, route) : []),
+		...(selectedDirection !== null ? bytesField(12, vehicle) : [])
 	];
 	return Buffer.from([
 		...stringField(1, 'Piata Unirii'),
@@ -91,16 +93,22 @@ function stopResponse(selected: boolean): Buffer {
 }
 
 test.describe('Selected line route map', () => {
-	test('tap sends the exact line direction and renders route plus live vehicle', async ({ page }) => {
+	test('tap fetches and renders both directions with distinct vehicles', async ({ page }) => {
 		const selectedRequests: URL[] = [];
 		await page.route('**/lines/stop**', async (route) => {
 			const url = new URL(route.request().url());
-			const selected = url.searchParams.has('selected_line_id');
-			if (selected) selectedRequests.push(url);
+			const stopId = url.searchParams.get('stop_id');
+			const selectedDirection = url.searchParams.has('selected_line_id')
+				? Number(url.searchParams.get('direction')) as 0 | 1
+				: null;
+			const payloadSelection = selectedDirection === 1 && stopId === '3570'
+				? null
+				: selectedDirection;
+			if (selectedDirection !== null) selectedRequests.push(url);
 			await route.fulfill({
 				status: 200,
 				contentType: 'application/octet-stream',
-				body: stopResponse(selected)
+				body: stopResponse(payloadSelection, payloadSelection ?? (stopId === '12283' ? 1 : 0))
 			});
 		});
 
@@ -112,20 +120,34 @@ test.describe('Selected line route map', () => {
 		await expect(line).toHaveAttribute('aria-pressed', 'true');
 		await expect(page.locator('.route-status')).toContainText('N111');
 		await expect(page.locator('.selected-route-line')).toBeVisible();
+		await expect(page.locator('.opposite-route-line')).toBeVisible();
 		await expect(page.locator('.vehicle-marker.primary')).toContainText('N111');
-		expect(selectedRequests).toHaveLength(1);
-		expect(selectedRequests[0].searchParams.get('stop_id')).toBe('3570');
-		expect(selectedRequests[0].searchParams.get('selected_line_id')).toBe('208');
-		expect(selectedRequests[0].searchParams.get('direction')).toBe('0');
+		await expect(page.locator('.vehicle-marker.opposite')).toContainText('N111');
+		expect(selectedRequests.every((request) => request.searchParams.get('selected_line_id') === '208')).toBe(true);
+		expect(selectedRequests.some((request) =>
+			request.searchParams.get('stop_id') === '3570' &&
+			request.searchParams.get('direction') === '0'
+		)).toBe(true);
+		expect(selectedRequests.some((request) =>
+			request.searchParams.get('stop_id') === '12283' &&
+			request.searchParams.get('direction') === '1'
+		)).toBe(true);
 	});
 
 	test('route closes on a second row tap without changing station', async ({ page }) => {
 		await page.route('**/lines/stop**', async (route) => {
 			const url = new URL(route.request().url());
+			const stopId = url.searchParams.get('stop_id');
+			const selectedDirection = url.searchParams.has('selected_line_id')
+				? Number(url.searchParams.get('direction')) as 0 | 1
+				: null;
+			const payloadSelection = selectedDirection === 1 && stopId === '3570'
+				? null
+				: selectedDirection;
 			await route.fulfill({
 				status: 200,
 				contentType: 'application/octet-stream',
-				body: stopResponse(url.searchParams.has('selected_line_id'))
+				body: stopResponse(payloadSelection, payloadSelection ?? (stopId === '12283' ? 1 : 0))
 			});
 		});
 

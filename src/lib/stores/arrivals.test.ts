@@ -48,10 +48,12 @@ function makeArrivalsWithLine(line: ArrivalInfo): StationArrivals {
 
 function createDeferred<T>() {
 	let resolve!: (value: T) => void;
-	const promise = new Promise<T>((res) => {
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
 		resolve = res;
+		reject = rej;
 	});
-	return { promise, resolve };
+	return { promise, resolve, reject };
 }
 
 async function createStore() {
@@ -415,22 +417,32 @@ describe('createArrivalsStore lifecycle polling', () => {
 });
 
 describe('createArrivalsStore selected route', () => {
-	it('uses the selected line response as the normal refresh and classifies approaching vehicles', async () => {
+	it('starts both selected directions concurrently and publishes them atomically', async () => {
 		const plainLine = makeLine({ encodedPath: '', path: [], vehicles: [] });
-		const selectedLine = makeLine({
+		const primaryLine = makeLine({
 			vehicles: [
-				{ id: 701, lat: 44.42, lng: 26.105, vehicleType: 'BUS', accessible: true },
-				{ id: 702, lat: 44.42, lng: 26.125, vehicleType: 'BUS', accessible: false }
+				{ id: 701, lat: 44.42, lng: 26.105, vehicleType: 'BUS', accessible: true }
 			]
 		});
+		const oppositeLine = makeLine({
+			direction: 'Piata Unirii 2',
+			directionId: 1,
+			path: [...primaryLine.path].reverse(),
+			vehicles: [
+				{ id: 901, lat: 44.42, lng: 26.12, vehicleType: 'BUS', accessible: false }
+			]
+		});
+		const primary = createDeferred<StationArrivals>();
+		const opposite = createDeferred<ArrivalInfo | null>();
 		fetchArrivalsMock
 			.mockResolvedValueOnce(makeArrivalsWithLine(plainLine))
-			.mockResolvedValueOnce(makeArrivalsWithLine(selectedLine));
+			.mockImplementationOnce(() => primary.promise);
+		fetchLineRouteMock.mockImplementationOnce(() => opposite.promise);
 
 		const store = await createStore();
 		store.selectStation(6886);
 		await vi.advanceTimersByTimeAsync(0);
-		store.selectLine(plainLine, { lat: 44.42, lng: 26.115 });
+		store.selectLine(plainLine);
 		await vi.advanceTimersByTimeAsync(0);
 
 		expect(fetchArrivalsMock).toHaveBeenLastCalledWith([6886], {
@@ -438,126 +450,327 @@ describe('createArrivalsStore selected route', () => {
 			lineId: 208,
 			directionId: 0
 		});
-		expect(store.state.data?.arrivals[0].vehicles).toHaveLength(2);
-		expect(store.route?.status).toBe('ready');
-		expect(store.route?.approachingVehicleIds).toEqual([701]);
-		expect(fetchLineRouteMock).not.toHaveBeenCalled();
-		store.cleanup();
-	});
-
-	it('checks the opposite direction and labels near-origin turnaround candidates', async () => {
-		const plainLine = makeLine({ encodedPath: '', path: [], vehicles: [] });
-		const selectedLine = makeLine({
-			vehicles: [
-				{ id: 801, lat: 44.42, lng: 26.12, vehicleType: 'BUS', accessible: false }
-			]
-		});
-		const oppositeLine = makeLine({
-			direction: 'Piata Unirii 2',
-			directionId: 1,
-			path: [...selectedLine.path].reverse(),
-			vehicles: [
-				{ id: 901, lat: 44.42, lng: 26.102, vehicleType: 'BUS', accessible: true }
-			]
-		});
-		fetchArrivalsMock
-			.mockResolvedValueOnce(makeArrivalsWithLine(plainLine))
-			.mockResolvedValueOnce(makeArrivalsWithLine(selectedLine));
-		fetchLineRouteMock.mockResolvedValueOnce(oppositeLine);
-
-		const store = await createStore();
-		store.selectStation(6886);
-		await vi.advanceTimersByTimeAsync(0);
-		store.selectLine(plainLine, { lat: 44.42, lng: 26.101 });
-		await vi.advanceTimersByTimeAsync(0);
-
 		expect(fetchLineRouteMock).toHaveBeenCalledWith({
 			sourceStopId: 6886,
 			lineId: 208,
 			directionId: 1
 		});
-		expect(store.route?.status).toBe('fallback');
-		expect(store.route?.opposite?.directionId).toBe(1);
-		expect(store.route?.turnaroundVehicleIds).toEqual([901]);
+		expect(store.route?.status).toBe('loading');
+
+		opposite.resolve(oppositeLine);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(store.route?.status).toBe('loading');
+		expect(store.route?.primary).toBeNull();
+		expect(store.route?.opposite).toBeNull();
+
+		primary.resolve(makeArrivalsWithLine(primaryLine));
+		await vi.advanceTimersByTimeAsync(0);
+		expect(store.route?.status).toBe('ready');
+		expect(store.route?.primary?.vehicles.map((vehicle) => vehicle.id)).toEqual([701]);
+		expect(store.route?.opposite?.vehicles.map((vehicle) => vehicle.id)).toEqual([901]);
+		store.cleanup();
+	});
+
+	it('fetches both directions every 20 seconds even when the primary has vehicles', async () => {
+		const plainLine = makeLine({ encodedPath: '', path: [], vehicles: [] });
+		const primaryLine = makeLine({
+			vehicles: [
+				{ id: 801, lat: 44.42, lng: 26.105, vehicleType: 'TRAM', accessible: false }
+			]
+		});
+		const oppositeLine = makeLine({
+			direction: 'Piata Unirii 2',
+			directionId: 1,
+			vehicleType: 'TROLLEYBUS',
+			path: [...primaryLine.path].reverse(),
+			vehicles: [
+				{ id: 901, lat: 44.42, lng: 26.12, vehicleType: 'TROLLEYBUS', accessible: true }
+			]
+		});
+		fetchArrivalsMock
+			.mockResolvedValueOnce(makeArrivalsWithLine(plainLine))
+			.mockResolvedValue(makeArrivalsWithLine(primaryLine));
+		fetchLineRouteMock.mockResolvedValue(oppositeLine);
+
+		const store = await createStore();
+		store.selectStation(6886);
+		await vi.advanceTimersByTimeAsync(0);
+		store.selectLine(plainLine);
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(2);
+		expect(fetchLineRouteMock).toHaveBeenCalledTimes(1);
+		expect(store.route?.primary?.vehicles[0].vehicleType).toBe('TRAM');
+		expect(store.route?.opposite?.vehicles[0].vehicleType).toBe('TROLLEYBUS');
+
+		await vi.advanceTimersByTimeAsync(20_000);
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(3);
+		expect(fetchLineRouteMock).toHaveBeenCalledTimes(2);
+		store.cleanup();
+	});
+
+	it('discovers an opposite-direction stop at the route terminus and reuses it', async () => {
+		const plainLine = makeLine({ encodedPath: '', path: [], vehicles: [] });
+		const primaryLine = makeLine({
+			vehicles: [{ id: 701, lat: 44.42, lng: 26.105, vehicleType: 'BUS', accessible: true }]
+		});
+		const terminalOpposite = makeLine({
+			direction: 'Piata Unirii 2',
+			directionId: 1,
+			sourceStopId: 9002,
+			encodedPath: '',
+			path: [],
+			vehicles: []
+		});
+		const selectedOpposite = makeLine({
+			...terminalOpposite,
+			encodedPath: 'opposite-path',
+			path: [...primaryLine.path].reverse(),
+			vehicles: [{ id: 901, lat: 44.42, lng: 26.12, vehicleType: 'BUS', accessible: false }]
+		});
+		fetchArrivalsMock
+			.mockResolvedValueOnce(makeArrivalsWithLine(plainLine))
+			.mockResolvedValueOnce(makeArrivalsWithLine(primaryLine))
+			.mockResolvedValueOnce(makeArrivalsWithLine(terminalOpposite))
+			.mockResolvedValue(makeArrivalsWithLine(primaryLine));
+		fetchLineRouteMock
+			.mockResolvedValueOnce(null)
+			.mockResolvedValue(selectedOpposite);
+
+		const store = await createStore();
+		store.setStations([
+			{ id: 9002, name: 'Terminal A', description: '', lat: 44.42, lon: 26.13 },
+			{ id: 9003, name: 'Terminal B', description: '', lat: 44.4202, lon: 26.1302 }
+		]);
+		store.selectStation(6886);
+		await vi.advanceTimersByTimeAsync(0);
+		store.selectLine(plainLine);
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(fetchArrivalsMock.mock.calls[2][0]).toEqual([9002, 9003]);
+		expect(fetchLineRouteMock).toHaveBeenNthCalledWith(2, {
+			sourceStopId: 9002,
+			lineId: 208,
+			directionId: 1
+		});
+		expect(store.route?.status).toBe('ready');
+		expect(store.route?.opposite?.sourceStopId).toBe(9002);
+		expect(store.route?.opposite?.vehicles[0].id).toBe(901);
+
+		await store.refresh();
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(4);
+		expect(fetchLineRouteMock).toHaveBeenLastCalledWith({
+			sourceStopId: 9002,
+			lineId: 208,
+			directionId: 1
+		});
 		store.cleanup();
 	});
 
 	it('clears route mode on a second tap and on station change', async () => {
 		const line = makeLine({ encodedPath: '', path: [], vehicles: [] });
 		fetchArrivalsMock.mockResolvedValue(makeArrivalsWithLine(line));
+		fetchLineRouteMock.mockResolvedValue(null);
 
 		const store = await createStore();
 		store.selectStation(6886);
 		await vi.advanceTimersByTimeAsync(0);
-		store.selectLine(line, { lat: 44.42, lng: 26.101 });
+		store.selectLine(line);
 		expect(store.route).not.toBeNull();
-		store.selectLine(line, { lat: 44.42, lng: 26.101 });
+		store.selectLine(line);
 		expect(store.route).toBeNull();
 
-		store.selectLine(line, { lat: 44.42, lng: 26.101 });
+		store.selectLine(line);
 		expect(store.route).not.toBeNull();
 		store.selectStation(3570);
 		expect(store.route).toBeNull();
 		store.cleanup();
 	});
 
-	it('does not claim an empty opposite direction when that request fails', async () => {
-		const line = makeLine({ vehicles: [] });
-		fetchArrivalsMock.mockResolvedValue(makeArrivalsWithLine(line));
+	it('reports partial when the opposite direction fails', async () => {
+		const plainLine = makeLine({ encodedPath: '', path: [], vehicles: [] });
+		const primaryLine = makeLine({
+			vehicles: [{ id: 701, lat: 44.42, lng: 26.105, vehicleType: 'BUS', accessible: true }]
+		});
+		fetchArrivalsMock
+			.mockResolvedValueOnce(makeArrivalsWithLine(plainLine))
+			.mockResolvedValueOnce(makeArrivalsWithLine(primaryLine));
 		fetchLineRouteMock.mockRejectedValue(new Error('opposite unavailable'));
 
 		const store = await createStore();
 		store.selectStation(6886);
 		await vi.advanceTimersByTimeAsync(0);
-		store.selectLine(line, { lat: 44.42, lng: 26.115 });
+		store.selectLine(plainLine);
 		await vi.advanceTimersByTimeAsync(0);
 
-		expect(store.route?.status).toBe('positions-error');
+		expect(store.route?.status).toBe('partial');
+		expect(store.route?.primary?.vehicles.map((vehicle) => vehicle.id)).toEqual([701]);
+		expect(store.route?.opposite).toBeNull();
 		expect(store.route?.error).toContain('opposite unavailable');
 		store.cleanup();
 	});
 
-	it('ends initial route loading on a selected-line request failure', async () => {
-		const line = makeLine({ encodedPath: '', path: [], vehicles: [] });
+	it('reports partial when the primary fails but the opposite succeeds', async () => {
+		const plainLine = makeLine({ encodedPath: '', path: [], vehicles: [] });
+		const oppositeLine = makeLine({
+			direction: 'Piata Unirii 2',
+			directionId: 1,
+			vehicles: [{ id: 901, lat: 44.42, lng: 26.12, vehicleType: 'SUBWAY', accessible: false }]
+		});
 		fetchArrivalsMock
-			.mockResolvedValueOnce(makeArrivalsWithLine(line))
+			.mockResolvedValueOnce(makeArrivalsWithLine(plainLine))
 			.mockRejectedValueOnce(new Error('route unavailable'));
+		fetchLineRouteMock.mockResolvedValueOnce(oppositeLine);
 
 		const store = await createStore();
 		store.selectStation(6886);
 		await vi.advanceTimersByTimeAsync(0);
-		store.selectLine(line, { lat: 44.42, lng: 26.115 });
+		store.selectLine(plainLine);
 		await vi.advanceTimersByTimeAsync(0);
 
-		expect(store.route?.status).toBe('error');
+		expect(store.route?.status).toBe('partial');
 		expect(store.route?.primary).toBeNull();
+		expect(store.route?.opposite?.vehicles.map((vehicle) => vehicle.id)).toEqual([901]);
+		expect(store.state.status).toBe('error');
 		expect(store.route?.error).toContain('route unavailable');
 		store.cleanup();
 	});
 
-	it('preserves a successful route overlay when a later poll fails', async () => {
-		const line = makeLine({
+	it('retains failed-direction geometry but clears stale vehicles', async () => {
+		const plainLine = makeLine({ encodedPath: '', path: [], vehicles: [] });
+		const primaryLine = makeLine({
 			vehicles: [
 				{ id: 701, lat: 44.42, lng: 26.105, vehicleType: 'BUS', accessible: true }
 			]
 		});
+		const oppositeLine = makeLine({
+			direction: 'Piata Unirii 2',
+			directionId: 1,
+			path: [...primaryLine.path].reverse(),
+			vehicles: [{ id: 901, lat: 44.42, lng: 26.12, vehicleType: 'BUS', accessible: false }]
+		});
 		fetchArrivalsMock
-			.mockResolvedValueOnce(makeArrivalsWithLine(line))
-			.mockResolvedValueOnce(makeArrivalsWithLine(line))
-			.mockRejectedValueOnce(new Error('temporary poll failure'));
+			.mockResolvedValueOnce(makeArrivalsWithLine(plainLine))
+			.mockResolvedValue(makeArrivalsWithLine(primaryLine));
+		fetchLineRouteMock
+			.mockResolvedValueOnce(oppositeLine)
+			.mockRejectedValueOnce(new Error('opposite poll failed'));
 
 		const store = await createStore();
 		store.selectStation(6886);
 		await vi.advanceTimersByTimeAsync(0);
-		store.selectLine(line, { lat: 44.42, lng: 26.115 });
+		store.selectLine(plainLine);
 		await vi.advanceTimersByTimeAsync(0);
-		const previousPrimary = store.route?.primary;
+		const oppositePath = store.route?.opposite?.path;
 
 		await store.refresh();
 
+		expect(store.route?.status).toBe('partial');
+		expect(store.route?.primary?.vehicles).toHaveLength(1);
+		expect(store.route?.opposite?.path).toEqual(oppositePath);
+		expect(store.route?.opposite?.vehicles).toEqual([]);
+		expect(store.route?.error).toContain('opposite poll failed');
+		store.cleanup();
+	});
+
+	it('preserves both geometries and clears all vehicles when both requests fail', async () => {
+		const plainLine = makeLine({ encodedPath: '', path: [], vehicles: [] });
+		const primaryLine = makeLine({
+			vehicles: [{ id: 701, lat: 44.42, lng: 26.105, vehicleType: 'BUS', accessible: true }]
+		});
+		const oppositeLine = makeLine({
+			direction: 'Piata Unirii 2',
+			directionId: 1,
+			path: [...primaryLine.path].reverse(),
+			vehicles: [{ id: 901, lat: 44.42, lng: 26.12, vehicleType: 'BUS', accessible: false }]
+		});
+		fetchArrivalsMock
+			.mockResolvedValueOnce(makeArrivalsWithLine(plainLine))
+			.mockResolvedValueOnce(makeArrivalsWithLine(primaryLine))
+			.mockRejectedValueOnce(new Error('primary poll failed'));
+		fetchLineRouteMock
+			.mockResolvedValueOnce(oppositeLine)
+			.mockRejectedValueOnce(new Error('opposite poll failed'));
+
+		const store = await createStore();
+		store.selectStation(6886);
+		await vi.advanceTimersByTimeAsync(0);
+		store.selectLine(plainLine);
+		await vi.advanceTimersByTimeAsync(0);
+		const primaryPath = store.route?.primary?.path;
+		const oppositePath = store.route?.opposite?.path;
+
+		await store.refresh();
+
+		expect(store.route?.status).toBe('error');
+		expect(store.route?.primary?.path).toEqual(primaryPath);
+		expect(store.route?.opposite?.path).toEqual(oppositePath);
+		expect(store.route?.primary?.vehicles).toEqual([]);
+		expect(store.route?.opposite?.vehicles).toEqual([]);
+		expect(store.state.status).toBe('error');
+		store.cleanup();
+	});
+
+	it('marks two successful empty directions as empty', async () => {
+		const plainLine = makeLine({ encodedPath: '', path: [], vehicles: [] });
+		const primaryLine = makeLine({ vehicles: [] });
+		const oppositeLine = makeLine({ directionId: 1, path: [...primaryLine.path].reverse(), vehicles: [] });
+		fetchArrivalsMock
+			.mockResolvedValueOnce(makeArrivalsWithLine(plainLine))
+			.mockResolvedValueOnce(makeArrivalsWithLine(primaryLine));
+		fetchLineRouteMock.mockResolvedValueOnce(oppositeLine);
+
+		const store = await createStore();
+		store.selectStation(6886);
+		await vi.advanceTimersByTimeAsync(0);
+		store.selectLine(plainLine);
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(store.route?.status).toBe('empty');
+		expect(store.route?.primary?.vehicles).toEqual([]);
+		expect(store.route?.opposite?.vehicles).toEqual([]);
+		store.cleanup();
+	});
+
+	it('discards a stale direction pair and applies only the queued selection', async () => {
+		const plainLine = makeLine({ encodedPath: '', path: [], vehicles: [] });
+		const nextLine = makeLine({ lineId: 209, lineName: 'N102', sourceStopId: 6886 });
+		const stalePrimary = createDeferred<StationArrivals>();
+		const staleOpposite = createDeferred<ArrivalInfo | null>();
+		const currentPrimary = createDeferred<StationArrivals>();
+		const currentOpposite = createDeferred<ArrivalInfo | null>();
+		fetchArrivalsMock
+			.mockResolvedValueOnce(makeArrivalsWithLine(plainLine))
+			.mockImplementationOnce(() => stalePrimary.promise)
+			.mockImplementationOnce(() => currentPrimary.promise);
+		fetchLineRouteMock
+			.mockImplementationOnce(() => staleOpposite.promise)
+			.mockImplementationOnce(() => currentOpposite.promise);
+
+		const store = await createStore();
+		store.selectStation(6886);
+		await vi.advanceTimersByTimeAsync(0);
+		store.selectLine(plainLine);
+		await vi.advanceTimersByTimeAsync(0);
+		store.selectLine(nextLine);
+
+		stalePrimary.resolve(makeArrivalsWithLine(makeLine({ vehicles: [{ id: 1, lat: 44.42, lng: 26.1, vehicleType: 'BUS', accessible: false }] })));
+		staleOpposite.resolve(makeLine({ directionId: 1, vehicles: [{ id: 2, lat: 44.42, lng: 26.12, vehicleType: 'BUS', accessible: false }] }));
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(fetchArrivalsMock).toHaveBeenCalledTimes(3);
+		expect(fetchLineRouteMock).toHaveBeenCalledTimes(2);
+		expect(store.route?.lineName).toBe('N102');
+		expect(store.route?.status).toBe('loading');
+
+		const currentLine = makeLine({ lineId: 209, lineName: 'N102', vehicles: [{ id: 3, lat: 44.42, lng: 26.105, vehicleType: 'BUS', accessible: true }] });
+		currentPrimary.resolve(makeArrivalsWithLine(currentLine));
+		currentOpposite.resolve(makeLine({ lineId: 209, lineName: 'N102', directionId: 1, vehicles: [{ id: 4, lat: 44.42, lng: 26.12, vehicleType: 'BUS', accessible: false }] }));
+		await vi.advanceTimersByTimeAsync(0);
+
 		expect(store.route?.status).toBe('ready');
-		expect(store.route?.primary).toBe(previousPrimary);
-		expect(store.route?.error).toBeNull();
+		expect(store.route?.primary?.vehicles[0].id).toBe(3);
+		expect(store.route?.opposite?.vehicles[0].id).toBe(4);
 		store.cleanup();
 	});
 });

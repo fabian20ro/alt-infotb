@@ -67,7 +67,7 @@ Both proxies:
 
 ## Response format
 
-The response body is **Protocol Buffers** binary, not JSON. A selected-line response still includes all station arrivals and adds the selected route polyline plus live vehicle positions, so it replaces the ordinary arrivals refresh rather than adding a second poll. See [architecture.md](./architecture.md) for the decoded schema.
+The response body is **Protocol Buffers** binary, not JSON. A selected-line response still includes all station arrivals and adds the selected route polyline plus live vehicle positions. While a line is selected, the app requests both `direction=0` and `direction=1` on the existing 20-second polling cycle; the tapped direction's response also replaces the ordinary arrivals refresh. The reverse payload is only available from a stop served in that direction, so the app discovers and caches a suitable stop near the route's opposite terminus when the tapped platform cannot provide it. See [architecture.md](./architecture.md) for the decoded schema.
 
 ## Known stop IDs
 

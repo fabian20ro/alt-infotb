@@ -30,6 +30,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-07-20] Show selected-line vehicles in both directions
+
+**Context:** Vehicles approaching a route's first stop were hidden because the map conditionally queried the reverse direction only after route-projection heuristics classified the selected direction as empty.
+**What happened:** Replaced the conditional fallback with one atomic two-direction selected-line snapshot per 20-second poll. Added solid/filled styling for the tapped direction, dashed/hollow-yellow styling for the reverse direction, destination/count legend, partial-failure handling, and removal of the projection subsystem. Live production-preview testing exposed that STB does not return reverse geometry from a platform not served in that direction, so the app now discovers a reverse source stop once near the primary route's opposite terminus and reuses it on later polls.
+**Outcome:** Success — `npm run check`, 492 unit tests, production build, and 4 desktop/mobile route-map E2E cases pass. Live daytime line 27 at Piața Unirii displayed 2 vehicles toward Faur plus 1 yellow-ring vehicle toward Piața Unirii, with both routes and zero browser errors.
+**Insight:** Direction inversion alone is insufficient; selected geometry is stop-direction-specific. Also, a path-usability predicate must remain boolean because a valid arrival can have unusable geometry.
+**Promoted to Lessons Learned:** Yes
+
+---
+
 ### [2026-07-19] Implement selected-line routes and live vehicles
 
 **Context:** Implement the verified official-STB line-selection behavior in the single alt-stb station view, including all returned transport types, directed “approaching” detection, and opposite-direction fallback near a route origin.
@@ -643,4 +653,14 @@ Each entry should follow this structure:
 **What happened:** Added coverage for pasted Romanian names that use decomposed Unicode combining marks, then extended `normalize()` to apply Unicode NFD decomposition and strip combining marks while preserving existing acronym punctuation behavior such as `C.F.R.` -> `cfr`.
 **Outcome:** Success — focused station-search tests, full unit tests, and Svelte type checks passed.
 **Insight:** Normalize decomposed Unicode after the explicit Romanian/cedilla map, and keep period stripping separate from punctuation-to-space replacement so acronym searches keep matching.
+**Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-07-20] Final verification of both-direction route discovery
+
+**Context:** Final QA after the daytime live API showed that reversing `direction` at the tapped platform alone does not provide reverse route geometry.
+**What happened:** Added and reviewed one-time opposite-terminus stop discovery, cached the discovered reverse source stop for steady-state polling, exercised the missing-same-platform case in unit and desktop/mobile E2E tests, and checked the final production preview with live line 27.
+**Outcome:** Success — live UI showed both destinations and 3 total vehicles split across both marker styles; checks, tests, build, E2E, and browser console all clean.
+**Insight:** Validate directional transport behavior against a live daytime line; mocked same-stop reverse responses can hide platform-specific API constraints.
 **Promoted to Lessons Learned:** Yes

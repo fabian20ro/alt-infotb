@@ -41,13 +41,15 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-14]** DOMException.name is read-only — When mocking `AbortError` in tests, use the constructor `new DOMException('message', 'AbortError')` instead of `Object.assign(new DOMException(...), { name: 'AbortError' })`. The `name` property on `DOMException` is a getter and cannot be overwritten.
 
+**[2026-07-20]** Usability checks are not automatically type guards — A predicate such as “has at least two path points” can be false for a valid `ArrivalInfo`. Declaring it as `arrival is ArrivalInfo` incorrectly narrows the false branch to `null`; return `boolean` unless the true branch represents a real subtype.
+
 **[2026-02-15] Corrected [2026-07-19]** Protobuf arrival data is in field 9 sub-messages — Field 6 is the optional/redundant first-arrival value. The real arrival list lives in repeated field 9 messages with `{1: timetable/scheduled flag, 2: seconds, 3: accessibility flag}`. Field 8 is a `0|1` route direction, not an arrival value or constant; the official app passes it as the `direction` query parameter.
 
 **[2026-07-19]** Selected-line maps use the existing stop endpoint — Request `/lines/stop?stop_id={sourceStopId}&selected_line_id={lineId}&direction={0|1}`. The selected line gains field 11, a standard Google encoded polyline, and repeated field 12 vehicle messages with ID, fixed64 latitude/longitude, transport type, and an accessibility flag. The response still contains all station arrivals, so use it as the normal refresh response instead of adding a duplicate route/vehicle poll.
 
 **[2026-07-19]** Preserve the source stop ID for selectable merged arrivals — Surface arrivals use the selected station ID, but metro arrivals are merged from platform-specific API stop IDs. A route-map request must use the platform stop that produced the tapped line/direction; line ID and display direction alone are insufficient after merging.
 
-**[2026-07-19]** Directional vehicle fallback must fail closed — Project the station and vehicles onto the ordered route, show every returned vehicle, and call a vehicle “approaching” only when both projections are uniquely on-route. Query the opposite direction only after a conclusive zero-approaching result. Network failure, an off-route station, or overlapping/loop ambiguity is not an empty fleet. Near the first 15% of the selected route, vehicles in the final 15% of the reverse route are turnaround candidates, never guaranteed continuations or invented ETAs.
+**[2026-07-20]** Selected-line polling should fetch both directions as one snapshot — Start the tapped direction and its `0|1` inverse concurrently, keep one 20-second poll, and publish only after both settle. STB only returns selected geometry when `stop_id` is served in the requested direction; if the tapped platform cannot provide the inverse, discover it once among stops nearest the primary route's opposite terminus and cache that source stop. This exposes vehicles approaching a first stop without projection heuristics. On partial failure, preserve last-known geometry but clear vehicles for the failed direction so stale coordinates never masquerade as live.
 
 **[2026-02-15]** GTFS stop_id maps to STB API stop_id — ROTI GTFS feed uses format `1008-{numeric_id}` where the numeric suffix is the STB API `stop_id`. Filter to Bucharest bounding box (lat 44.3-44.6, lon 25.9-26.3) to get ~2710 valid stations.
 
@@ -112,3 +114,5 @@ move it to the Archive section at the bottom with a date and reason.
 **[2026-02-14] Archived [2026-02-15]** TRAM_LINES is a Set, not an array — Removed: `TRAM_LINES`, `LINE_ORDER`, and `LINE_COLORS` were deleted during the redesign. The app now shows all transport types and uses API-provided colors.
 
 **[2026-02-14] Archived [2026-02-15]** Arrival time field mapping is tentative — Resolved: protobuf field mapping has been confirmed. Arrival data is in field 9 sub-messages, not fields 6/7/8. See `docs/proto-analysis.md` for evidence.
+
+**[2026-07-19] Archived [2026-07-20]** Directional vehicle fallback must fail closed — Superseded by always fetching and displaying both route directions. The projection and turnaround heuristics added complexity while still hiding useful opposite-direction vehicles outside their narrow fallback conditions.

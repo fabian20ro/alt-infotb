@@ -48,8 +48,7 @@
 	}
 
 	function selectLine(arrival: ArrivalInfo) {
-		if (!selectedStation) return;
-		arrivals.selectLine(arrival, { lat: selectedStation.lat, lng: selectedStation.lon });
+		arrivals.selectLine(arrival);
 	}
 
 	onMount(() => {
@@ -90,6 +89,7 @@
 		// THREAD B: Load station data + update timestamp after background refresh
 		loadStations().then(({ stations, refreshDone }) => {
 			allStations = stations;
+			arrivals.setStations(stations);
 			// Read initial timestamp immediately
 			getLastRefreshTime().then((t) => { lastDataUpdate = t; });
 			// Re-read after background staleness check completes (may have updated it)
@@ -161,11 +161,16 @@
 	{#if arrivals.route}
 		<RouteStatus
 			lineName={arrivals.route.lineName}
-			direction={arrivals.route.direction}
+			primaryDirection={arrivals.route.primary?.direction ?? arrivals.route.direction}
+			oppositeDirection={arrivals.route.opposite?.direction ?? ''}
 			status={arrivals.route.status}
-			vehicleCount={arrivals.route.primary?.vehicles.length ?? 0}
-			oppositeCount={arrivals.route.opposite?.vehicles.length ?? 0}
-			turnaroundCount={arrivals.route.turnaroundVehicleIds.length}
+			primaryCount={arrivals.route.primaryAvailable
+				? arrivals.route.primary?.vehicles.length ?? 0
+				: null}
+			oppositeCount={arrivals.route.oppositeAvailable
+				? arrivals.route.opposite?.vehicles.length ?? 0
+				: null}
+			primaryColor={arrivals.route.primary?.color ?? arrivals.route.opposite?.color}
 			lang={settings.lang}
 			onOverview={() => overviewRequest += 1}
 			onClose={() => arrivals.clearLine()}

@@ -1,23 +1,16 @@
 <script lang="ts">
 	import { translations } from '$lib/i18n/translations.js';
+	import type { SelectedRouteStatus } from '$lib/stores/arrivals.svelte.js';
 	import type { Lang } from '$lib/stores/settings.svelte.js';
-
-	export type RouteUiStatus =
-		| 'loading'
-		| 'ready'
-		| 'checking-opposite'
-		| 'fallback'
-		| 'empty'
-		| 'positions-error'
-		| 'error';
 
 	interface Props {
 		lineName: string;
-		direction: string;
-		status: RouteUiStatus;
-		vehicleCount: number;
-		oppositeCount: number;
-		turnaroundCount: number;
+		primaryDirection: string;
+		oppositeDirection: string;
+		status: SelectedRouteStatus;
+		primaryCount: number | null;
+		oppositeCount: number | null;
+		primaryColor?: string;
 		lang: Lang;
 		onOverview: () => void;
 		onClose: () => void;
@@ -25,48 +18,84 @@
 
 	let {
 		lineName,
-		direction,
+		primaryDirection,
+		oppositeDirection,
 		status,
-		vehicleCount,
+		primaryCount,
 		oppositeCount,
-		turnaroundCount,
+		primaryColor = '#0077b6',
 		lang,
 		onOverview,
 		onClose
 	}: Props = $props();
 
+	function safeColor(color: string): string {
+		return /^#[0-9a-f]{3,8}$/i.test(color) ? color : '#0077b6';
+	}
+
 	let strings = $derived(translations[lang]);
+	let markerColor = $derived(safeColor(primaryColor));
+
+	function directionLabel(direction: string, fallback: string): string {
+		return direction ? `${strings.towards} ${direction}` : fallback;
+	}
+
+	function visibleVehicleCount(count: number | null): string {
+		if (count !== null) return String(count);
+		return status === 'loading' ? '…' : '—';
+	}
+
+	let primaryDestination = $derived(directionLabel(primaryDirection, strings.selectedDirection));
+	let oppositeDestination = $derived(directionLabel(oppositeDirection, strings.oppositeDirection));
+	let primaryVisibleCount = $derived(visibleVehicleCount(primaryCount));
+	let oppositeVisibleCount = $derived(visibleVehicleCount(oppositeCount));
+
+	function formatVehicleCount(count: number | null): string {
+		if (count === null) return strings.dataUnavailable;
+		if (count === 1) return strings.vehicleOne;
+		return strings.vehicleMany.replace('{count}', String(count));
+	}
+
+	let primaryAriaLabel = $derived(
+		`${strings.filledMarker}, ${primaryDestination}: ${formatVehicleCount(primaryCount)}`
+	);
+	let oppositeAriaLabel = $derived(
+		`${strings.yellowRingMarker}, ${oppositeDestination}: ${formatVehicleCount(oppositeCount)}`
+	);
 	let message = $derived.by(() => {
 		switch (status) {
 			case 'loading':
 				return strings.routeLoading;
-			case 'checking-opposite':
-				return strings.checkingOpposite;
-			case 'fallback':
-				return turnaroundCount > 0
-					? strings.turnaroundCandidate
-					: strings.oppositeFound.replace('{count}', String(oppositeCount));
+			case 'partial':
+				return strings.routePartial;
 			case 'empty':
 				return strings.noLiveVehicles;
 			case 'error':
 				return strings.routeUnavailable;
-			case 'positions-error':
-				return strings.positionsUnavailable;
 			default:
-				return vehicleCount === 1
-					? strings.vehicleCountOne
-					: strings.vehicleCountMany.replace('{count}', String(vehicleCount));
+				return '';
 		}
 	});
 </script>
 
 <section class="route-status" aria-label={strings.routeDetails}>
 	<div class="route-copy" role="status" aria-live="polite">
-		<div class="route-title">
-			<span class="route-line">{lineName}</span>
-			{#if direction}<span class="route-direction">{strings.towards} {direction}</span>{/if}
-		</div>
-		<p class:fallback={status === 'fallback'} class:error={status === 'error'}>{message}</p>
+		<span class="route-line">{lineName}</span>
+		<ul class="direction-legend" aria-label={strings.vehicleLegend}>
+			<li aria-label={primaryAriaLabel}>
+				<span class="legend-marker primary" style:background-color={markerColor} aria-hidden="true"></span>
+				<span class="destination">{primaryDestination}</span>
+				<strong>{primaryVisibleCount}</strong>
+			</li>
+			<li aria-label={oppositeAriaLabel}>
+				<span class="legend-marker opposite" aria-hidden="true"></span>
+				<span class="destination">{oppositeDestination}</span>
+				<strong>{oppositeVisibleCount}</strong>
+			</li>
+		</ul>
+		{#if message}
+			<p class:partial={status === 'partial'} class:error={status === 'error'}>{message}</p>
+		{/if}
 	</div>
 	<div class="route-actions">
 		<button type="button" class="overview" onclick={onOverview} aria-label={strings.routeOverview} title={strings.routeOverview}>
@@ -93,15 +122,12 @@
 	}
 
 	.route-copy {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		align-items: center;
+		column-gap: 0.65rem;
 		min-width: 0;
 		flex: 1;
-	}
-
-	.route-title {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		min-width: 0;
 	}
 
 	.route-line {
@@ -110,22 +136,63 @@
 		color: var(--color-text);
 	}
 
-	.route-direction {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		font-size: 0.82rem;
+	.direction-legend {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.direction-legend li {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		min-width: 0;
+		flex: 1 1 0;
+		font-size: 0.75rem;
 		color: var(--color-text-muted);
 	}
 
+	.legend-marker {
+		width: 0.875rem;
+		height: 0.875rem;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	.legend-marker.primary {
+		border: 2px solid #fff;
+		box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+	}
+
+	.legend-marker.opposite {
+		border: 3px solid var(--color-warning);
+		background: var(--color-surface);
+	}
+
+	.destination {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.direction-legend strong {
+		color: var(--color-text);
+		font-variant-numeric: tabular-nums;
+	}
+
 	p {
-		margin: 0.15rem 0 0;
+		grid-column: 1 / -1;
+		margin: 0.2rem 0 0;
 		font-size: 0.75rem;
 		line-height: 1.2;
 		color: var(--color-text-muted);
 	}
 
-	p.fallback { color: var(--color-warning); }
+	p.partial { color: var(--color-warning); }
 	p.error { color: var(--color-error); }
 
 	.route-actions {
@@ -148,4 +215,9 @@
 	button:hover { background: var(--color-surface-hover); }
 	button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 	.close { font-size: 1.65rem; line-height: 1; }
+
+	@media (max-width: 420px) {
+		.direction-legend { gap: 0.5rem; }
+		.route-copy { column-gap: 0.5rem; }
+	}
 </style>

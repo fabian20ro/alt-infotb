@@ -4,26 +4,21 @@ import type {
 	ArrivalInfo,
 	ArrivalsState,
 	LineSelectionRequest,
-	RoutePoint,
 	StationArrivals
 } from '$lib/api/types.js';
-import {
-	classifyOppositeTurnaroundVehicles,
-	classifySameDirectionVehicles,
-	isPointNearRouteOrigin
-} from '$lib/route-map/vehicle-selection.js';
+import { findNearestStations } from '$lib/stations/geo.js';
 import { resolveStopIds } from '$lib/stations/subway-stops.js';
+import type { Station } from '$lib/stations/types.js';
 
 const HIDDEN_GRACE_PERIOD_MS = 60_000;
 const RESUME_DEBOUNCE_MS = 250;
+const OPPOSITE_STOP_CANDIDATE_COUNT = 8;
 
 export type SelectedRouteStatus =
 	| 'loading'
 	| 'ready'
-	| 'checking-opposite'
-	| 'fallback'
+	| 'partial'
 	| 'empty'
-	| 'positions-error'
 	| 'error';
 
 export interface SelectedRouteState {
@@ -32,11 +27,10 @@ export interface SelectedRouteState {
 	direction: string;
 	status: SelectedRouteStatus;
 	selection: LineSelectionRequest;
-	stationPoint: RoutePoint;
 	primary: ArrivalInfo | null;
 	opposite: ArrivalInfo | null;
-	approachingVehicleIds: number[];
-	turnaroundVehicleIds: number[];
+	primaryAvailable: boolean;
+	oppositeAvailable: boolean;
 	error: string | null;
 }
 
@@ -55,6 +49,8 @@ export function createArrivalsStore() {
 	let currentStopIds = $state<number[]>([STOP_ID]);
 	let lineSelection = $state<LineSelectionRequest | null>(null);
 	let routeState = $state<SelectedRouteState | null>(null);
+	let stationCatalog: readonly Station[] = [];
+	let failedOppositeDiscoveryKey: string | null = null;
 	let pollTimer: ReturnType<typeof setTimeout> | null = null;
 	let hiddenPauseTimer: ReturnType<typeof setTimeout> | null = null;
 	let pollingEnabled = false;
@@ -95,6 +91,103 @@ export function createArrivalsStore() {
 		return err instanceof Error ? err.message : 'Eroare necunoscută';
 	}
 
+	function geometryOnly(arrival: ArrivalInfo | null): ArrivalInfo | null {
+		return arrival ? { ...arrival, vehicles: [] } : null;
+	}
+
+	function findSelectedLine(
+		data: StationArrivals,
+		selection: LineSelectionRequest
+	): ArrivalInfo | null {
+		return data.arrivals.find((arrival) =>
+			arrival.lineId === selection.lineId &&
+			arrival.directionId === selection.directionId &&
+			arrival.sourceStopId === selection.sourceStopId
+		) ?? null;
+	}
+
+	function isUsableDirection(arrival: ArrivalInfo | null): boolean {
+		return arrival !== null && arrival.path.length >= 2;
+	}
+
+	function routeError(
+		result: PromiseSettledResult<unknown>,
+		arrival: ArrivalInfo | null,
+		unavailableMessage: string
+	): string | null {
+		if (result.status === 'rejected') return normalizeError(result.reason);
+		return isUsableDirection(arrival) ? null : unavailableMessage;
+	}
+
+	function selectedRouteStatus(
+		primaryAvailable: boolean,
+		oppositeAvailable: boolean,
+		vehicleCount: number
+	): SelectedRouteStatus {
+		if (!primaryAvailable && !oppositeAvailable) return 'error';
+		if (!primaryAvailable || !oppositeAvailable) return 'partial';
+		return vehicleCount === 0 ? 'empty' : 'ready';
+	}
+
+	async function fetchOppositeRoute(
+		oppositeSelection: LineSelectionRequest,
+		primarySelection: LineSelectionRequest,
+		primaryRequest: Promise<StationArrivals>
+	): Promise<ArrivalInfo | null> {
+		const sameStop = await fetchLineRoute(oppositeSelection);
+		if (isUsableDirection(sameStop)) return sameStop;
+
+		const primaryData = await primaryRequest;
+		let currentStationRoute = sameStop;
+		const currentStationOpposite = primaryData.arrivals.find((arrival) =>
+			arrival.lineId === oppositeSelection.lineId &&
+			arrival.directionId === oppositeSelection.directionId
+		) ?? null;
+		if (currentStationOpposite) {
+			currentStationRoute = await fetchLineRoute({
+				...oppositeSelection,
+				sourceStopId: currentStationOpposite.sourceStopId
+			});
+			if (isUsableDirection(currentStationRoute)) return currentStationRoute;
+		}
+
+		const primary = findSelectedLine(primaryData, primarySelection);
+		const discoveryKey = `${primarySelection.sourceStopId}|${primarySelection.lineId}|${oppositeSelection.directionId}`;
+		if (
+			!primary ||
+			primary.path.length < 2 ||
+			stationCatalog.length === 0 ||
+			failedOppositeDiscoveryKey === discoveryKey
+		) return currentStationRoute;
+
+		const routeEnd = primary.path[primary.path.length - 1];
+		const candidateStopIds = findNearestStations(
+			routeEnd.lat,
+			routeEnd.lng,
+			stationCatalog,
+			OPPOSITE_STOP_CANDIDATE_COUNT
+		)
+			.map((station) => station.id)
+			.filter((stopId) => stopId !== primarySelection.sourceStopId);
+		if (candidateStopIds.length === 0) return currentStationRoute;
+
+		const terminalData = await fetchArrivals(candidateStopIds);
+		const terminalOpposite = terminalData.arrivals.find((arrival) =>
+			arrival.lineId === oppositeSelection.lineId &&
+			arrival.directionId === oppositeSelection.directionId
+		) ?? null;
+		if (!terminalOpposite) {
+			failedOppositeDiscoveryKey = discoveryKey;
+			return currentStationRoute;
+		}
+		const discoveredOpposite = await fetchLineRoute({
+			...oppositeSelection,
+			sourceStopId: terminalOpposite.sourceStopId
+		});
+		if (!isUsableDirection(discoveredOpposite)) failedOppositeDiscoveryKey = discoveryKey;
+		return discoveredOpposite;
+	}
+
 	async function executeRefresh(): Promise<boolean> {
 		const requestVersion = selectionVersion;
 		const requestStopIds = [...currentStopIds];
@@ -102,117 +195,82 @@ export function createArrivalsStore() {
 		state.status = 'loading';
 		state.error = null;
 
-		try {
-			const data = await fetchArrivals(requestStopIds, requestLineSelection);
-			if (requestVersion !== selectionVersion) return false;
-			state.data = data;
+		if (!requestLineSelection) {
+			try {
+				const data = await fetchArrivals(requestStopIds);
+				if (requestVersion !== selectionVersion) return false;
+				state.data = data;
+				state.status = 'success';
+				return true;
+			} catch (err) {
+				if (requestVersion !== selectionVersion) return false;
+				state.error = normalizeError(err);
+				state.status = 'error';
+				return false;
+			}
+		}
+
+		const selectedRoute = routeState;
+		if (!selectedRoute) return false;
+		const oppositeSelection: LineSelectionRequest = {
+			...requestLineSelection,
+			sourceStopId: selectedRoute.opposite?.sourceStopId ?? requestLineSelection.sourceStopId,
+			directionId: requestLineSelection.directionId === 0 ? 1 : 0
+		};
+		const primaryRequest = fetchArrivals(requestStopIds, requestLineSelection);
+		const oppositeRequest = fetchOppositeRoute(
+			oppositeSelection,
+			requestLineSelection,
+			primaryRequest
+		);
+		const [primaryResult, oppositeResult] = await Promise.allSettled([
+			primaryRequest,
+			oppositeRequest
+		]);
+
+		// Publish both directions as one snapshot; stale pairs never partially update state.
+		if (requestVersion !== selectionVersion) return false;
+		const currentRoute = routeState;
+		if (!currentRoute) return false;
+
+		const previousPrimary = geometryOnly(currentRoute.primary);
+		const previousOpposite = geometryOnly(currentRoute.opposite);
+		const primary = primaryResult.status === 'fulfilled'
+			? findSelectedLine(primaryResult.value, requestLineSelection)
+			: null;
+		const opposite = oppositeResult.status === 'fulfilled' ? oppositeResult.value : null;
+		const primaryUsable = isUsableDirection(primary);
+		const oppositeUsable = isUsableDirection(opposite);
+		const primaryError = routeError(primaryResult, primary, 'Route unavailable');
+		const oppositeError = routeError(oppositeResult, opposite, 'Opposite route unavailable');
+
+		if (primaryResult.status === 'fulfilled') {
+			state.data = primaryResult.value;
 			state.status = 'success';
 			state.error = null;
-			if (requestLineSelection) {
-				const primary = data.arrivals.find((arrival) =>
-					arrival.lineId === requestLineSelection.lineId &&
-					arrival.directionId === requestLineSelection.directionId &&
-					arrival.sourceStopId === requestLineSelection.sourceStopId
-				) ?? null;
-				await updateSelectedRoute(primary, requestLineSelection, requestVersion);
-			}
-			return true;
-		} catch (err) {
-			if (requestVersion !== selectionVersion) return false;
-			const error = normalizeError(err);
-			state.error = error;
+		} else {
 			state.status = 'error';
-			if (requestLineSelection && routeState?.status === 'loading') {
-				routeState = {
-					...routeState,
-					status: 'error',
-					error
-				};
-			}
-			return false;
-		}
-	}
-
-	async function updateSelectedRoute(
-		primary: ArrivalInfo | null,
-		selection: LineSelectionRequest,
-		requestVersion: number
-	) {
-		if (!routeState || requestVersion !== selectionVersion || !lineSelection) return;
-		if (!primary || primary.path.length < 2) {
-			routeState = {
-				...routeState,
-				status: 'error',
-				primary,
-				opposite: null,
-				approachingVehicleIds: [],
-				turnaroundVehicleIds: [],
-				error: 'Route unavailable'
-			};
-			return;
+			state.error = normalizeError(primaryResult.reason);
 		}
 
-		const sameDirection = classifySameDirectionVehicles(
-			primary.path,
-			routeState.stationPoint,
-			primary.vehicles
-		);
-		const approachingVehicleIds = sameDirection.approaching.map(({ vehicle }) => vehicle.id);
+		const nextPrimary = primaryUsable ? primary : previousPrimary;
+		const nextOpposite = oppositeUsable ? opposite : previousOpposite;
+		const vehicleCount = (nextPrimary?.vehicles.length ?? 0) + (nextOpposite?.vehicles.length ?? 0);
+		const status = selectedRouteStatus(primaryUsable, oppositeUsable, vehicleCount);
+		const errors = [primaryError, oppositeError].filter((error): error is string => error !== null);
+
 		routeState = {
-			...routeState,
-			lineName: primary.lineName,
-			direction: primary.direction,
-			status: approachingVehicleIds.length > 0 || !sameDirection.isConclusive
-				? 'ready'
-				: 'checking-opposite',
-			primary,
-			opposite: null,
-			approachingVehicleIds,
-			turnaroundVehicleIds: [],
-			error: null
+			...currentRoute,
+			lineName: primary?.lineName ?? currentRoute.lineName,
+			direction: primary?.direction ?? currentRoute.direction,
+			status,
+			primary: nextPrimary,
+			opposite: nextOpposite,
+			primaryAvailable: primaryUsable,
+			oppositeAvailable: oppositeUsable,
+			error: errors.length > 0 ? errors.join('; ') : null
 		};
-
-		// Ambiguous route projection: show all vehicles, but do not make a directional claim.
-		if (!sameDirection.isConclusive || approachingVehicleIds.length > 0) return;
-
-		const oppositeSelection: LineSelectionRequest = {
-			...selection,
-			directionId: selection.directionId === 0 ? 1 : 0
-		};
-		try {
-			const opposite = await fetchLineRoute(oppositeSelection);
-			if (requestVersion !== selectionVersion || !routeState || !lineSelection) return;
-			if (!opposite || opposite.vehicles.length === 0) {
-				routeState = {
-					...routeState,
-					status: primary.vehicles.length === 0 ? 'empty' : 'ready',
-					opposite,
-					turnaroundVehicleIds: []
-				};
-				return;
-			}
-
-			const nearOrigin = isPointNearRouteOrigin(routeState.stationPoint, primary.path);
-			const oppositeClassification = nearOrigin
-				? classifyOppositeTurnaroundVehicles(opposite.path, opposite.vehicles)
-				: null;
-			const turnaroundVehicleIds = oppositeClassification?.isConclusive
-				? oppositeClassification.candidates.map(({ vehicle }) => vehicle.id)
-				: [];
-			routeState = {
-				...routeState,
-				status: 'fallback',
-				opposite,
-				turnaroundVehicleIds
-			};
-		} catch (err) {
-			if (requestVersion !== selectionVersion || !routeState) return;
-			routeState = {
-				...routeState,
-				status: 'positions-error',
-				error: normalizeError(err)
-			};
-		}
+		return primaryResult.status === 'fulfilled';
 	}
 
 	async function refresh(): Promise<boolean> {
@@ -241,6 +299,7 @@ export function createArrivalsStore() {
 
 	function selectStation(stopId: number) {
 		selectionVersion += 1;
+		failedOppositeDiscoveryKey = null;
 		currentStopIds = resolveStopIds(stopId);
 		lineSelection = null;
 		routeState = null;
@@ -250,7 +309,13 @@ export function createArrivalsStore() {
 		void refresh();
 	}
 
-	function selectLine(arrival: ArrivalInfo, stationPoint: RoutePoint) {
+	function setStations(stations: readonly Station[]) {
+		stationCatalog = stations;
+		failedOppositeDiscoveryKey = null;
+		if (lineSelection && routeState && !routeState.oppositeAvailable) void refresh();
+	}
+
+	function selectLine(arrival: ArrivalInfo) {
 		const key = getArrivalSelectionKey(arrival);
 		if (routeState?.key === key) {
 			clearLine();
@@ -265,6 +330,7 @@ export function createArrivalsStore() {
 			return;
 		}
 		selectionVersion += 1;
+		failedOppositeDiscoveryKey = null;
 		lineSelection = {
 			sourceStopId: arrival.sourceStopId,
 			lineId: arrival.lineId,
@@ -276,11 +342,10 @@ export function createArrivalsStore() {
 			direction: arrival.direction,
 			status: 'loading',
 			selection: { ...lineSelection },
-			stationPoint: { ...stationPoint },
 			primary: null,
 			opposite: null,
-			approachingVehicleIds: [],
-			turnaroundVehicleIds: [],
+			primaryAvailable: false,
+			oppositeAvailable: false,
 			error: null
 		};
 		startPolling();
@@ -318,6 +383,7 @@ export function createArrivalsStore() {
 
 	function cleanup() {
 		selectionVersion += 1;
+		failedOppositeDiscoveryKey = null;
 		pollingEnabled = false;
 		pausedByHiddenTimeout = false;
 		refreshQueued = false;
@@ -339,6 +405,7 @@ export function createArrivalsStore() {
 		},
 		refresh,
 		selectStation,
+		setStations,
 		selectLine,
 		clearLine,
 		onHidden,
