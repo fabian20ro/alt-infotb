@@ -20,11 +20,9 @@ describe('resolveStopIds', () => {
 		expect(resolveStopIds(12345)).toEqual([12345]);
 	});
 
-	it('handles 0 as an invalid station', () => {
+	it('returns empty array for any non-positive input (guard boundary)', () => {
+		// Zero and negative numbers must never resolve — guard fires when `stationId <= 0`
 		expect(resolveStopIds(0)).toEqual([]);
-	});
-
-	it('rejects negative IDs (malformed GTFS data)', () => {
 		expect(resolveStopIds(-1)).toEqual([]);
 		expect(resolveStopIds(-99999)).toEqual([]);
 	});
