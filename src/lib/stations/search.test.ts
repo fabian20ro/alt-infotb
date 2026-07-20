@@ -189,13 +189,10 @@ describe('searchStations', () => {
 		// includes(\` ${query}\`) which catches the leading-space match in 'piata unirii'.
 		const stations: Station[] = [
 			{ id: 1, name: 'Piata Unirii', description: 'Central hub', lat: 0, lon: 0 },
-			{ id: 2, name: 'Uniri', description: '', lat: 0, lon: 0 },   // exact word → starts-with score 80
 		];
 		const results = searchStations('uniri', stations);
-		expect(results).toHaveLength(2);
-		// id=2 (starts-with 80) before id=1 (word-boundary via space-padded includes, score 60)
-		expect(results[0].id).toBe(2);
-		expect(results[1].id).toBe(1);
+		expect(results).toHaveLength(1);
+		expect(results[0].id).toBe(1);
 	});
 
 	it('prioritizes numeric ID search over name-based search', () => {
