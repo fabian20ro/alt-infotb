@@ -1,7 +1,5 @@
 /** Default center: Bucharest (Piata Unirii area) */
 const BUCHAREST_CENTER = { lat: 44.4268, lon: 26.1025 };
-const STORAGE_KEY = 'alt-stb-last-position';
-
 export interface GeoPosition {
 	lat: number;
 	lon: number;
