@@ -208,19 +208,28 @@ export function classifySameDirectionVehicles<T extends GeoPoint>(
 		return makeVehicleResult(vehicle, isApproaching ? 'approaching' : 'passed', projection);
 	});
 
-	const byStatus = (status: VehicleRouteStatus) => classified.filter((item) => item.status === status);
-	const ambiguous = byStatus('ambiguous');
-	const unclassified = byStatus('unclassified');
-	return {
+	const result: SameDirectionVehicleResult<T> = {
 		stationProjection,
 		vehicles: classified,
-		approaching: byStatus('approaching'),
-		passed: byStatus('passed'),
-		offRoute: byStatus('off-route'),
-		ambiguous,
-		unclassified,
-		isConclusive: stationIsUsable && ambiguous.length === 0 && unclassified.length === 0,
+		approaching: [],
+		passed: [],
+		offRoute: [],
+		ambiguous: [],
+		unclassified: [],
+		isConclusive: false,
 	};
+	const statusBuckets: Record<VehicleRouteStatus, ClassifiedVehicle<T>[]> = {
+		approaching: result.approaching,
+		passed: result.passed,
+		'off-route': result.offRoute,
+		ambiguous: result.ambiguous,
+		unclassified: result.unclassified,
+	};
+	for (const item of classified) {
+		statusBuckets[item.status].push(item);
+	}
+	result.isConclusive = stationIsUsable && result.ambiguous.length === 0 && result.unclassified.length === 0;
+	return result;
 }
 
 /** True only when the point has a unique on-route projection in the route's first 15%. */
