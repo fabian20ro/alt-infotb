@@ -7,7 +7,8 @@ function loadRecents(): Station[] {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return [];
-		return JSON.parse(raw) as Station[];
+		const parsed = JSON.parse(raw) as Station[];
+		return parsed.filter((s) => s && typeof s.id === 'number' && Number.isFinite(s.id));
 	} catch {
 		return [];
 	}
