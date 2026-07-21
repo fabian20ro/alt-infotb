@@ -237,7 +237,11 @@ describe('searchStations', () => {
 			{ id: 3, name: 'XYZ Hub', description: 'unirii piata text here', lat: 0, lon: 0 }, // desc only → score 20
 		];
 		const results = searchStations('piata', stations);
-		expect(results.map(s => s.id)).toEqual([2, 1, 3]);
+
+		// Three individual assertions make failures failure-specific — same pattern as starts-with ranking test:
+		expect(results[0].id).toBe(2);  // starts-with (score ~85) ranks first
+		expect(results[1].id).toBe(1);  // ends-with (score ~62) ranks second
+		expect(results[2].id).toBe(3);  // description-only (score ~29) ranks third
 	});
 
 	it('excludes stations when multi-word query has partial (not full) word match', () => {
