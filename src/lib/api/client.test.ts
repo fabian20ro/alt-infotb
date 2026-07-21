@@ -552,6 +552,18 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toThrow(ApiError);
 	});
 
+	it('throws ApiError for URLs with underscores in hostname', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn() // should never be called
+		);
+
+		const promise = apiFetchBinary('https://my_host/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow('Invalid request URL');
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+	});
+
 	it('throws ApiError for non-string inputs (null, undefined, number)', async () => {
 		vi.stubGlobal(
 			'fetch',
