@@ -89,12 +89,17 @@ describe('searchStations', () => {
 		expect(searchStations('   \t\n  ', stations)).toEqual([]);
 	});
 
-	it('does not throw on non-string query types', () => {
+	it('does not throw on non-string query types and finds numeric match', () => {
 		const stations: Station[] = [
 			{ id: 1, name: 'Alpha', description: 'test', lat: 0, lon: 0 },
+			{ id: 9999, name: 'Niner', description: '', lat: 0, lon: 0 },
 		];
 		expect(() => searchStations(42 as any, stations)).not.toThrow();
 		expect(searchStations(42 as any, stations)).toEqual([]);
+		// Verify numeric-ID path actually resolves via number coercion
+		const numResult = searchStations(9999 as any, stations);
+		expect(numResult).toHaveLength(1);
+		expect(numResult[0].id).toBe(9999);
 	});
 
 	it('returns empty array for numeric query with no matching station ID', () => {
