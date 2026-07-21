@@ -162,6 +162,18 @@ export function decodeFixed64Double(data: Uint8Array, offset: number): number {
 	return view.getFloat64(0, true);
 }
 
+/** Decode a protobuf fixed32 payload as a little-endian IEEE-754 float. */
+export function decodeFixed32Float(data: Uint8Array, offset: number): number {
+	if (!(data instanceof Uint8Array)) {
+		throw new TypeError('decodeFixed32Float requires a Uint8Array');
+	}
+	if (!Number.isInteger(offset) || offset < 0 || offset + 4 > data.byteLength) {
+		throw new ProtoParseError('Invalid fixed32 float offset');
+	}
+	const view = new DataView(data.buffer, data.byteOffset + offset, 4);
+	return view.getFloat32(0, true);
+}
+
 /** Get the first fixed64 double for a schema-known field, or undefined. */
 export function getFixed64Double(
 	fields: Map<number, Array<number | Uint8Array>>,
@@ -170,4 +182,14 @@ export function getFixed64Double(
 ): number | undefined {
 	const offset = fields.get(num)?.[0];
 	return typeof offset === 'number' ? decodeFixed64Double(source, offset) : undefined;
+}
+
+/** Get the first fixed32 float for a schema-known field, or undefined. */
+export function getFixed32Float(
+	fields: Map<number, Array<number | Uint8Array>>,
+	num: number,
+	source: Uint8Array
+): number | undefined {
+	const offset = fields.get(num)?.[0];
+	return typeof offset === 'number' ? decodeFixed32Float(source, offset) : undefined;
 }
