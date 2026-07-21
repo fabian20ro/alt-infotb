@@ -17,7 +17,7 @@ Browser ──fetch──▸ Proxy ──fetch + headers──▸ info.stb.ro (p
    ├── decode (proto.ts)
    ├── extract arrivals, selected route, and live vehicles (arrivals.ts)
    ├── render (Svelte components)
-   ├── cache (localStorage + IndexedDB)
+   ├── cache arrivals and preferences (localStorage)
    └── display on map (Leaflet)
 ```
 
@@ -53,7 +53,7 @@ Both proxies handle the same auth flow:
 - **Static adapter** — SvelteKit prerenders a single HTML shell. All logic runs client-side (`ssr = false`).
 - **PWA** — The app is installable via `vite-plugin-pwa`. Static assets are precached; API calls use `NetworkOnly`; map tiles use `StaleWhileRevalidate`.
 - **Leaflet lazy-loading** — Leaflet (~43KB gzip) is loaded via dynamic `import()` after initial render, with a loading skeleton shown while the map initializes.
-- **Station data from GTFS** — 2,710 station coordinates are bundled from ROTI GTFS data (`scripts/fetch-stations.ts`). The GTFS stop_id format `1008-{stb_id}` maps directly to the STB API `stop_id`. IndexedDB provides caching.
+- **Versioned station catalog from GTFS** — Coordinates, TPBI feed version, and the source update date are bundled by `scripts/fetch-stations.ts`. Both current numeric stop IDs and legacy `1008-{stb_id}` IDs map to the STB API. The PWA already precaches the catalog, so no duplicate IndexedDB cache is used.
 - **Immutable state** — All stores use Svelte 5 `$state` runes. State updates create new values rather than mutating.
 
 ## Protobuf schema (verified 2026-02-15, expanded 2026-07-19)
@@ -150,15 +150,15 @@ For surface transport (bus, tram, trolleybus), the GTFS ID maps directly to the 
 ## Station data flow
 
 ```
-First load:
-  1. Load bundled stations.json (build-time, 2710 stations)
-  2. Save to IndexedDB
-  3. Display on map
+Every app load:
+  1. Load the versioned stations.json bundled and precached by the PWA
+  2. Display its stations on the map
+  3. Show the catalog's TPBI feed version and source update date
 
-Subsequent loads:
-  1. Load from IndexedDB (instant)
-  2. Check if the 4 AM Romanian transit-day boundary has passed
-  3. Background timestamp refresh if stale
+Scheduled catalog update:
+  1. GitHub Actions downloads the regional TPBI GTFS feed daily after 4 AM Romanian time
+  2. Regenerate and validate the catalog
+  3. Skip unchanged feeds; otherwise test, build, commit the catalog, and deploy that artifact
 
 Station selection:
   1. Tap map marker → selectStation(station)

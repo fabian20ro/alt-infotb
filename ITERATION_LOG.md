@@ -28,6 +28,18 @@ Each entry should follow this structure:
 **Insight:** The STB API ignores the `Accept: application/json` header and always returns protobuf. Don't waste time trying to get JSON out of it. The hex dump from `hexdump -C` is invaluable for reverse-engineering the protobuf schema.
 **Promoted to Lessons Learned:** Yes
 
+**Post-rebase correction:** After integrating concurrent `origin/main` test additions, the final unit total is 457 passing tests (not 454); type-check and production build remain green.
+
+---
+
+### [2026-07-21] Automate the versioned TPBI station catalog
+
+**Context:** The current TPBI feed added line 5 platforms that were absent from the bundled February catalog, while the app's metadata-only IndexedDB refresh incorrectly reported fresh data.
+**What happened:** Rebuilt the catalog from the official regional GTFS feed, added support for current numeric and legacy stop IDs, embedded truthful feed metadata, removed the redundant IndexedDB catalog copy, and added a daily change-only GitHub Actions refresh that tests and deploys the generated artifact in the same run. Added generator/catalog/UI regression tests and repaired a pre-existing unclosed E2E `describe` block that prevented suite collection.
+**Outcome:** Success — the catalog contains all 22 newly identified line 5 platforms and all known subway parents. Unit tests, Svelte checks, production build, focused desktop/mobile route-map E2E, local browser UI, and live line 5 API decoding passed. The full E2E rerun was limited by repeated Chromium Mach-port sandbox failures after suite collection, not an application assertion.
+**Insight:** Dataset freshness must be tied to the exact generated artifact; precached PWA assets make a second browser database cache unnecessary, and scheduled bot commits must deploy before the workflow exits.
+**Promoted to Lessons Learned:** Yes
+
 ---
 
 ### [2026-07-20] Preserve map viewport across route selection and refresh
@@ -684,3 +696,25 @@ Each entry should follow this structure:
 **Outcome:** Success — line selection and polling preserve the viewport; the overview control still zooms out. Type checks, 492 unit tests, build, four desktop/mobile route-map E2E cases, and the live browser console all passed.
 **Insight:** Route rendering and refresh should be viewport-pure; map fitting belongs to an explicit, consumable UI event.
 **Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-07-21] Investigate missing line 5 stations
+
+**Context:** Line 5 and its rebuilt-platform stop IDs appear in InfoTB but not in Alt STB, despite the drawer reporting freshly updated data.
+**What happened:** Traced station loading through the bundled JSON and IndexedDB path, inspected the current TPBI GTFS feed, compared both line 5 directions against the bundled catalog, and checked the deployed app. The current feed exposes line 5 as route 814 with 49 unique stops; 22 platform IDs (12074–12096, with gaps) are absent from the 2,710-stop February bundle. The stale check updates only the local timestamp, and the generator accepts only the obsolete `1008-{id}` stop format while the current feed uses plain numeric IDs.
+**Outcome:** Root cause confirmed; no product code changed. Recommended a deterministic build-time catalog refresh, removal or versioning of the redundant IndexedDB catalog cache, truthful source-version metadata, and a scheduled change-only updater.
+**Insight:** A freshness timestamp is valid only when tied to the dataset version actually loaded; updating metadata alone can hide an indefinitely stale catalog.
+**Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-07-21] Automate the versioned TPBI station catalog (final record)
+
+**Context:** The current TPBI feed added line 5 platforms that were absent from the bundled February catalog, while the app's metadata-only IndexedDB refresh incorrectly reported fresh data.
+**What happened:** Rebuilt the catalog from the official regional GTFS feed, added support for current numeric and legacy stop IDs, embedded truthful feed metadata, removed the redundant IndexedDB catalog copy, and added a daily change-only GitHub Actions refresh that tests and deploys the generated artifact in the same run. Added generator/catalog/UI regression tests and repaired a pre-existing unclosed E2E `describe` block that prevented suite collection. This EOF record supersedes the same entry accidentally inserted near the start of this append-only log.
+**Outcome:** Success — the catalog contains all 22 newly identified line 5 platforms and all known subway parents. All 454 unit tests, Svelte checks, the production build, focused desktop/mobile route-map E2E, local browser UI, and live line 5 API decoding passed. The full arrival-board E2E requires local proxy credentials that are absent from this workspace; its sandbox launch issue was independently cleared by an escalated run.
+**Insight:** Dataset freshness must be tied to the exact generated artifact; precached PWA assets make a second browser database cache unnecessary, and scheduled bot commits must deploy before the workflow exits.
+**Promoted to Lessons Learned:** Yes
+
+**Post-rebase correction:** After integrating concurrent `origin/main` test additions, the final unit total is 457 passing tests (not 454); type-check and production build remain green.

@@ -35,11 +35,11 @@ src/
 │   │   └── index.ts                t() translation function
 │   ├── stations/
 │   │   ├── types.ts                Station, StationWithDistance interfaces
-│   │   ├── stations.json           Bundled station data (2710 stops, from GTFS)
+│   │   ├── stations.json           Versioned TPBI station catalog (metadata + stops)
 │   │   ├── subway-stops.ts         GTFS metro ID → STB API subway stop IDs mapping
-│   │   ├── data.ts                 Station loader (IndexedDB → bundled fallback)
-│   │   ├── db.ts                   IndexedDB wrapper for station storage
-│   │   ├── format.ts               formatLastUpdate() — locale-aware timestamp formatting
+│   │   ├── data.ts                 Bundled station catalog loader + source metadata
+│   │   ├── data.test.ts            Catalog invariants + line 5 stop regression
+│   │   ├── format.ts               formatCatalogDate() — source-date formatting
 │   │   ├── format.test.ts          Tests for format utilities
 │   │   ├── geo.ts                  Haversine distance, nearest stations, viewport bounds filter
 │   │   ├── geo.test.ts             Tests for geo utilities
@@ -63,7 +63,9 @@ src/
 scripts/
 ├── dump-proto.ts                   Diagnostic: dump all protobuf fields from API
 ├── discover-subway-stops.ts        Scan STB API for subway stop IDs (brute-force)
-└── fetch-stations.ts               Extract stations from GTFS stops.txt
+├── station-catalog.ts              Parse and validate TPBI GTFS station data
+├── station-catalog.test.ts         Generator format and validation tests
+└── fetch-stations.ts               Generate the versioned bundled catalog
 
 e2e/
 ├── arrival-board.spec.ts           General Playwright E2E tests
@@ -109,8 +111,7 @@ docs/
   ├─ stores/favorites
   ├─ stores/recents
   └─ stations/
-       ├── data.ts ─── db.ts (IndexedDB)
-       │            └── stations.json (bundled)
+       ├── data.ts ─── stations.json (versioned PWA bundle)
        ├── geo.ts
        └── search.ts
 
@@ -140,6 +141,6 @@ All tunable values live in `src/lib/api/constants.ts`:
 
 | Script | What it runs | Tests | Network? |
 |---|---|---|---|
-| `npm test` | Unit tests (vitest) | 492 | No |
+| `npm test` | Unit tests (vitest) | 457 | No |
 | `npm run test:integration` | Real STB API calls (vitest) | 6 | Yes |
 | `npm run test:e2e` | Playwright browser tests | varies | Yes (via proxy) |

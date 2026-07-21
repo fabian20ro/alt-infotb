@@ -6,8 +6,7 @@
 	import { createSettingsStore } from '$lib/stores/settings.svelte.js';
 	import { createFavoritesStore } from '$lib/stores/favorites.svelte.js';
 	import { createRecentsStore } from '$lib/stores/recents.svelte.js';
-	import { loadStations } from '$lib/stations/data.js';
-	import { getLastRefreshTime } from '$lib/stations/db.js';
+	import { loadStations, stationCatalogMetadata } from '$lib/stations/data.js';
 	import type { Station } from '$lib/stations/types.js';
 	import type { ArrivalInfo } from '$lib/api/types.js';
 	import StationHeader from '$lib/components/StationHeader.svelte';
@@ -25,7 +24,6 @@
 	let allStations = $state<Station[]>([]);
 	let selectedStation = $state<Station | null>(null);
 	let drawerOpen = $state(false);
-	let lastDataUpdate = $state<number>(0);
 	let overviewRequest = $state<{ id: number; routeKey: string } | null>(null);
 	let overviewRequestId = 0;
 
@@ -96,17 +94,10 @@
 		window.addEventListener('focus', handleFocus);
 		window.addEventListener('keydown', handleKeydown);
 
-		// THREAD B: Load station data + update timestamp after background refresh
-		loadStations().then(({ stations, refreshDone }) => {
-			allStations = stations;
-			arrivals.setStations(stations);
-			// Read initial timestamp immediately
-			getLastRefreshTime().then((t) => { lastDataUpdate = t; });
-			// Re-read after background staleness check completes (may have updated it)
-			refreshDone.then(() => {
-				getLastRefreshTime().then((t) => { lastDataUpdate = t; });
-			});
-		});
+		// THREAD B: Load the versioned station catalog bundled with the PWA.
+		const stations = loadStations();
+		allStations = stations;
+		arrivals.setStations(stations);
 
 		// THREAD C: Start GPS
 		geo.startWatching();
@@ -138,7 +129,8 @@
 	recents={displayRecents()}
 	theme={settings.theme}
 	lang={settings.lang}
-	{lastDataUpdate}
+	catalogVersion={stationCatalogMetadata.feedVersion}
+	catalogUpdatedAt={stationCatalogMetadata.sourceUpdatedAt}
 	onClose={() => drawerOpen = false}
 	onSelectStation={selectStation}
 	onThemeChange={(t) => settings.setTheme(t)}

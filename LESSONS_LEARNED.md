@@ -31,6 +31,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-15]** Server-side proxy is required — The STB API requires custom headers (`User-Info`, `App-Id`, `Lang`, etc.) that CORS blocks from browsers. A proxy injects these headers server-side. Vite plugin for dev (`/stb-api/*`), Cloudflare Worker for production.
 
+**[2026-07-21]** Version external station catalogs at generation time — Bundle the feed version and source `Last-Modified` value with the generated data. The PWA precache already versions the catalog, so a second IndexedDB copy adds stale-state risk without offline value. Scheduled refreshes should deploy the same generated artifact because commits made with `GITHUB_TOKEN` do not trigger another workflow run.
+
 **[2026-07-19]** New STB API paths need explicit dev/production proxy parity — The Vite dev proxy currently forwards any `/stb-api/*` target, while the production Cloudflare Worker only allows `/lines/stop`. Any route or vehicle-position endpoint must be allowlisted and validated in production as part of the same change, or it can pass locally and fail after deployment.
 
 **[2026-02-15]** STB API requires User-Info auth token — The API returns 400 without a `User-Info` header. Get a bcrypt token from `GET /proxy/user/auth` (requires `App-key` and `App-Id` headers). Token expires (412 response) and must be re-fetched. The official STB web app does this automatically.
@@ -118,3 +120,5 @@ move it to the Archive section at the bottom with a date and reason.
 **[2026-02-14] Archived [2026-02-15]** Arrival time field mapping is tentative — Resolved: protobuf field mapping has been confirmed. Arrival data is in field 9 sub-messages, not fields 6/7/8. See `docs/proto-analysis.md` for evidence.
 
 **[2026-07-19] Archived [2026-07-20]** Directional vehicle fallback must fail closed — Superseded by always fetching and displaying both route directions. The projection and turnaround heuristics added complexity while still hiding useful opposite-direction vehicles outside their narrow fallback conditions.
+
+**[2026-07-21] Archived [2026-07-21]** The station "daily refresh" is metadata-only, not a catalog refresh — Resolved by replacing the metadata-only IndexedDB path with a versioned build-time catalog and a scheduled change-only TPBI regeneration. The generator now accepts both current numeric stop IDs and the legacy `1008-{id}` form.

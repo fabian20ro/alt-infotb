@@ -9,7 +9,7 @@ No accounts, no tracking. The UI runs in your browser; transit requests go throu
 
 ## Features
 
-- Real-time arrivals for all 2,710 STB stations (bus, tram, trolleybus, subway M1–M4)
+- Real-time arrivals for the current TPBI station catalog (bus, tram, trolleybus, subway M1–M4)
 - Interactive map with GPS-based station discovery
 - Tap any arrival line to show its full route and every live vehicle STB returns
 - Both route directions shown together, including vehicles approaching a terminus from behind; opposite-direction vehicles are highlighted in yellow
@@ -19,8 +19,8 @@ No accounts, no tracking. The UI runs in your browser; transit requests go throu
 - Light/dark theme, Romanian/English
 - Installable as PWA, including iOS Home Screen support
 - Fixed auto-refresh every 20s, with immediate refresh when you return to the tab
-- Station data freshness follows the 4 AM Romanian transit-day boundary
-- Drawer shows the last successful station data update time
+- Station catalog is checked daily after the 4 AM Romanian transit-day boundary
+- Drawer shows the TPBI feed version and its real source date
 - Offline support with cached arrivals (live positions are never stored as current data)
 
 ## Tech Stack

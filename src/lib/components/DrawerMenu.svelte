@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Station } from '$lib/stations/types.js';
 	import type { Theme, Lang } from '$lib/stores/settings.svelte.js';
-	import { formatLastUpdate } from '$lib/stations/format.js';
+	import { formatCatalogDate } from '$lib/stations/format.js';
 
 	interface Props {
 		open: boolean;
@@ -9,7 +9,8 @@
 		recents: Station[];
 		theme: Theme;
 		lang: Lang;
-		lastDataUpdate: number;
+		catalogVersion: string;
+		catalogUpdatedAt: string;
 		pinnedId: number | null;
 		onClose: () => void;
 		onSelectStation: (station: Station) => void;
@@ -18,7 +19,7 @@
 		onTogglePin: (id: number) => void;
 	}
 
-	let { open, favorites, recents, theme, lang, lastDataUpdate, pinnedId, onClose, onSelectStation, onThemeChange, onLangChange, onTogglePin }: Props = $props();
+	let { open, favorites, recents, theme, lang, catalogVersion, catalogUpdatedAt, pinnedId, onClose, onSelectStation, onThemeChange, onLangChange, onTogglePin }: Props = $props();
 
 	function handleStationClick(station: Station) {
 		onSelectStation(station);
@@ -126,9 +127,9 @@
 			</div>
 		</section>
 
-		{#if lastDataUpdate}
+		{#if catalogVersion && catalogUpdatedAt}
 			<p class="last-update">
-				{lang === 'ro' ? 'Date actualizate' : 'Data updated'}: {formatLastUpdate(lastDataUpdate, lang)}
+				{lang === 'ro' ? 'Catalog TPBI' : 'TPBI catalog'} v{catalogVersion}: {formatCatalogDate(catalogUpdatedAt, lang)}
 			</p>
 		{/if}
 
