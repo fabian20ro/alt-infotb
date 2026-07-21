@@ -34,6 +34,9 @@ export function formatArrivalTime(seconds: number): string {
 	if (totalMinutes <= 59) return `${totalMinutes} min`;
 	const hours = Math.floor(totalMinutes / 60);
 	const mins = totalMinutes % 60;
+	// Cap at ~24h to avoid misleading display for stale/bad data.
+	// The STB API never returns values beyond MAX_ARRIVAL_SECONDS (2880).
+	if (hours >= 48) return 'peste o zi';
 	const hourWord = hours === 1 ? 'oră' : 'ore';
 	if (mins === 0) return `${hours} ${hourWord}`;
 	return `${hours} ${hourWord}, ${mins} min`;
