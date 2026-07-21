@@ -577,4 +577,34 @@ describe('apiFetchBinary', () => {
 			await expect(apiFetchBinary(input as string)).rejects.toMatchObject({ status: 0 });
 		}
 	});
+
+	it('passes through when response has no Content-Type header', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				headers: new Map(), // empty headers map — content-type is absent
+				arrayBuffer: () => Promise.resolve(new Uint8Array([1, 2, 3]).buffer)
+			})
+		);
+
+		const result = await apiFetchBinary('https://info.stb.ro/test');
+		expect(result).toBeInstanceOf(Uint8Array);
+		expect(result.length).toBe(3);
+	});
+
+	it('rejects text/plain content type', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				headers: new Map([['content-type', 'text/plain; charset=utf-8']]),
+				arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
+			})
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow(/Unexpected content type/);
+	});
 });
