@@ -27,7 +27,15 @@ describe('resolveStopIds', () => {
 		expect(resolveStopIds(-99999)).toEqual([]);
 	});
 
-	it('rejects non-integer values', () => {
+	it('rejects non-number types (undefined, null, strings, booleans)', () => {
+		// Runtime callers may pass JS values that TypeScript cannot catch.
+		expect(resolveStopIds(undefined as unknown as number)).toEqual([]);
+		expect(resolveStopIds(null as unknown as number)).toEqual([]);
+		expect(resolveStopIds('12345' as unknown as number)).toEqual([]);
+		expect(resolveStopIds(true as unknown as number)).toEqual([]);
+	});
+
+	it('rejects non-integer numeric values', () => {
 		expect(resolveStopIds(0.5)).toEqual([]);
 		expect(resolveStopIds(NaN)).toEqual([]);
 		expect(resolveStopIds(Infinity)).toEqual([]);
