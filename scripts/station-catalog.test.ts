@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCatalog, parseCsvLine, parseFeedVersion, parseStations } from './station-catalog.js';
+import { buildCatalog, parseCsvLine, parseFeedVersion, parseStations, validateCatalog } from './station-catalog.js';
 
 const header = 'stop_id,stop_name,stop_desc,stop_lat,stop_lon,location_type';
 
@@ -30,6 +30,50 @@ describe('station catalog generator', () => {
 			'feed_publisher_name,feed_version',
 			'TPBI,6.38'
 		].join('\n'))).toBe('6.38');
+	});
+
+	it('skips stations with empty names', () => {
+		const stations = parseStations([
+			header,
+			'42,,Extra description,44.42,26.10,',
+			'43,Has Name,,44.43,26.11,'
+		].join('\n'));
+
+		expect(stations.map((station) => station.id)).toEqual([43]);
+	});
+
+	it('deduplicates stations by STB stop ID', () => {
+		const stations = parseStations([
+			header,
+			'42,Duplicate A,,44.42,26.10,',
+			'42,Duplicate B,,44.43,26.11,',
+			'43,Unique,,44.44,26.12,'
+		].join('\n'));
+
+		expect(stations.map((station) => station.id)).toEqual([42, 43]);
+		expect(stations.find((s) => s.id === 42)?.name).toBe('Duplicate A');
+	});
+
+	it('excludes location_type 4 (entrance only)', () => {
+		const stations = parseStations([
+			header,
+			'42,Regular,,44.42,26.10,',
+			'43,Platform,,44.43,26.11,0',
+			'44,Entrance,,44.44,26.12,4'
+		].join('\n'));
+
+		expect(stations.map((station) => station.id)).toEqual([42, 43]);
+	});
+
+	it('buildCatalog throws for invalid timestamps', () => {
+		expect(() => buildCatalog(header, 'feed_publisher_name,feed_version\nTPBI,6.38', 'not-a-date')).toThrow(
+			'Invalid source update timestamp'
+		);
+	});
+
+	it('validateCatalog rejects small catalogs', () => {
+		const catalog = { feedVersion: '0', sourceUpdatedAt: new Date().toISOString(), stations: [] };
+		expect(() => validateCatalog(catalog)).toThrow(/unexpectedly small/);
 	});
 
 	it('builds and validates a deterministic catalog', () => {
