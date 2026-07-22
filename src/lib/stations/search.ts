@@ -12,6 +12,17 @@ export function normalize(text: string): string {
 		.toLowerCase();
 }
 
+/** Detect the highest-priority match type between a normalized query and station fields.
+ *  Returns a score (higher = better) or 0 if no match is found. */
+function detectMatchType(query: string, name: string, desc: string): number {
+	if (name === query) return 100;
+	if (name.startsWith(query)) return 80;
+	if (name.endsWith(query) || name.includes(` ${query}`) || name.includes(`${query} `)) return 60;
+	if (desc.includes(query)) return 20;
+
+	return 0;
+}
+
 /** Fuzzy search stations by name. Normalizes diacritics, punctuation, and whitespace before scoring. Returns matches sorted by relevance. */
 export function searchStations(
 	query: string | null | undefined,
@@ -36,24 +47,7 @@ export function searchStations(
 		const normalizedName = normalize(station.name);
 		const normalizedDesc = normalize(station.description);
 
-		let score = 0;
-
-		// Exact match (highest priority)
-		if (normalizedName === normalizedQuery) {
-			score = 100;
-		}
-		// Starts with query
-		else if (normalizedName.startsWith(normalizedQuery)) {
-			score = 80;
-		}
-		// Word boundary match
-		else if (normalizedName.endsWith(normalizedQuery) || normalizedName.includes(` ${normalizedQuery}`) || normalizedName.includes(`${normalizedQuery} `)) {
-			score = 60;
-		}
-		// Description contains query
-		else if (normalizedDesc.includes(normalizedQuery)) {
-			score = 20;
-		}
+		let score = detectMatchType(normalizedQuery, normalizedName, normalizedDesc);
 
 		// All words present (but not as a contiguous phrase)
 		if (score === 0 && queryWords.length > 1) {
