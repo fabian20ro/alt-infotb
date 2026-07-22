@@ -79,6 +79,19 @@ describe('resolveStopIds', () => {
 		}
 	});
 
+	it('every GTFS parent ID resolves to its expected stop IDs through resolveStopIds', () => {
+		// Regression guard: if anyone accidentally edits or deletes a map entry,
+		// this test catches it by verifying every documented GTFS→API mapping
+		// produces the correct result through the public function.
+		for (const [gtfsIdStr, expected] of Object.entries(SUBWAY_STOP_IDS)) {
+			const gtfsId = Number(gtfsIdStr);
+			expect(
+				resolveStopIds(gtfsId),
+				`station ${gtfsId} (${gtfsIdStr}) should resolve to its documented stops`,
+			).toEqual(expected);
+		}
+	});
+
 	it('falls back to stationId for unknown IDs that look like valid API stop IDs', () => {
 		// An ID in the 9xxx range (which is an API stop ID range) but not in the map
 		// should still return [stationId] rather than [] — it's a "valid-looking" integer.
