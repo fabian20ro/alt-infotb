@@ -39,8 +39,9 @@ function buildVariant(opts: VariantOpts): L.DivIcon {
 
 /** Create a circle marker icon for a station, colored by transport type */
 export function createStationIcon(vehicleType?: string): L.DivIcon {
+	const normalized = (vehicleType ?? '').toUpperCase();
 	return buildVariant({
-		color: TYPE_COLORS[vehicleType ?? ''] ?? DEFAULT_COLOR,
+		color: TYPE_COLORS[normalized] ?? DEFAULT_COLOR,
 		baseSize: 24,
 		shadows: '0 1px 3px rgba(0,0,0,0.4)'
 	});
