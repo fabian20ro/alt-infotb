@@ -27,7 +27,15 @@ describe('resolveStopIds', () => {
 		expect(resolveStopIds(-99999)).toEqual([]);
 	});
 
-	it('rejects non-integer values', () => {
+	it('rejects non-number types (undefined, null, strings, booleans)', () => {
+		// Runtime callers may pass JS values that TypeScript cannot catch.
+		expect(resolveStopIds(undefined as unknown as number)).toEqual([]);
+		expect(resolveStopIds(null as unknown as number)).toEqual([]);
+		expect(resolveStopIds('12345' as unknown as number)).toEqual([]);
+		expect(resolveStopIds(true as unknown as number)).toEqual([]);
+	});
+
+	it('rejects non-integer numeric values', () => {
 		expect(resolveStopIds(0.5)).toEqual([]);
 		expect(resolveStopIds(NaN)).toEqual([]);
 		expect(resolveStopIds(Infinity)).toEqual([]);
@@ -68,6 +76,19 @@ describe('resolveStopIds', () => {
 		for (const [gtfsId, apiIds] of Object.entries(SUBWAY_STOP_IDS)) {
 			const unique = new Set(apiIds);
 			expect(unique.size, `station ${gtfsId} should have no duplicates`).toBe(apiIds.length);
+		}
+	});
+
+	it('every GTFS parent ID resolves to its expected stop IDs through resolveStopIds', () => {
+		// Regression guard: if anyone accidentally edits or deletes a map entry,
+		// this test catches it by verifying every documented GTFS→API mapping
+		// produces the correct result through the public function.
+		for (const [gtfsIdStr, expected] of Object.entries(SUBWAY_STOP_IDS)) {
+			const gtfsId = Number(gtfsIdStr);
+			expect(
+				resolveStopIds(gtfsId),
+				`station ${gtfsId} (${gtfsIdStr}) should resolve to its documented stops`,
+			).toEqual(expected);
 		}
 	});
 
