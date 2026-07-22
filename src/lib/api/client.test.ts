@@ -560,7 +560,7 @@ describe('apiFetchBinary', () => {
 
 		const promise = apiFetchBinary('https://my_host/test');
 		await expect(promise).rejects.toThrow(ApiError);
-		await expect(promise).rejects.toThrow('Invalid request URL');
+		await expect(promise).rejects.toThrow(/Hostname contains invalid characters/);
 		await expect(promise).rejects.toMatchObject({ status: 0 });
 	});
 
