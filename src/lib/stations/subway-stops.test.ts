@@ -74,8 +74,11 @@ describe('resolveStopIds', () => {
 
 	it('every subway station entry has no duplicate stop IDs', () => {
 		for (const [gtfsId, apiIds] of Object.entries(SUBWAY_STOP_IDS)) {
-			const unique = new Set(apiIds);
-			expect(unique.size, `station ${gtfsId} should have no duplicates`).toBe(apiIds.length);
+			const duplicates = apiIds.filter((v, i) => apiIds.indexOf(v) !== i);
+			expect(
+				duplicates.length,
+				`station ${gtfsId} should have no duplicate stop IDs — found: [${duplicates.join(', ')}]`,
+			).toBe(0);
 		}
 	});
 
