@@ -72,9 +72,13 @@ describe('resolveStopIds', () => {
 		expect(resolveStopIds(14708)).toEqual([9578, 9579]); // Eroilor (M1+M3)
 	});
 
-	it('every subway station entry has no duplicate stop IDs', () => {
+	it('every subway station entry has no duplicate stop IDs (O(n) dedupe)', () => {
 		for (const [gtfsId, apiIds] of Object.entries(SUBWAY_STOP_IDS)) {
-			const duplicates = apiIds.filter((v, i) => apiIds.indexOf(v) !== i);
+			const seen = new Set<number>();
+			const duplicates: number[] = [];
+			for (const id of apiIds) {
+				if (!seen.add(id)) duplicates.push(id); // add returns false if already present
+			}
 			expect(
 				duplicates.length,
 				`station ${gtfsId} should have no duplicate stop IDs — found: [${duplicates.join(', ')}]`,
