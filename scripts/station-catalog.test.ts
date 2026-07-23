@@ -76,6 +76,49 @@ describe('station catalog generator', () => {
 		expect(() => validateCatalog(catalog)).toThrow(/unexpectedly small/);
 	});
 
+	it('validateCatalog rejects duplicate station IDs', () => {
+		const rows = Array.from({ length: 2_400 }, (_, index) =>
+			`${index + 1},Station ${index + 1},,44.42,26.10,`
+		);
+		rows.push('3570,Piata Unirii,,44.42658,26.100225,');
+		const catalog = buildCatalog(
+			[header, ...rows].join('\n'),
+			'feed_publisher_name,feed_version\nTPBI,6.38',
+			'Sat, 11 Jul 2026 13:48:53 GMT'
+		);
+		catalog.stations.push({ id: 3570, name: 'Duped', description: '', lat: 44.0, lon: 26.0 });
+
+		expect(() => validateCatalog(catalog)).toThrow(/duplicate IDs/);
+	});
+
+	it('validateCatalog requires known station Piata Unirii (id=3570)', () => {
+		const rows = Array.from({ length: 2_400 }, (_, index) =>
+			`${index + 1},Station ${index + 1},,44.42,26.10,`
+		);
+		const rawStops = [header, ...rows].join('\n');
+		const stations = parseStations(rawStops);
+
+		expect(stations.map((s) => s.id)).not.toContain(3570);
+
+		const catalog = { feedVersion: '6.38', sourceUpdatedAt: new Date().toISOString(), stations };
+		expect(() => validateCatalog(catalog)).toThrow(/Piata Unirii/);
+	});
+
+	it('parseStations sorts output by id ascending', () => {
+		const stations = parseStations([
+			header,
+			'50,Z,,44.42,26.10,',
+			'10,A,,44.43,26.11,',
+			'90,C,,44.44,26.12,'
+		].join('\n'));
+
+		expect(stations.map((s) => s.id)).toEqual([10, 50, 90]);
+	});
+
+	it('parseStations throws on empty GTFS input', () => {
+		expect(() => parseStations('')).toThrow(/empty/);
+	});
+
 	it('builds and validates a deterministic catalog', () => {
 		const rows = Array.from({ length: 2_500 }, (_, index) =>
 			`${index + 1},Station ${index + 1},,44.42,26.10,`
