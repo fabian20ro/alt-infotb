@@ -70,6 +70,59 @@ export const SUBWAY_STOP_IDS: Record<number, number[]> = {
 	57442: [9712, 9713], // Străulești (M4)
 };
 
+/** Maps GTFS metro parent station ID → human-readable Romanian name. */
+export const STATION_NAMES: Record<number, string> = {
+	14718: 'Pantelimon',
+	14719: 'Republica',
+	14717: 'Costin Georgian',
+	14716: 'Titan',
+	15102: 'Nicolae Grigorescu',
+	14712: 'Mihai Bravu',
+	14697: 'Dristor 1+2',
+	14713: 'Dristor 1',
+	14711: 'Timpuri Noi',
+	15100: 'Piața Unirii',
+	14725: 'Universitate',
+	14724: 'Piața Romană',
+	15099: 'Piața Victoriei',
+	14701: 'Ștefan cel Mare',
+	14700: 'Obor',
+	14699: 'Piața Iancului',
+	14698: 'Piața Muncii',
+	14703: 'Gara de Nord 1',
+	14704: 'Basarab',
+	14705: 'Crângași',
+	14706: 'Petrache Poenaru',
+	14707: 'Grozăvești',
+	14708: 'Eroilor',
+	14709: 'Izvor',
+	14727: 'Tineretului',
+	14728: 'Eroii Revoluției',
+	14729: 'Constantin Brâncoveanu',
+	14730: 'Piața Sudului',
+	14731: 'Apărătorii Patriei',
+	14733: 'Berceni',
+	14732: 'Dimitrie Leonida',
+	14722: 'Aviatorilor',
+	14721: 'Aurel Vlaicu',
+	14720: 'Pipera',
+	14738: 'Politehnica',
+	14737: 'Lujerului',
+	14736: 'Gorjului',
+	14735: 'Păcii',
+	14734: 'Preciziei',
+	14739: '1 Decembrie 1918',
+	14740: 'Nicolae Teclu',
+	14741: 'Anghel Saligny',
+	14742: 'Gara de Nord 2',
+	14744: 'Grivița',
+	14745: '1 Mai',
+	14746: 'Jiului',
+	14747: 'Parc Bazilescu',
+	57443: 'Laminorului',
+	57442: 'Străulești',
+};
+
 /** Resolve a station ID to its STB API stop IDs. Non-subway stations return [stationId]. */
 export function resolveStopIds(stationId: number): number[] {
 	if (!Number.isInteger(stationId) || stationId <= 0) {
@@ -77,4 +130,13 @@ export function resolveStopIds(stationId: number): number[] {
 	}
 
 	return SUBWAY_STOP_IDS[stationId] ?? [stationId];
+}
+
+/** Resolve a station ID to its human-readable name. Returns null for unknown IDs. */
+export function getStationName(stationId: number): string | null {
+	if (!Number.isInteger(stationId) || stationId <= 0) {
+		return null;
+	}
+
+	return STATION_NAMES[stationId] ?? null;
 }

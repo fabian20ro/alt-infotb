@@ -1,5 +1,49 @@
 import { describe, it, expect } from 'vitest';
-import { resolveStopIds, SUBWAY_STOP_IDS } from './subway-stops.js';
+import { getStationName, resolveStopIds, STATION_NAMES, SUBWAY_STOP_IDS } from './subway-stops.js';
+
+describe('getStationName', () => {
+	it('resolves known station IDs to their Romanian names', () => {
+		expect(getStationName(15100)).toBe('Piața Unirii');
+		expect(getStationName(14718)).toBe('Pantelimon');
+		expect(getStationName(14739)).toBe('1 Decembrie 1918');
+	});
+
+	it('returns null for unknown station IDs', () => {
+		expect(getStationName(99999)).toBeNull();
+		expect(getStationName(0)).toBeNull();
+		expect(getStationName(-5)).toBeNull();
+	});
+
+	it('every subway station in SUBWAY_STOP_IDS has a corresponding name entry', () => {
+		for (const gtfsId of Object.keys(SUBWAY_STOP_IDS)) {
+			const id = Number(gtfsId);
+			expect(
+				STATION_NAMES[id],
+				`station ${id} (${gtfsId}) must have a STATION_NAMES entry`,
+			).toBeDefined();
+		}
+	});
+
+	it('every name in STATION_NAMES corresponds to a SUBWAY_STOP_IDS key', () => {
+		for (const gtfsId of Object.keys(STATION_NAMES)) {
+			const id = Number(gtfsId);
+			expect(
+				SUBWAY_STOP_IDS[id],
+				`STATION_NAMES entry ${gtfsId} must have a SUBWAY_STOP_IDS counterpart`,
+			).toBeDefined();
+		}
+	});
+
+	it('resolves M4 interchange stations with multiple stops', () => {
+		// Gara de Nord has both M1 and M4 entries; either resolves to "Gara de Nord 2"
+		expect(getStationName(57443)).toBe('Laminorului');
+	});
+
+	it('rejects non-integer numeric values (guard boundary)', () => {
+		expect(getStationName(0.5)).toBeNull();
+		expect(getStationName(NaN)).toBeNull();
+	});
+});
 
 describe('resolveStopIds', () => {
 	it('resolves known station with multiple stops (interchange)', () => {
