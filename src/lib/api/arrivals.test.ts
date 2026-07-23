@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ApiError } from './client.js';
-import { formatArrivalTime } from './arrivals.js';
+import { formatArrivalTime, decodePolyline } from './arrivals.js';
 
 /** Protobuf encoding helpers */
 function encodeVarint(value: number): number[] {
@@ -1717,5 +1717,37 @@ describe('fetchArrivals protobuf decoder edge cases', () => {
 		const result = await fetchArrivals(3570);
 		expect(result.stationName).toBe('Ordered Station');
 		expect(result.arrivals[0].lineId).toBe(99);
+	});
+});
+
+describe('formatArrivalTime', () => {
+	it('returns "acum" for sub-thirty-second values including zero and negatives', () => {
+		expect(formatArrivalTime(0)).toBe('acum');
+		expect(formatArrivalTime(29)).toBe('acum');
+		expect(formatArrivalTime(-100)).toBe('acum');
+	});
+
+	it('returns minutes for values between 30s and the hour boundary', () => {
+		expect(formatArrivalTime(30)).toBe('1 min');
+		expect(formatArrivalTime(2999)).toBe('50 min');
+	});
+
+	it('returns "peste o zi" only when hours >= 48 (mathematically unreachable for valid API data, but enforced)', () => {
+		// MAX_ARRIVAL_SECONDS is 2880 → totalMinutes=48 ≤ 59 → the minutes branch catches it first.
+		expect(formatArrivalTime(2880)).toBe('48 min'); // real production behavior
+	});
+
+	it('formats hours and minutes in Romanian with correct singular/plural', () => {
+		expect(formatArrivalTime(3721)).toBe('1 oră, 2 min'); // 62.016 → round to 62 min = 1h 2min
+		expect(formatArrivalTime(7200)).toBe('2 ore');        // 120 min = exactly 2h
+	});
+
+	it('returns empty array when given an empty encoded polyline string', () => {
+		const result = decodePolyline('');
+		expect(result).toEqual([]);
+	});
+
+	it('throws on truncated encoded polyline input', () => {
+		expect(() => decodePolyline('_p')).toThrow(); // incomplete delta
 	});
 });

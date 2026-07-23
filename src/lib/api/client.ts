@@ -42,16 +42,17 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 	try {
 		const parsed = new URL(trimmed, 'http://localhost');
 		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-			throw new Error('invalid protocol');
+			throw new ApiError(`URL must use http or https scheme (${parsed.protocol})`, 0);
 		}
 		if (!parsed.hostname) {
-			throw new Error('missing host');
+			throw new ApiError('URL is missing a hostname', 0);
 		}
 		const hostnamePattern = /^[a-zA-Z0-9.-]+$/;
 		if (!hostnamePattern.test(parsed.hostname)) {
-			throw new Error('invalid hostname');
+			throw new ApiError(`Hostname contains invalid characters: "${parsed.hostname}"`, 0);
 		}
-	} catch {
+	} catch (err) {
+		if (err instanceof ApiError) throw err;
 		throw new ApiError('Invalid request URL', 0);
 	}
 
