@@ -69,14 +69,16 @@ export function createSettingsStore() {
 
 let _store: ReturnType<typeof createSettingsStore> | null = null;
 
-export function getSettings(): { theme: Theme; lang: Lang } {
+function ensureStore(): void {
 	if (!_store) _store = createSettingsStore();
-	return { theme: _store.theme, lang: _store.lang };
+}
+
+export function getSettings(): { theme: Theme; lang: Lang } {
+	return { theme: _store!.theme, lang: _store!.lang };
 }
 
 export function reset() {
-	if (_store) {
-		_store.setTheme(DEFAULTS.theme);
-		_store.setLang(DEFAULTS.lang);
-	}
+	ensureStore();
+	_store!.setTheme(DEFAULTS.theme);
+	_store!.setLang(DEFAULTS.lang);
 }
