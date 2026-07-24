@@ -39,6 +39,16 @@ describe('getStationName', () => {
 		expect(getStationName(57443)).toBe('Laminorului');
 	});
 
+	it('resolves every documented station through the public function', () => {
+		for (const [gtfsIdStr, expected] of Object.entries(STATION_NAMES)) {
+			const gtfsId = Number(gtfsIdStr);
+			expect(
+				getStationName(gtfsId),
+				`station ${gtfsId} (${gtfsIdStr}) should resolve via getStationName`,
+			).toBe(expected);
+		}
+	});
+
 	it('rejects non-integer numeric values (guard boundary)', () => {
 		expect(getStationName(0.5)).toBeNull();
 		expect(getStationName(NaN)).toBeNull();
