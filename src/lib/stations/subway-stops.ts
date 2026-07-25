@@ -140,3 +140,23 @@ export function getStationName(stationId: number): string | null {
 
 	return STATION_NAMES[stationId] ?? null;
 }
+
+// Dev-mode cross-validation: warn if SUBWAY_STOP_IDS and STATION_NAMES drift out of sync.
+if (import.meta.env?.DEV ?? false) {
+	for (const gtfsIdStr of Object.keys(SUBWAY_STOP_IDS)) {
+		const id = Number(gtfsIdStr);
+		if (!(id in STATION_NAMES)) {
+			console.warn(
+				`[subway-stops] SUBWAY_STOP_IDS key ${gtfsIdStr} is missing a STATION_NAMES entry`,
+			);
+		}
+	}
+	for (const gtfsIdStr of Object.keys(STATION_NAMES)) {
+		const id = Number(gtfsIdStr);
+		if (!(id in SUBWAY_STOP_IDS)) {
+			console.warn(
+				`[subway-stops] STATION_NAMES key ${gtfsIdStr} is missing a SUBWAY_STOP_IDS entry`,
+			);
+		}
+	}
+}
