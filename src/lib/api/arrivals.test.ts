@@ -1526,6 +1526,24 @@ describe('formatArrivalTime', () => {
 		const { formatArrivalTime } = await import('./arrivals.js');
 		expect(formatArrivalTime(86400)).toBe('24 ore');
 	});
+
+	it('returns "peste o zi" for values at or above 48 hours', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(172800)).toBe('peste o zi');      // exactly 48h
+		expect(formatArrivalTime(172860)).toBe('peste o zi');      // 48h 1min → rounds to 48h+
+		expect(formatArrivalTime(345600)).toBe('peste o zi');      // 96 hours
+	});
+
+	it('does not cap at "peste o zi" for values just below the 48-hour threshold', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(172739)).toBe('47 ore, 59 min'); // rounds to 47h59m
+	});
+
+	it('returns "peste o zi" for Infinity but leaves NaN as-is (no input validation)', async () => {
+		const { formatArrivalTime } = await import('./arrivals.js');
+		expect(formatArrivalTime(Infinity)).toBe('peste o zi');   // Infinity >= 48h boundary
+		expect(formatArrivalTime(NaN)).toBe('NaN ore, NaN min'); // no guard — implementation detail
+	});
 });
 
 describe('formatTime', () => {
