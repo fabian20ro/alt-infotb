@@ -421,6 +421,20 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toThrow(/Unexpected content type/);
 	});
 
+	it('accepts relative URLs starting with /', async () => {
+		const mockData = new Uint8Array([0x0a, 0x02]);
+		const mockFetch = vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(mockData.buffer)
+		});
+		vi.stubGlobal('fetch', mockFetch);
+
+		const result = await apiFetchBinary('/stb/test');
+
+		expect(result).toBeInstanceOf(Uint8Array);
+		expect(mockFetch.mock.calls[0][0]).toBe('/stb/test');
+	});
+
 	it('accepts octet-stream and protobuf content types', async () => {
 		for (const ct of ['application/octet-stream', 'application/x-protobuf']) {
 			vi.stubGlobal(
