@@ -52,6 +52,8 @@ describe('getStationName', () => {
 	it('rejects non-integer numeric values (guard boundary)', () => {
 		expect(getStationName(0.5)).toBeNull();
 		expect(getStationName(NaN)).toBeNull();
+		expect(getStationName(Infinity)).toBeNull();
+		expect(getStationName(-Infinity)).toBeNull();
 	});
 });
 
