@@ -593,6 +593,20 @@ describe('apiFetchBinary', () => {
 		expect(result.length).toBe(3);
 	});
 
+	it('passes through when response headers object is undefined', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				arrayBuffer: () => Promise.resolve(new Uint8Array([4, 5]).buffer)
+			})
+		);
+
+		const result = await apiFetchBinary('https://info.stb.ro/test');
+		expect(result).toBeInstanceOf(Uint8Array);
+		expect(result.length).toBe(2);
+	});
+
 	it('rejects text/plain content type', async () => {
 		vi.stubGlobal(
 			'fetch',
