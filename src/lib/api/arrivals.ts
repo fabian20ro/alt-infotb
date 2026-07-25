@@ -83,16 +83,8 @@ function decodeVehicle(data: Uint8Array): VehiclePosition | null {
 	const lat = getFixed64Double(fields, VEHICLE.LATITUDE, data);
 	const lng = getFixed64Double(fields, VEHICLE.LONGITUDE, data);
 
-	if (
-		lat === undefined ||
-		lng === undefined ||
-		!Number.isFinite(lat) ||
-		!Number.isFinite(lng) ||
-		lat < -90 ||
-		lat > 90 ||
-		lng < -180 ||
-		lng > 180
-	) {
+	if (lat == null || !Number.isFinite(lat) || lat < -90 || lat > 90 ||
+		lng == null || !Number.isFinite(lng) || lng < -180 || lng > 180) {
 		return null;
 	}
 
