@@ -12,6 +12,7 @@ const STATUS_HINTS = new Map<number, string>([
 	[412, ' (Token expired, check proxy retry)'],
 	[429, ' (Too many requests)'],
 	[500, ' (Internal Server Error)'],
+	[502, ' (Bad Gateway)'],
 	[503, ' (Service Unavailable)'],
 	[504, ' (Gateway Timeout)']
 ]);
