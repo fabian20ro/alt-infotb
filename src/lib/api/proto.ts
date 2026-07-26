@@ -150,6 +150,12 @@ export function getVarints(fields: Map<number, Array<number | Uint8Array>>, num:
 	return vals.filter((v): v is number => typeof v === 'number');
 }
 
+/** Get first boolean value for a field number (varint 0→false, anything else→true), or undefined */
+export function getVarbool(fields: Map<number, Array<number | Uint8Array>>, num: number): boolean | undefined {
+	const v = fields.get(num)?.[0];
+	return typeof v === 'number' ? Boolean(v) : undefined;
+}
+
 /** Decode a protobuf fixed64 payload as a little-endian IEEE-754 double. */
 export function decodeFixed64Double(data: Uint8Array, offset: number): number {
 	if (!(data instanceof Uint8Array)) {

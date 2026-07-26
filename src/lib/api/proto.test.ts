@@ -4,6 +4,7 @@ import {
 	ProtoParseError,
 	decodeFixed64Double,
 	getFixed64Double,
+	getVarbool,
 	getVarint,
 	getMessages,
 	getString,
@@ -98,6 +99,29 @@ describe('ProtoReader', () => {
 		fields.set(1, [1, 2, 3]);
 		expect(getVarints(fields, 1)).toEqual([1, 2, 3]);
 		expect(getVarints(fields, 2)).toEqual([]);
+	});
+
+	it('getVarbool returns true for non-zero varint', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [42]);
+		expect(getVarbool(fields, 1)).toBe(true);
+	});
+
+	it('getVarbool returns false for zero varint', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [0]);
+		expect(getVarbool(fields, 1)).toBe(false);
+	});
+
+	it('getVarbool returns undefined when field holds a string', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [new Uint8Array([0x61])]);
+		expect(getVarbool(fields, 1)).toBeUndefined();
+	});
+
+	it('getVarbool returns undefined when field is absent', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		expect(getVarbool(fields, 99)).toBeUndefined();
 	});
 
 	it('getMessages returns array of Uint8Array for repeated messages', () => {
