@@ -306,6 +306,51 @@ describe('geo', () => {
 			const results = findStationsInBounds(bounds, stationsWithOverlap, 2, 3);
 			expect(results).toHaveLength(2); // must not exceed maxCount
 			expect(results.map((s) => s.id)).toEqual([1, 2]);
+			// Explicit coordinate-range check: catches overflow-path regression on bounds filtering
+			results.forEach((s) => {
+				expect(s.lat >= bounds.south && s.lat <= bounds.north).toBe(true);
+				expect(s.lon >= bounds.west && s.lon <= bounds.east).toBe(true);
+			});
+			// Verify selected station is NOT in the result (it's outside bounds and selection does not override overflow)
+			expect(results.map((s) => s.id)).not.toContain(3);
+		});
+
+		it('includes a valid-selected outside-bounds station when bounds exceed maxCount', () => {
+			// In-bounds stations: S1 (44.4, 26.1), S2 (44.5, 26.2). Selected: S3 (48, 30) — valid id but outside bounds.
+			// inBounds.length(2) > maxCount(1) triggers the overflow short-circuit; only [S3] should be returned.
+			const wideStations: Station[] = [
+				{ id: 1, name: 'S1', description: '', lat: 44.4, lon: 26.1 },
+				{ id: 2, name: 'S2', description: '', lat: 44.5, lon: 26.2 },
+				{ id: 3, name: 'S3', description: '', lat: 48, lon: 30 },
+			];
+			const wideBounds = { south: 44.3, north: 44.6, west: 26.0, east: 26.3 };
+			const results = findStationsInBounds(wideBounds, wideStations, 1, 3);
+			expect(results).toHaveLength(1);
+			expect(results[0].id).toBe(3); // selectedId=3 wins on overflow regardless of bounds membership
+			// Explicit: S3 is outside the geographic bounds — selection takes priority over spatial filtering here
+			expect(results[0].lat).toEqual(48);
+			expect(results[0].lon).toEqual(30);
+		});
+
+		it('includes a valid-selected outside-bounds station when inBounds < maxCount and selected is outside', () => {
+			// In-bounds: S1 (44.4, 26.1) only. Selected: S3 (48, 30). In-bounds count (1) ≤ maxCount (5), so
+			// both should appear in the merged result — tests line-92-94 branch of production code.
+			const wideBounds = { south: 44.3, north: 44.6, west: 26.0, east: 26.3 };
+			const stations: Station[] = [
+				{ id: 1, name: 'S1', description: '', lat: 44.4, lon: 26.1 },
+				{ id: 2, name: 'S2', description: '', lat: 48, lon: 30 }, // outside bounds (selected)
+			];
+			const results = findStationsInBounds(wideBounds, stations, 5, 2);
+			expect(results).toHaveLength(2);
+			expect(results.map((s) => s.id).sort()).toEqual([1, 2]);
+			// Explicit coordinate-range check: in-bounds items must satisfy bounds; selected outside is allowed
+			const inBoundsItems = results.filter((s) =>
+				s.lat >= wideBounds.south && s.lat <= wideBounds.north &&
+				s.lon >= wideBounds.west && s.lon <= wideBounds.east
+			);
+			expect(inBoundsItems).toHaveLength(1); // only S1 satisfies bounds
+			const selectedItem = results.find((s) => s.id === 2);
+			expect(selectedItem).toBeDefined();
 		});
 
 		it('does not return the selected station when it has a negative id', () => {
