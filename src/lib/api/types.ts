@@ -45,10 +45,19 @@ export interface ArrivalInfo {
 export type DeserializedStationArrivals = Omit<StationArrivals, 'fetchedAt'> & { fetchedAt: string };
 
 /** Convert raw deserialized data so callers always see a real `Date`. */
-export const deserializeStationArrivals = (raw: DeserializedStationArrivals): StationArrivals => ({
-	...raw,
-	fetchedAt: new Date(raw.fetchedAt),
-});
+export const deserializeStationArrivals = (raw: DeserializedStationArrivals): StationArrivals => {
+	const fetchedAtStr = raw.fetchedAt;
+	if (!fetchedAtStr || typeof fetchedAtStr !== 'string') {
+		throw new Error(
+			`[deserializeStationArrivals] invalid fetchedAt: expected non-empty string, got ${String(fetchedAtStr)}`
+		);
+	}
+	const parsed = new Date(fetchedAtStr);
+	if (Number.isNaN(parsed.getTime())) {
+		throw new Error(`[deserializeStationArrivals] invalid date format: "${fetchedAtStr}"`);
+	}
+	return { ...raw, fetchedAt: parsed };
+};
 
 /** The full arrival response for a station.
  *  NOTE: `fetchedAt` is `Date` in the API layer (decodeStopResponse) but becomes

@@ -35,18 +35,8 @@ export function createStbServerHeaders(appId: string): Record<string, string> {
 }
 
 function _resolveApiBase(): string {
-	try {
-		const env = (import.meta as any)?.env;
-		if (env) {
-			if (env.DEV) return '/stb-api';
-			if (env.VITE_STB_API_BASE) return env.VITE_STB_API_BASE;
-		} else {
-			return 'https://info.stb.ro/api/web/v2-6';
-		}
-	} catch (e) {
-		console.warn('_resolveApiBase: import.meta.env unavailable, falling back to hardcoded URL', e);
-		return 'https://info.stb.ro/api/web/v2-6';
-	}
+	if (import.meta.env?.DEV) return '/stb-api';
+	if (import.meta.env?.VITE_STB_API_BASE) return import.meta.env.VITE_STB_API_BASE;
 	return 'https://info.stb.ro/api/web/v2-6';
 }
 

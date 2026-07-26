@@ -13,14 +13,6 @@ function loadFavorites(): Station[] {
 	}
 }
 
-function persistFavorites(favs: Station[]): void {
-	try {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(favs));
-	} catch {
-		// Silently fail
-	}
-}
-
 function loadPinnedId(): number | null {
 	try {
 		const raw = localStorage.getItem(PINNED_KEY);
@@ -55,12 +47,12 @@ export function createFavoritesStore() {
 	function add(station: Station) {
 		if (favorites.some((f) => f.id === station.id)) return;
 		favorites = [...favorites, station];
-		persistFavorites(favorites);
+		persist(STORAGE_KEY, favorites);
 	}
 
 	function remove(stationId: number) {
 		favorites = favorites.filter((f) => f.id !== stationId);
-		persistFavorites(favorites);
+		persist(STORAGE_KEY, favorites);
 		if (pinnedId === stationId) {
 			pinnedId = null;
 			removeItemSafely(PINNED_KEY);
