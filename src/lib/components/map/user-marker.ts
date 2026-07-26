@@ -2,7 +2,7 @@ import L from 'leaflet';
 
 /** Create a blue dot marker for user location */
 export function createUserIcon(): L.DivIcon {
-	return L.divIcon({
+	const icon = L.divIcon({
 		className: 'user-location-marker',
 		html: `<style>@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.25);opacity:.7}}@media(prefers-reduced-motion:reduce){.user-location-marker div{animation:none}}</style><div style="
 			width: 16px;
@@ -17,4 +17,10 @@ export function createUserIcon(): L.DivIcon {
 		iconSize: [28, 28],
 		iconAnchor: [14, 14]
 	});
+
+	if (!icon || typeof icon !== 'object') {
+		throw new Error('Leaflet divIcon() returned invalid state — cannot render user marker');
+	}
+
+	return icon;
 }
