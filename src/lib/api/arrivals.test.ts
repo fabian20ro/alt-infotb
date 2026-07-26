@@ -481,6 +481,22 @@ describe('selected line route contract', () => {
 		});
 	});
 
+	it('returns null when no line matches the requested selection', async () => {
+		const responseData = buildStopResponse([
+			{ name: '7', id: 69, type: 'TRAM', color: '#BE1622', direction: 'Progresul', arrivals: [{ seconds: 300 }] }
+		]);
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: () => Promise.resolve(responseData.buffer)
+		}));
+
+		const { fetchLineRoute } = await import('./arrivals.js');
+		const result = await fetchLineRoute({ sourceStopId: 3570, lineId: 9999, directionId: 0 });
+
+		expect(result).toBeNull();
+	});
+
 	it('validates selection values and membership before any network call', async () => {
 		const fetchMock = vi.fn();
 		vi.stubGlobal('fetch', fetchMock);

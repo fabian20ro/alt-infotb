@@ -134,4 +134,34 @@ describe('station catalog generator', () => {
 		expect(catalog.sourceUpdatedAt).toBe('2026-07-11T13:48:53.000Z');
 		expect(catalog.stations).toHaveLength(2_501);
 	});
+
+	it('excludes location_type 2 (platform) with a valid numeric ID', () => {
+		const stations = parseStations([
+			header,
+			'42,Regular,,44.42,26.10,',
+			'43,Platform Only,,44.43,26.11,2',
+			'44,Another Platform,,44.44,26.12,4'
+		].join('\n'));
+
+		expect(stations.map((station) => station.id)).toEqual([42]);
+	});
+
+	it('skips stations with non-finite coordinates', () => {
+		const stations = parseStations([
+			header,
+			'42,Valid Station,,44.42,26.10,',
+			'43,Nan Lat,,NaN,26.11,',
+			'44,Inf Lon,,44.44,Infinity,',
+			'45,Empty Lat,,,,'
+		].join('\n'));
+
+		expect(stations.map((station) => station.id)).toEqual([42]);
+	});
+
+	it('parseFeedVersion throws when feed_version is empty', () => {
+		expect(() => parseFeedVersion([
+			'feed_publisher_name,feed_version',
+			'TPBI,'
+		].join('\n'))).toThrow(/empty/);
+	});
 });
