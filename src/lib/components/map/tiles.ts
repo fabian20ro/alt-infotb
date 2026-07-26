@@ -31,3 +31,10 @@ for (const theme of TILE_THEMES) {
 		throw new Error(`TILE_CONFIGS missing expected theme "${theme}"`);
 	}
 }
+
+// Reject unknown extras at import time — an unregistered key silently extends the public theme surface.
+for (const key of Object.keys(TILE_CONFIGS)) {
+	if (!TILE_THEMES.includes(key as 'light' | 'dark' | 'satellite')) {
+		throw new Error(`Unknown tile theme "${key}" declared in TILE_CONFIGS but missing from TILE_THEMES`);
+	}
+}
