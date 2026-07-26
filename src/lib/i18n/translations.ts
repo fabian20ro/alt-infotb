@@ -92,3 +92,9 @@ type EnKeys = keyof (typeof translations)['en'];
 
 /** All translation keys, enforced to exist in every language. */
 export type TranslationKey = RoKeys & EnKeys;
+
+const PLACEHOLDER_RE = /\{(\w+)\}/g;
+
+export function formatTranslation(template: string, params: Record<string, string | number>): string {
+	return template.replace(PLACEHOLDER_RE, (_match, key) => String(params[key] ?? ''));
+}
