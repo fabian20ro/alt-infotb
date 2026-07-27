@@ -277,6 +277,32 @@ describe('searchStations', () => {
 		const results = searchStations('hello world', stations);
 		expect(results.map(s => s.id)).toEqual([20, 21]);
 	});
+
+	it('computes all-words score correctly when words split across name and description fields', () => {
+		// Forces the code path at lines 53-59: detectMatchType returns 0 → multi-word check.
+		// Station A ("hello extra" / "world text here"): 1 word in name, 1 word in desc → all-words score = 10 + 1*5 = 15 + short-name bonus (~7.4) ≈ 22.4.
+		// Station B ("foo bar baz" / "hello world content"): both words only in desc → detectMatchType returns 20 (desc match). All-words score = 10 + 0*5 = 10 + bonus (~7.6) ≈ 17.6.
+		// Result: B ranks above A because desc-only base (20) beats mixed-split all-words with only 1 name match.
+		const stations: Station[] = [
+			{ id: 20, name: 'Hello Extra', description: 'World text here', lat: 0, lon: 0 },
+			{ id: 21, name: 'Foo Bar Baz', description: 'Hello World content', lat: 0, lon: 0 },
+		];
+
+		const results = searchStations('hello world', stations);
+		expect(results).toHaveLength(2);
+		expect(results[0].id).toBe(21); // desc-only base wins over low nameMatches all-words
+		expect(results[1].id).toBe(20); // mixed split with 1/2 in name
+	});
+
+	it('all-words score increases with more name matches', () => {
+		const stations: Station[] = [
+			{ id: 30, name: 'Hello World Extra', description: '', lat: 0, lon: 0 },          // both words in name → nameMatches=2 → 10+10=20 + bonus
+			{ id: 31, name: 'Hello only', description: 'World text', lat: 0, lon: 0 },        // 1 word in name → nameMatches=1 → 10+5=15 + bonus
+		];
+
+		const results = searchStations('hello world', stations);
+		expect(results.map(s => s.id)).toEqual([30, 31]); // both in name ranks above mixed split
+	});
 });
 
 describe('normalize', () => {
