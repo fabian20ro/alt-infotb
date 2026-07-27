@@ -18,4 +18,13 @@ describe('bundled station catalog', () => {
 		expect(stationCatalogMetadata.feedVersion).toMatch(/^\d+(?:\.\d+)*$/);
 		expect(Number.isNaN(Date.parse(stationCatalogMetadata.sourceUpdatedAt))).toBe(false);
 	});
+
+	it('returns a new array on each call so callers cannot corrupt the catalog', () => {
+		const first = loadStations();
+		const second = loadStations();
+		expect(first).not.toBe(second);
+		for (const [i, station] of first.entries()) {
+			expect(station.id).toBe(second[i].id);
+		}
+	});
 });
