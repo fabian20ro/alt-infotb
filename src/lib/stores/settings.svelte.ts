@@ -10,11 +10,23 @@ interface Settings {
 
 const DEFAULTS: Settings = { theme: 'dark', lang: 'ro' };
 
+function isValidTheme(v: unknown): v is Theme {
+	return typeof v === 'string' && (v === 'light' || v === 'dark');
+}
+
+function isValidLang(v: unknown): v is Lang {
+	return typeof v === 'string' && (v === 'ro' || v === 'en');
+}
+
 function loadSettings(): Settings {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return { ...DEFAULTS };
-		return { ...DEFAULTS, ...JSON.parse(raw) };
+		const parsed: Partial<Settings> = JSON.parse(raw);
+		if (!isValidTheme(parsed.theme) || !isValidLang(parsed.lang)) {
+			return { ...DEFAULTS };
+		}
+		return { ...DEFAULTS, theme: parsed.theme!, lang: parsed.lang! };
 	} catch {
 		return { ...DEFAULTS };
 	}
