@@ -16,5 +16,5 @@ export const stationCatalogMetadata = {
 
 /** The catalog is bundled and precached by the PWA; no second browser cache is needed. */
 export function loadStations(): Station[] {
-	return catalog.stations;
+	return [...catalog.stations];
 }
