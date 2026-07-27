@@ -520,6 +520,16 @@ describe('selected line route contract', () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
+	it('throws ApiError before any fetch when an array contains a non-positive stop ID', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+
+		const { fetchArrivals } = await import('./arrivals.js');
+		await expect(fetchArrivals([9543, -1])).rejects.toThrow('trebuie să fie un număr pozitiv');
+
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
 	it('propagates failure of the selected platform instead of masking it', async () => {
 		const plain = buildStopResponse([]);
 		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
