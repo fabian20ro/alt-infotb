@@ -66,7 +66,12 @@ describe('geo', () => {
 				{ id: 11, name: 'F2', description: '', lat: 45.1, lon: 27.1 },
 			];
 			const nearest = findNearestStations(44.4, 26.1, farStations, 2);
+
 			expect(nearest).toHaveLength(2);
+			// F1 (~80 km) is closer than F2 (~95 km) — assert identity and ordering
+			expect(nearest[0].id).toBe(10);
+			expect(nearest[1].id).toBe(11);
+			expect(nearest[0].distanceMeters).toBeLessThan(nearest[1].distanceMeters);
 		});
 
 		it('expands bounding box to find distant stations', () => {
