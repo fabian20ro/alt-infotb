@@ -3,12 +3,15 @@ import type { Station } from '$lib/stations/types.js';
 const STORAGE_KEY = 'alt-stb-recents';
 const MAX_RECENTS = 5;
 
+function isValidStation(s: unknown): s is Station {
+	return !!s && typeof (s as Station).id === 'number' && Number.isFinite((s as Station).id);
+}
+
 function loadRecents(): Station[] {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return [];
-		const parsed = JSON.parse(raw) as Station[];
-		return parsed.filter((s) => s && typeof s.id === 'number' && Number.isFinite(s.id));
+		return JSON.parse(raw).filter(isValidStation);
 	} catch {
 		return [];
 	}
@@ -27,7 +30,7 @@ export function createRecentsStore() {
 
 	/** Add a station to recents (moves to front if already present) */
 	function add(station: Station) {
-		if (!station || typeof station.id !== 'number' || !Number.isFinite(station.id)) return;
+		if (!isValidStation(station)) return;
 		const filtered = recents.filter((r) => r.id !== station.id);
 		recents = [station, ...filtered].slice(0, MAX_RECENTS);
 		persistRecents(recents);
