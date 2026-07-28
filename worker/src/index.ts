@@ -298,6 +298,7 @@ async function fetchViaOriginSocket(
 		try {
 			try {
 				await writer.write(new TextEncoder().encode(request));
+				await writer.close();
 			} catch {
 				throw new ProxyError('dns-write');
 			}
