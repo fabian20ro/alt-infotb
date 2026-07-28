@@ -44,8 +44,21 @@ export function createFavoritesStore() {
 	let favorites = $state<Station[]>(loadFavorites());
 	let pinnedId = $state<number | null>(loadPinnedId());
 
-	function add(station: Station) {
-		if (favorites.some((f) => f.id === station.id)) return;
+	function isValidStation(station: unknown): station is Station {
+		return (
+			station !== null &&
+			typeof station === 'object' &&
+			Number.isInteger((station as Station).id) &&
+			typeof (station as Station).name === 'string' &&
+			typeof (station as Station).lat === 'number' &&
+			typeof (station as Station).lon === 'number'
+		);
+	}
+
+	function add(station: unknown) {
+		if (!isValidStation(station)) return;
+		const stationId = station.id;
+		if (favorites.some((f) => f.id === stationId)) return;
 		favorites = [...favorites, station];
 		persist(STORAGE_KEY, favorites);
 	}
