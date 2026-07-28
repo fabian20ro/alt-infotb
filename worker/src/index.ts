@@ -12,7 +12,8 @@ interface Env {
 	STB_APP_KEY: string;
 }
 
-const STB_API_BASE = 'https://info.stb.ro/api/web/v2-6';
+// Absolute DNS form bypasses Cloudflare's 530 resolution failure for the bare hostname.
+const STB_API_BASE = 'https://info.stb.ro./api/web/v2-6';
 const STB_AUTH_PATH = '/proxy/user/auth';
 
 function createStbHeaders(appId: string): Record<string, string> {
