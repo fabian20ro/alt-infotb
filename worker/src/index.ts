@@ -1,3 +1,5 @@
+import { connect } from 'cloudflare:sockets';
+
 /**
  * Cloudflare Worker proxy for the STB API.
  * Injects required headers (including auth token) that browsers can't send due to CORS.
@@ -12,9 +14,11 @@ interface Env {
 	STB_APP_KEY: string;
 }
 
-// Absolute DNS form bypasses Cloudflare's 530 resolution failure for the bare hostname.
-const STB_API_BASE = 'https://info.stb.ro./api/web/v2-6';
+const STB_API_HOST = 'info.stb.ro';
+const STB_API_BASE = `https://${STB_API_HOST}/api/web/v2-6`;
 const STB_AUTH_PATH = '/proxy/user/auth';
+const DNS_OVER_HTTPS_URL =
+	`https://cloudflare-dns.com/dns-query?name=${STB_API_HOST}&type=A&cd=1`;
 
 function createStbHeaders(appId: string): Record<string, string> {
 	return {
@@ -40,7 +44,12 @@ interface TokenCacheEntry {
 	fetchedAt: number;
 }
 
-type ProxyErrorStage = 'auth-fetch' | 'auth-http' | 'auth-response' | 'upstream-fetch';
+type ProxyErrorStage =
+	| 'auth-fetch'
+	| 'auth-http'
+	| 'auth-response'
+	| 'dns-fallback'
+	| 'upstream-fetch';
 
 class ProxyError extends Error {
 	constructor(
@@ -53,6 +62,7 @@ class ProxyError extends Error {
 
 const TOKEN_TTL_MS = 50 * 60 * 1000;
 const tokenCache = new Map<string, TokenCacheEntry>();
+let resolvedOrigin: { ip: string; expiresAt: number } | null = null;
 
 function isOriginAllowed(origin: string | null): boolean {
 	if (!origin) return false;
@@ -81,13 +91,199 @@ function corsHeaders(origin: string | null): Record<string, string> {
 	return headers;
 }
 
+async function resolveStbOrigin(): Promise<string> {
+	const now = Date.now();
+	if (resolvedOrigin && resolvedOrigin.expiresAt > now) return resolvedOrigin.ip;
+
+	const response = await fetch(DNS_OVER_HTTPS_URL, {
+		headers: { Accept: 'application/dns-json' }
+	});
+	if (!response.ok) throw new ProxyError('dns-fallback', response.status);
+
+	const dns = (await response.json()) as {
+		Answer?: Array<{ data?: unknown; TTL?: unknown; type?: unknown }>;
+	};
+	const answer = dns.Answer?.find(
+		(item) =>
+			item.type === 1 &&
+			typeof item.data === 'string' &&
+			item.data.split('.').length === 4 &&
+			item.data.split('.').every((part) => {
+				const octet = Number(part);
+				return /^\d{1,3}$/.test(part) && octet >= 0 && octet <= 255;
+			})
+	);
+	if (!answer || typeof answer.data !== 'string') {
+		throw new ProxyError('dns-fallback');
+	}
+
+	const ttlSeconds =
+		typeof answer.TTL === 'number' && Number.isFinite(answer.TTL)
+			? Math.max(60, Math.min(answer.TTL, 3600))
+			: 300;
+	resolvedOrigin = { ip: answer.data, expiresAt: now + ttlSeconds * 1000 };
+	return answer.data;
+}
+
+function findHeaderEnd(bytes: Uint8Array): number {
+	for (let index = 0; index <= bytes.length - 4; index += 1) {
+		if (
+			bytes[index] === 13 &&
+			bytes[index + 1] === 10 &&
+			bytes[index + 2] === 13 &&
+			bytes[index + 3] === 10
+		) {
+			return index;
+		}
+	}
+	return -1;
+}
+
+function decodeChunkedBody(bytes: Uint8Array): Uint8Array {
+	const decoder = new TextDecoder();
+	const chunks: Uint8Array[] = [];
+	let offset = 0;
+	let totalLength = 0;
+
+	while (offset < bytes.length) {
+		let lineEnd = -1;
+		for (let index = offset; index < bytes.length - 1; index += 1) {
+			if (bytes[index] === 13 && bytes[index + 1] === 10) {
+				lineEnd = index;
+				break;
+			}
+		}
+		if (lineEnd < 0) throw new ProxyError('dns-fallback');
+
+		const sizeText = decoder.decode(bytes.subarray(offset, lineEnd)).split(';', 1)[0];
+		if (!/^[0-9a-f]+$/i.test(sizeText)) throw new ProxyError('dns-fallback');
+		const chunkSize = Number.parseInt(sizeText, 16);
+		if (!Number.isSafeInteger(chunkSize) || chunkSize < 0) {
+			throw new ProxyError('dns-fallback');
+		}
+		if (chunkSize === 0) break;
+
+		const chunkStart = lineEnd + 2;
+		const chunkEnd = chunkStart + chunkSize;
+		if (
+			chunkEnd + 2 > bytes.length ||
+			bytes[chunkEnd] !== 13 ||
+			bytes[chunkEnd + 1] !== 10
+		) {
+			throw new ProxyError('dns-fallback');
+		}
+
+		const chunk = bytes.slice(chunkStart, chunkEnd);
+		chunks.push(chunk);
+		totalLength += chunk.length;
+		offset = chunkEnd + 2;
+	}
+
+	const body = new Uint8Array(totalLength);
+	let bodyOffset = 0;
+	for (const chunk of chunks) {
+		body.set(chunk, bodyOffset);
+		bodyOffset += chunk.length;
+	}
+	return body;
+}
+
+function parseSocketResponse(bytes: Uint8Array): Response {
+	const headerEnd = findHeaderEnd(bytes);
+	if (headerEnd < 0) throw new ProxyError('dns-fallback');
+
+	const decoder = new TextDecoder();
+	const headerText = decoder.decode(bytes.subarray(0, headerEnd));
+	const [statusLine, ...headerLines] = headerText.split('\r\n');
+	const statusMatch = /^HTTP\/1\.[01] (\d{3})/.exec(statusLine);
+	if (!statusMatch) throw new ProxyError('dns-fallback');
+
+	const headers = new Headers();
+	for (const line of headerLines) {
+		const separator = line.indexOf(':');
+		if (separator <= 0) continue;
+		headers.append(line.slice(0, separator).trim(), line.slice(separator + 1).trim());
+	}
+
+	const encodedBody = bytes.subarray(headerEnd + 4);
+	const transferCodings = headers
+		.get('Transfer-Encoding')
+		?.split(',')
+		.map((value) => value.trim().toLowerCase());
+	const body =
+		transferCodings?.at(-1) === 'chunked'
+			? decodeChunkedBody(encodedBody)
+			: encodedBody;
+	headers.delete('Connection');
+	headers.delete('Keep-Alive');
+	headers.delete('Transfer-Encoding');
+	headers.set('Content-Length', String(body.length));
+
+	return new Response(body, { status: Number(statusMatch[1]), headers });
+}
+
+async function fetchViaOriginSocket(
+	path: string,
+	headers: Record<string, string>
+): Promise<Response> {
+	for (const value of Object.values(headers)) {
+		if (/[\r\n]/.test(value)) throw new ProxyError('dns-fallback');
+	}
+	const requestHeaders = Object.entries(headers)
+		.map(([name, value]) => `${name}: ${value}`)
+		.join('\r\n');
+	const request =
+		`GET /api/web/v2-6${path} HTTP/1.1\r\n` +
+		`Host: ${STB_API_HOST}\r\n` +
+		'Connection: close\r\n' +
+		`${requestHeaders}\r\n\r\n`;
+
+	const ip = await resolveStbOrigin();
+	const socket = connect(
+		{ hostname: ip, port: 443 },
+		{ allowHalfOpen: true, secureTransport: 'starttls' }
+	);
+	const tlsSocket = socket.startTls({ expectedServerHostname: STB_API_HOST });
+	try {
+		await tlsSocket.opened;
+		const writer = tlsSocket.writable.getWriter();
+		try {
+			await writer.write(new TextEncoder().encode(request));
+		} finally {
+			writer.releaseLock();
+		}
+
+		const bytes = new Uint8Array(await new Response(tlsSocket.readable).arrayBuffer());
+		return parseSocketResponse(bytes);
+	} finally {
+		await tlsSocket.close().catch(() => undefined);
+	}
+}
+
+async function fetchFromStb(
+	path: string,
+	headers: Record<string, string>
+): Promise<Response> {
+	const response = await fetch(`${STB_API_BASE}${path}`, { headers });
+	if (response.status !== 530) return response;
+
+	try {
+		return await fetchViaOriginSocket(path, headers);
+	} catch (error) {
+		if (error instanceof ProxyError) throw error;
+		throw new ProxyError('dns-fallback');
+	}
+}
+
 async function fetchAuthToken(appId: string, appKey: string): Promise<string> {
 	let res: Response;
 	try {
-		res = await fetch(`${STB_API_BASE}${STB_AUTH_PATH}`, {
-			headers: { 'App-key': appKey, 'App-Id': appId }
-		});
-	} catch {
+		res = await fetchFromStb(
+			STB_AUTH_PATH,
+			{ 'App-key': appKey, 'App-Id': appId }
+		);
+	} catch (error) {
+		if (error instanceof ProxyError) throw error;
 		throw new ProxyError('auth-fetch');
 	}
 	if (!res.ok) {
@@ -108,10 +304,9 @@ async function fetchAuthToken(appId: string, appKey: string): Promise<string> {
 
 async function proxyToStb(path: string, token: string, stbHeaders: Record<string, string>): Promise<Response> {
 	try {
-		return await fetch(`${STB_API_BASE}${path}`, {
-			headers: { ...stbHeaders, 'User-Info': token }
-		});
-	} catch {
+		return await fetchFromStb(path, { ...stbHeaders, 'User-Info': token });
+	} catch (error) {
+		if (error instanceof ProxyError) throw error;
 		throw new ProxyError('upstream-fetch');
 	}
 }
