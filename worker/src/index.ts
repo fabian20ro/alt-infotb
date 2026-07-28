@@ -39,6 +39,17 @@ interface TokenCacheEntry {
 	fetchedAt: number;
 }
 
+type ProxyErrorStage = 'auth-fetch' | 'auth-http' | 'auth-response' | 'upstream-fetch';
+
+class ProxyError extends Error {
+	constructor(
+		readonly stage: ProxyErrorStage,
+		readonly upstreamStatus?: number
+	) {
+		super(`Proxy failed at ${stage}`);
+	}
+}
+
 const TOKEN_TTL_MS = 50 * 60 * 1000;
 const tokenCache = new Map<string, TokenCacheEntry>();
 
@@ -70,20 +81,38 @@ function corsHeaders(origin: string | null): Record<string, string> {
 }
 
 async function fetchAuthToken(appId: string, appKey: string): Promise<string> {
-	const res = await fetch(`${STB_API_BASE}${STB_AUTH_PATH}`, {
-		headers: { 'App-key': appKey, 'App-Id': appId }
-	});
-	if (!res.ok) {
-		throw new Error(`Auth failed: ${res.status}`);
+	let res: Response;
+	try {
+		res = await fetch(`${STB_API_BASE}${STB_AUTH_PATH}`, {
+			headers: { 'App-key': appKey, 'App-Id': appId }
+		});
+	} catch {
+		throw new ProxyError('auth-fetch');
 	}
-	const json = (await res.json()) as { data: { userInfo: string } };
-	return json.data.userInfo;
+	if (!res.ok) {
+		throw new ProxyError('auth-http', res.status);
+	}
+
+	try {
+		const json = (await res.json()) as { data?: { userInfo?: unknown } };
+		if (typeof json.data?.userInfo !== 'string') {
+			throw new ProxyError('auth-response');
+		}
+		return json.data.userInfo;
+	} catch (error) {
+		if (error instanceof ProxyError) throw error;
+		throw new ProxyError('auth-response');
+	}
 }
 
 async function proxyToStb(path: string, token: string, stbHeaders: Record<string, string>): Promise<Response> {
-	return fetch(`${STB_API_BASE}${path}`, {
-		headers: { ...stbHeaders, 'User-Info': token }
-	});
+	try {
+		return await fetch(`${STB_API_BASE}${path}`, {
+			headers: { ...stbHeaders, 'User-Info': token }
+		});
+	} catch {
+		throw new ProxyError('upstream-fetch');
+	}
 }
 
 export default {
@@ -144,12 +173,24 @@ export default {
 				headers: responseHeaders
 			});
 		} catch (err) {
-			console.error('Proxy error:', err);
+			const proxyError = err instanceof ProxyError ? err : null;
+			console.error('Proxy error', {
+				stage: proxyError?.stage ?? 'unexpected',
+				upstreamStatus: proxyError?.upstreamStatus
+			});
+			const errorHeaders = {
+				...corsHeaders(origin),
+				'Content-Type': 'text/plain',
+				'X-Proxy-Error': proxyError?.stage ?? 'unexpected',
+				...(proxyError?.upstreamStatus
+					? { 'X-Upstream-Status': String(proxyError.upstreamStatus) }
+					: {})
+			};
 			return new Response(
 				'Proxy error: Internal Server Error',
 				{
 					status: 502,
-					headers: { ...corsHeaders(origin), 'Content-Type': 'text/plain' }
+					headers: errorHeaders
 				}
 			);
 		}
