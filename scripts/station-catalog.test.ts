@@ -164,4 +164,15 @@ describe('station catalog generator', () => {
 			'TPBI,'
 		].join('\n'))).toThrow(/empty/);
 	});
+
+	it('excludes stations outside Bucharest geographic bounds', () => {
+		const stations = parseStations([
+			header,
+			'42,Inside,,44.42,26.10,',
+			'43,North,,45.00,26.10,',
+			'44,West,,44.44,25.80,'
+		].join('\n'));
+
+		expect(stations.map((station) => station.id)).toEqual([42]);
+	});
 });
