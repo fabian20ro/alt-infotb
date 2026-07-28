@@ -39,6 +39,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-15]** STB auth credentials — `App-key` and `App-Id` values are extracted from the official STB web app's main JS bundle. They are stored in environment variables (`STB_APP_KEY`, `STB_APP_ID`), not in source code. See `.env.example` for setup. If auth stops working, re-check the bundle at `info.stb.ro/main-es2015.*.js` and update `.env`.
 
+**[2026-07-28]** Diagnose Worker 530 responses as DNS before rotating STB credentials — A Cloudflare Worker subrequest can return 530 when validating resolvers cannot resolve the upstream hostname. Compare normal DoH with `cd=1`: `SERVFAIL` plus a DS/DNSKEY mismatch identifies broken upstream DNSSEC, while a successful checking-disabled answer confirms that the origin record still exists. Keep proxy errors classified by stage and upstream status so auth failures are distinguishable from DNS failures.
+
 ## Code Patterns & Pitfalls
 
 **[2026-02-14]** DOMException.name is read-only — When mocking `AbortError` in tests, use the constructor `new DOMException('message', 'AbortError')` instead of `Object.assign(new DOMException(...), { name: 'AbortError' })`. The `name` property on `DOMException` is a getter and cannot be overwritten.

@@ -32,6 +32,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-07-28] Investigate production 502 and isolate upstream DNSSEC failure
+
+**Context:** The GitHub Pages frontend loaded, but every live-data request through the Cloudflare Worker returned 502 after working earlier the same day.
+**What happened:** Reproduced the failure in the browser and against the Worker directly; verified the current official STB credentials and API contract still return auth 200 and protobuf 200 outside Cloudflare. Added safe Worker diagnostics that report the failing stage and upstream status without exposing credentials or response bodies. Production then identified `auth-http` with upstream 530. Cloudflare and Google DoH both returned validating `SERVFAIL` for `info.stb.ro`, while `cd=1` returned its A record with an explicit DS/DNSKEY mismatch, confirming broken STB DNSSEC. Resetting/redeploying validated secrets did not change the failure. Tested a temporary DoH plus direct-IP TLS socket fallback, but Cloudflare-to-STB TLS failed before any response bytes; the entire non-working fallback was reverted. The unrelated connected Supabase project was deliberately not used as replacement infrastructure.
+**Outcome:** Root cause confirmed external; production remains unavailable until STB repairs DNSSEC or this app is authorized to move its proxy to a non-Cloudflare egress. The safe diagnostic headers remain deployed. TypeScript, Worker dry-run, Svelte checks, 501 unit tests, and the production build pass.
+**Insight:** A generic proxy 502 can hide a resolver-generated 530. Validate DNSSEC before rotating credentials or changing API code, and never retain an emergency network workaround that fails its production smoke test. This checkout also has `remote.origin.push=refs/heads/main`, so an explicit local branch push targets `main`; treat pushes here as direct production deploys.
+**Promoted to Lessons Learned:** Yes
+
+---
+
 ### [2026-07-21] Automate the versioned TPBI station catalog
 
 **Context:** The current TPBI feed added line 5 platforms that were absent from the bundled February catalog, while the app's metadata-only IndexedDB refresh incorrectly reported fresh data.
