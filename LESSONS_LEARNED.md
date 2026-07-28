@@ -109,6 +109,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-15]** Romanian time pluralization — "oră" (singular, 1 hour) vs "ore" (plural, 2+ hours). Format: "acum" (<30s), "X min" (1-59), "1 oră, Y min" (60-119), "X ore, Y min" (120+).
 
+**[2026-07-29]** GitHub Free private repositories cannot rely on environment secrets or required-reviewer deployment gates — Keep a repository-secret + manual `workflow_dispatch` path for a private control-plane repo, or require GitHub Pro/Team before designing workflows around private environments. Separate secret synchronization from builds so checked-out public code never receives application runtime values.
+
+**[2026-07-29]** Public contracts must be immutable and fully public at every reference — Pin machine consumers to a tagged release and digest, including the JSON Schema `$id`; keep the private control plane as canonical author and publish only a scrubbed contract bundle. Correct a bad published reference with a new patch tag instead of rewriting an existing release.
+
 ---
 
 ## Archive

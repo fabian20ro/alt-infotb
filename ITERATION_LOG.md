@@ -32,6 +32,66 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-07-29] Publish the shared API contract independently of the private host
+
+**Context:** The future `shared-api-host` must remain private while `alt-stb` and `propozitii-nostime` need stable module documentation and schemas without private-repository access.
+**What happened:** Created the public `fabian20ro/shared-api-contract` repository, documented the private-to-public publication boundary, published authoring guidance, JSON Schema, TypeScript types, compatibility rules, changelog, and examples, then released immutable `v1.0.1`. Corrected the initial schema identifier through a new patch release instead of rewriting `v1.0.0`. Verified anonymous raw access, release/tag identity, SHA-256 metadata, both example manifests with AJV 2020, clean repositories, and absence of common secret signatures.
+**Outcome:** Success — public projects can pin `v1.0.1` and evolve their future `shared-api/` folders without any access to the private control-plane repository.
+**Insight:** A public contract must be immutable and self-contained down to its schema `$id`; if a published identifier points to a private source, publish a corrective patch tag rather than mutating history.
+**Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-07-28] Assess reuse of the Render/Vercel fallback pattern
+
+**Context:** Evaluated whether Alt STB can reuse the accounts and cold-start strategy already used by the sibling `propozitii-nostime` project.
+**What happened:** Inspected the sibling deployment configuration and frontend routing. Confirmed separate free Render and Vercel projects can live under the existing accounts; the sibling starts Render immediately, hedges with Vercel after 1.2 seconds, accepts the first successful response, and health-polls Render in the background. Identified shared account/workspace quotas as the main capacity constraint.
+**Outcome:** Feasible without mixing services or secrets; Alt STB should use new isolated projects in the same accounts and adapt both backends as STB proxies.
+**Insight:** Provider accounts are reusable, but free quotas are generally account/workspace-wide; dual-provider fallback capacity must be assessed across all projects, not per deployment.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-07-29] Expand shared-api-host into the private backend control plane
+
+**Context:** Revised the accepted design so the private repository owns both Vercel and Render orchestration, while the two public repositories contribute provider-neutral modules through a documented folder contract.
+**What happened:** Replaced the Render-only architecture and plan with a control-plane design: public `shared-api/` modules and vendored schema, exact-SHA source lock, one shared Render image, two isolated Vercel projects, immutable release records, separate secret synchronization, provider promotion and exact rollback. Added module-authoring, secret/deployment, JSON-schema, source-lock and secret-inventory documentation to `fabian20ro/shared-api-host`.
+**Outcome:** Private repository is clean and synchronized at `1ebfcf6`; JSON examples parse, secret-pattern scan is clean, and the eleven-phase migration has explicit exit and rollback gates.
+**Insight:** Private GitHub Free repositories cannot use environment secrets or required-reviewer gates, so the baseline must use repository secrets plus manual dispatch; public-source build jobs must remain secret-free regardless of plan.
+**Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-07-29] Create the private shared API host repository
+
+**Context:** The shared build-time API host design was accepted and needed a provider-neutral repository plus an explicit reversible migration plan.
+**What happened:** Created private repository `fabian20ro/shared-api-host`, cloned it to `/Users/fabian/git/shared-api-host`, and committed the target Node module-host architecture, eight-phase migration plan, `.gitignore`, and immutable module-lock example. The plan preserves existing Vercel/Cloudflare fallbacks, migrates one frontend at a time, and treats upstream-independent liveness as a production invariant.
+**Outcome:** Repository is private, `main` is synchronized and clean at commit `2c5fd25`, and the module-lock example parses as valid JSON.
+**Insight:** A composition repository should begin with explicit ownership and rollback boundaries before executable scaffolding; otherwise provider adapters and domain logic can silently migrate into the host.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-07-29] Design a shared build-time API module host
+
+**Context:** Evaluated a third GitHub repository that builds one Render container and mounts the portable Propoziții Nostrime and Alt STB APIs under separate route prefixes.
+**What happened:** Compared runtime WAR-style loading, a JVM+Node container, and deterministic build-time TypeScript composition. Defined a provider-neutral Fetch handler contract, thin Vercel/Cloudflare/Node adapters, namespaced configuration, pinned source revisions, isolated health checks, and a reversible migration.
+**Outcome:** Recommended one Node Render host with statically mounted, version-pinned modules; rejected runtime remote loading and a mixed JVM+Node container. Existing repositories remain domain owners, while the host repository owns composition, image construction, integration tests, and deployment.
+**Insight:** Serverless entry points are deployment adapters, not portable application archives; extract provider-neutral handlers and compose them at build time for reproducible shared hosting.
+**Promoted to Lessons Learned:** No
+
+---
+
+### [2026-07-28] Evaluate a shared Render service across both projects
+
+**Context:** Considered consolidating Alt STB and `propozitii-nostime` onto the existing free Render service.
+**What happened:** Compared free-hour savings against runtime and operational coupling. The existing service is a Quarkus/JVM application, so sharing it would require adding an isolated STB proxy endpoint there or operating two runtimes in one container.
+**Outcome:** Consolidation can save shared Render instance hours and cross-warm both applications, but is recommended only after a live STB connectivity probe from Render and only as a small isolated Quarkus module; a multi-process JVM+Node container is not recommended.
+**Insight:** Consolidating free services saves idle-compute quota but converts independent deployments and failures into a shared blast radius.
+**Promoted to Lessons Learned:** No
+
+---
+
 ### [2026-07-28] Investigate production 502 and isolate upstream DNSSEC failure
 
 **Context:** The GitHub Pages frontend loaded, but every live-data request through the Cloudflare Worker returned 502 after working earlier the same day.
