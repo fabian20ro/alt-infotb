@@ -42,6 +42,16 @@ Each entry should follow this structure:
 
 ---
 
+### [2026-07-29] Replan shared host as a direct multi-provider build
+
+**Context:** Downtime is acceptable, Alt STB must be implemented first, Cloudflare Workers must remain a first-class future target, Supabase is an external dependency, and credentials need minimal-vault-style control.
+**What happened:** Replaced the continuity-oriented migration with a direct implementation plan. Split public Web Fetch modules from private Render, Vercel, and Cloudflare adapters; required contract v2 before module work because v1 hardcodes Node 24; modeled Supabase separately; and designed a write-only credential distributor over GitHub Actions and provider-native secret stores without custom encryption. Defined phases 0–5 as mutation-free and Phase 6 as the first provider-write boundary.
+**Outcome:** Success — the private shared-api-host architecture and implementation plan now match the target and prioritize Alt STB end-to-end.
+**Insight:** Runtime portability belongs in ABI profiles and capability tests, not provider names; a small secret control plane should distribute values into established stores rather than becoming a new vault server.
+**Promoted to Lessons Learned:** Yes
+
+---
+
 ### [2026-07-28] Assess reuse of the Render/Vercel fallback pattern
 
 **Context:** Evaluated whether Alt STB can reuse the accounts and cold-start strategy already used by the sibling `propozitii-nostime` project.

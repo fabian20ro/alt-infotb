@@ -113,6 +113,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-07-29]** Public contracts must be immutable and fully public at every reference — Pin machine consumers to a tagged release and digest, including the JSON Schema `$id`; keep the private control plane as canonical author and publish only a scrubbed contract bundle. Correct a bad published reference with a new patch tag instead of rewriting an existing release.
 
+**[2026-07-29]** Multi-runtime portability needs capability profiles, not provider names — A manifest that hardcodes Node cannot honestly claim Worker portability. Keep the public ABI on Web Request/Response, declare tested runtime profiles, inject provider-specific transports, and deterministically bundle once per runtime family.
+
+**[2026-07-29]** A minimal secret control plane should distribute, not decrypt or serve — Track only logical names, scopes, generations, and provider bindings; keep values in established secret stores and synchronize them through a no-checkout workflow. Homemade encryption, reversible git blobs, and runtime reveal APIs create a new high-risk system without improving provider runtime isolation.
+
 ---
 
 ## Archive
