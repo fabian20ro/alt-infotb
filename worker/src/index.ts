@@ -48,7 +48,11 @@ type ProxyErrorStage =
 	| 'auth-fetch'
 	| 'auth-http'
 	| 'auth-response'
-	| 'dns-fallback'
+	| 'dns-connect'
+	| 'dns-doh'
+	| 'dns-parse'
+	| 'dns-read'
+	| 'dns-write'
 	| 'upstream-fetch';
 
 class ProxyError extends Error {
@@ -98,11 +102,14 @@ async function resolveStbOrigin(): Promise<string> {
 	const response = await fetch(DNS_OVER_HTTPS_URL, {
 		headers: { Accept: 'application/dns-json' }
 	});
-	if (!response.ok) throw new ProxyError('dns-fallback', response.status);
+	if (!response.ok) throw new ProxyError('dns-doh', response.status);
 
-	const dns = (await response.json()) as {
-		Answer?: Array<{ data?: unknown; TTL?: unknown; type?: unknown }>;
-	};
+	let dns: { Answer?: Array<{ data?: unknown; TTL?: unknown; type?: unknown }> };
+	try {
+		dns = (await response.json()) as typeof dns;
+	} catch {
+		throw new ProxyError('dns-doh');
+	}
 	const answer = dns.Answer?.find(
 		(item) =>
 			item.type === 1 &&
@@ -114,7 +121,7 @@ async function resolveStbOrigin(): Promise<string> {
 			})
 	);
 	if (!answer || typeof answer.data !== 'string') {
-		throw new ProxyError('dns-fallback');
+		throw new ProxyError('dns-doh');
 	}
 
 	const ttlSeconds =
@@ -153,13 +160,13 @@ function decodeChunkedBody(bytes: Uint8Array): Uint8Array {
 				break;
 			}
 		}
-		if (lineEnd < 0) throw new ProxyError('dns-fallback');
+		if (lineEnd < 0) throw new ProxyError('dns-parse');
 
 		const sizeText = decoder.decode(bytes.subarray(offset, lineEnd)).split(';', 1)[0];
-		if (!/^[0-9a-f]+$/i.test(sizeText)) throw new ProxyError('dns-fallback');
+		if (!/^[0-9a-f]+$/i.test(sizeText)) throw new ProxyError('dns-parse');
 		const chunkSize = Number.parseInt(sizeText, 16);
 		if (!Number.isSafeInteger(chunkSize) || chunkSize < 0) {
-			throw new ProxyError('dns-fallback');
+			throw new ProxyError('dns-parse');
 		}
 		if (chunkSize === 0) break;
 
@@ -170,7 +177,7 @@ function decodeChunkedBody(bytes: Uint8Array): Uint8Array {
 			bytes[chunkEnd] !== 13 ||
 			bytes[chunkEnd + 1] !== 10
 		) {
-			throw new ProxyError('dns-fallback');
+			throw new ProxyError('dns-parse');
 		}
 
 		const chunk = bytes.slice(chunkStart, chunkEnd);
@@ -190,13 +197,13 @@ function decodeChunkedBody(bytes: Uint8Array): Uint8Array {
 
 function parseSocketResponse(bytes: Uint8Array): Response {
 	const headerEnd = findHeaderEnd(bytes);
-	if (headerEnd < 0) throw new ProxyError('dns-fallback');
+	if (headerEnd < 0) throw new ProxyError('dns-parse');
 
 	const decoder = new TextDecoder();
 	const headerText = decoder.decode(bytes.subarray(0, headerEnd));
 	const [statusLine, ...headerLines] = headerText.split('\r\n');
 	const statusMatch = /^HTTP\/1\.[01] (\d{3})/.exec(statusLine);
-	if (!statusMatch) throw new ProxyError('dns-fallback');
+	if (!statusMatch) throw new ProxyError('dns-parse');
 
 	const headers = new Headers();
 	for (const line of headerLines) {
@@ -227,7 +234,7 @@ async function fetchViaOriginSocket(
 	headers: Record<string, string>
 ): Promise<Response> {
 	for (const value of Object.values(headers)) {
-		if (/[\r\n]/.test(value)) throw new ProxyError('dns-fallback');
+		if (/[\r\n]/.test(value)) throw new ProxyError('dns-write');
 	}
 	const requestHeaders = Object.entries(headers)
 		.map(([name, value]) => `${name}: ${value}`)
@@ -239,21 +246,35 @@ async function fetchViaOriginSocket(
 		`${requestHeaders}\r\n\r\n`;
 
 	const ip = await resolveStbOrigin();
-	const socket = connect(
-		{ hostname: ip, port: 443 },
-		{ allowHalfOpen: true, secureTransport: 'starttls' }
-	);
-	const tlsSocket = socket.startTls({ expectedServerHostname: STB_API_HOST });
+	let tlsSocket: Socket;
 	try {
+		const socket = connect(
+			{ hostname: ip, port: 443 },
+			{ allowHalfOpen: true, secureTransport: 'starttls' }
+		);
+		tlsSocket = socket.startTls({ expectedServerHostname: STB_API_HOST });
 		await tlsSocket.opened;
+	} catch {
+		throw new ProxyError('dns-connect');
+	}
+	try {
 		const writer = tlsSocket.writable.getWriter();
 		try {
-			await writer.write(new TextEncoder().encode(request));
+			try {
+				await writer.write(new TextEncoder().encode(request));
+			} catch {
+				throw new ProxyError('dns-write');
+			}
 		} finally {
 			writer.releaseLock();
 		}
 
-		const bytes = new Uint8Array(await new Response(tlsSocket.readable).arrayBuffer());
+		let bytes: Uint8Array;
+		try {
+			bytes = new Uint8Array(await new Response(tlsSocket.readable).arrayBuffer());
+		} catch {
+			throw new ProxyError('dns-read');
+		}
 		return parseSocketResponse(bytes);
 	} finally {
 		await tlsSocket.close().catch(() => undefined);
@@ -271,7 +292,7 @@ async function fetchFromStb(
 		return await fetchViaOriginSocket(path, headers);
 	} catch (error) {
 		if (error instanceof ProxyError) throw error;
-		throw new ProxyError('dns-fallback');
+		throw new ProxyError('dns-connect');
 	}
 }
 
