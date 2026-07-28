@@ -59,7 +59,8 @@ type ProxyErrorStage =
 class ProxyError extends Error {
 	constructor(
 		readonly stage: ProxyErrorStage,
-		readonly upstreamStatus?: number
+		readonly upstreamStatus?: number,
+		readonly detail?: string
 	) {
 		super(`Proxy failed at ${stage}`);
 	}
@@ -240,8 +241,14 @@ async function readSocketResponse(readable: ReadableStream): Promise<Uint8Array>
 			let result: ReadableStreamReadResult<Uint8Array>;
 			try {
 				result = await reader.read();
-			} catch {
-				if (totalLength === 0) throw new ProxyError('dns-read');
+			} catch (error) {
+				if (totalLength === 0) {
+					const detail =
+						error instanceof Error
+							? `${error.name}:${error.message}`.replace(/[^\x20-\x7e]/g, '').slice(0, 120)
+							: 'unknown';
+					throw new ProxyError('dns-read', undefined, detail);
+				}
 				break;
 			}
 			if (result.done) break;
@@ -425,7 +432,8 @@ export default {
 			const proxyError = err instanceof ProxyError ? err : null;
 			console.error('Proxy error', {
 				stage: proxyError?.stage ?? 'unexpected',
-				upstreamStatus: proxyError?.upstreamStatus
+				upstreamStatus: proxyError?.upstreamStatus,
+				detail: proxyError?.detail
 			});
 			const errorHeaders = {
 				...corsHeaders(origin),
@@ -433,7 +441,8 @@ export default {
 				'X-Proxy-Error': proxyError?.stage ?? 'unexpected',
 				...(proxyError?.upstreamStatus
 					? { 'X-Upstream-Status': String(proxyError.upstreamStatus) }
-					: {})
+					: {}),
+				...(proxyError?.detail ? { 'X-Proxy-Detail': proxyError.detail } : {})
 			};
 			return new Response(
 				'Proxy error: Internal Server Error',
