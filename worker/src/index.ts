@@ -19,6 +19,7 @@ const STB_API_BASE = `https://${STB_API_HOST}/api/web/v2-6`;
 const STB_AUTH_PATH = '/proxy/user/auth';
 const DNS_OVER_HTTPS_URL =
 	`https://cloudflare-dns.com/dns-query?name=${STB_API_HOST}&type=A&cd=1`;
+const MAX_SOCKET_RESPONSE_BYTES = 5 * 1024 * 1024;
 
 function createStbHeaders(appId: string): Record<string, string> {
 	return {
@@ -229,6 +230,41 @@ function parseSocketResponse(bytes: Uint8Array): Response {
 	return new Response(body, { status: Number(statusMatch[1]), headers });
 }
 
+async function readSocketResponse(readable: ReadableStream): Promise<Uint8Array> {
+	const reader = readable.getReader();
+	const chunks: Uint8Array[] = [];
+	let totalLength = 0;
+
+	try {
+		while (true) {
+			let result: ReadableStreamReadResult<Uint8Array>;
+			try {
+				result = await reader.read();
+			} catch {
+				if (totalLength === 0) throw new ProxyError('dns-read');
+				break;
+			}
+			if (result.done) break;
+			const chunk = new Uint8Array(result.value);
+			totalLength += chunk.length;
+			if (totalLength > MAX_SOCKET_RESPONSE_BYTES) {
+				throw new ProxyError('dns-read');
+			}
+			chunks.push(chunk);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+
+	const response = new Uint8Array(totalLength);
+	let offset = 0;
+	for (const chunk of chunks) {
+		response.set(chunk, offset);
+		offset += chunk.length;
+	}
+	return response;
+}
+
 async function fetchViaOriginSocket(
 	path: string,
 	headers: Record<string, string>
@@ -269,12 +305,7 @@ async function fetchViaOriginSocket(
 			writer.releaseLock();
 		}
 
-		let bytes: Uint8Array;
-		try {
-			bytes = new Uint8Array(await new Response(tlsSocket.readable).arrayBuffer());
-		} catch {
-			throw new ProxyError('dns-read');
-		}
+		const bytes = await readSocketResponse(tlsSocket.readable);
 		return parseSocketResponse(bytes);
 	} finally {
 		await tlsSocket.close().catch(() => undefined);
