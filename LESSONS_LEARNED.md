@@ -132,3 +132,6 @@ move it to the Archive section at the bottom with a date and reason.
 **[2026-07-19] Archived [2026-07-20]** Directional vehicle fallback must fail closed — Superseded by always fetching and displaying both route directions. The projection and turnaround heuristics added complexity while still hiding useful opposite-direction vehicles outside their narrow fallback conditions.
 
 **[2026-07-21] Archived [2026-07-21]** The station "daily refresh" is metadata-only, not a catalog refresh — Resolved by replacing the metadata-only IndexedDB path with a versioned build-time catalog and a scheduled change-only TPBI regeneration. The generator now accepts both current numeric stop IDs and the legacy `1008-{id}` form.
+### 2026-07-29 — Pin Wrangler when using current configuration schema
+
+`wrangler.jsonc` features such as top-level `secrets.required` depend on current Wrangler schema support. Pin Wrangler and Workers types together, then verify with a dry-run; an older CLI may silently ignore unknown configuration fields.

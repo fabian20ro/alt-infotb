@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "alt-stb-proxy",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-28",
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  },
+  "secrets": {
+    "required": ["STB_APP_ID", "STB_APP_KEY"]
+  }
+}

@@ -798,3 +798,10 @@ Each entry should follow this structure:
 **Promoted to Lessons Learned:** Yes
 
 **Post-rebase correction:** After integrating concurrent `origin/main` test additions, the final unit total is 457 passing tests (not 454); type-check and production build remain green.
+## 2026-07-29 — Shared API module extraction
+
+- Published contract v2.0.0 with Node 24 and Web Worker profiles.
+- Extracted the STB proxy into `shared-api/` with injected transport, exact-route/origin checks, coalesced token acquisition, one 412 refresh, timeout, and byte-preserving protobuf pass-through.
+- Replaced Worker business logic with a thin Module Worker adapter and current `wrangler.jsonc`.
+- Verified module tests/typecheck/build and Wrangler 4.115 dry-run.
+- Surprise: older local Wrangler accepted deployment but warned that current `secrets.required` configuration was unknown; pinning the current Wrangler removed the warning.

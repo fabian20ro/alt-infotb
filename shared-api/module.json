@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fabian20ro/shared-api-contract/v2.0.0/schema/module.schema.json",
+  "schemaVersion": 2,
+  "id": "alt-stb",
+  "contractVersion": 2,
+  "runtime": {
+    "abi": "web-fetch-v1",
+    "profiles": ["node-24", "web-worker"],
+    "capabilities": ["outbound-fetch", "abort-signal", "binary-response"]
+  },
+  "build": {
+    "entry": "src/index.ts",
+    "export": "createHandler",
+    "output": "dist/index.js"
+  },
+  "routes": [
+    {
+      "path": "/lines/stop",
+      "methods": ["GET", "OPTIONS"],
+      "response": "binary"
+    }
+  ],
+  "config": [
+    { "name": "STB_APP_ID", "type": "string", "required": true, "sensitive": true },
+    { "name": "STB_APP_KEY", "type": "string", "required": true, "sensitive": true },
+    { "name": "ALLOWED_ORIGINS", "type": "string[]", "required": true, "sensitive": false },
+    { "name": "UPSTREAM_TIMEOUT_MS", "type": "integer", "required": false, "sensitive": false }
+  ],
+  "dependencies": [
+    { "id": "stb-api", "kind": "http-api" }
+  ],
+  "contracts": {
+    "fixtureDirectory": "test/fixtures"
+  }
+}
