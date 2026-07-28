@@ -18,6 +18,7 @@ function detectMatchType(query: string, name: string, desc: string): number {
 	if (name === query) return 100;
 	if (name.startsWith(query)) return 80;
 	if (name.endsWith(query) || name.includes(` ${query}`) || name.includes(`${query} `)) return 60;
+	if (name.includes(query)) return 30;
 	if (desc.includes(query)) return 20;
 
 	return 0;
