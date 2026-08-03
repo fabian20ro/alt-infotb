@@ -11,7 +11,7 @@ const config = {
 			strict: true
 		}),
 		paths: {
-			base: process.argv.includes('dev') ? '' : '/alt-stb'
+			base: process.argv.includes('dev') ? '' : '/alt-infotb'
 		}
 	}
 };

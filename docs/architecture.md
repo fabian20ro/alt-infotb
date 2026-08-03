@@ -1,6 +1,6 @@
 # Architecture
 
-Better STB is a mobile-first PWA that shows real-time transit arrival times for any station in Bucharest. It features a map-priority split layout with GPS-based station discovery, favorites, and theme/language toggles. The browser app is static (no backend), but requires a **server-side proxy** to reach the STB API.
+Alt InfoTB is a mobile-first PWA that shows real-time transit arrival times for any station in Bucharest. It features a map-priority split layout with GPS-based station discovery, favorites, and theme/language toggles. The browser app is static (no backend), but requires a **server-side proxy** to reach the STB API.
 
 ## High-level flow
 

@@ -21,7 +21,7 @@ function handler(responses: Response[]) {
   };
 }
 
-describe("Alt STB contract", () => {
+describe("Alt InfoTB contract", () => {
   it("rejects non-exact routes and origins", async () => {
     const { handle } = handler([]);
     expect((await handle(new Request("https://host/lines/stop/escape", { headers: { Origin: "https://fabian20ro.github.io" } }))).status).toBe(404);

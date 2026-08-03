@@ -1,4 +1,4 @@
-# Better STB Redesign - Progress Tracker
+# Alt InfoTB Redesign - Progress Tracker
 
 ## Phase 0: Diagnose Arrival Time Bug
 - [x] 0.1 Create diagnostic script (`scripts/dump-proto.ts`) — 2026-02-15

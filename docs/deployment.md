@@ -1,10 +1,10 @@
 # Deployment
 
-Alt STB has two deployed components that auto-deploy on push to `main`:
+Alt InfoTB has two deployed components that auto-deploy on push to `main`:
 
 | Component | Hosting | URL | Trigger |
 |---|---|---|---|
-| Static app (frontend) | GitHub Pages | `https://fabian20ro.github.io/alt-stb/` | Any push to `main` |
+| Static app (frontend) | GitHub Pages | `https://fabian20ro.github.io/alt-infotb/` | Any push to `main` |
 | API proxy (worker) | Cloudflare Workers | `https://alt-stb-proxy.fabian20ro.workers.dev` | Any push to `main` |
 
 Both deploy from a single GitHub Actions workflow (`.github/workflows/deploy.yml`).
@@ -13,7 +13,7 @@ Both deploy from a single GitHub Actions workflow (`.github/workflows/deploy.yml
 
 **All secrets are stored in one place: GitHub repository secrets.**
 
-Go to: [GitHub repo](https://github.com/fabian20ro/alt-stb) > Settings > Secrets and variables > Actions
+Go to: [GitHub repo](https://github.com/fabian20ro/alt-infotb) > Settings > Secrets and variables > Actions
 
 | Secret name | Purpose | Where it's used |
 |---|---|---|
@@ -26,6 +26,12 @@ Go to: [GitHub repo](https://github.com/fabian20ro/alt-stb) > Settings > Secrets
 1. Get the STB credentials from the official STB web app's JS bundle at `info.stb.ro`
 2. Create a Cloudflare API token at [Cloudflare dashboard](https://dash.cloudflare.com/profile/api-tokens) > Create Token > "Edit Cloudflare Workers" template
 3. Add all three as GitHub repository secrets
+4. Set the repository variable `WORKER_DEPLOY_ENABLED` to `true`
+
+The Worker deployment job stays skipped while the variable is absent or `false`.
+This lets frontend CI and Pages remain healthy during credential rotation without
+deploying an unauthenticated Worker. The currently deployed Worker keeps serving
+traffic until the next enabled deployment.
 
 ### Rotating credentials
 
@@ -70,7 +76,7 @@ If the worker URL ever changes, update `.env.production` and push.
 
 ## Worker (Cloudflare)
 
-**Deploys automatically** on every push to `main` via the `deploy-worker` job in GitHub Actions.
+**Deploys automatically** on every push to `main` via the `deploy-worker` job in GitHub Actions when `WORKER_DEPLOY_ENABLED` is `true`.
 
 The `cloudflare/wrangler-action@v3` action:
 1. Deploys the worker code via `wrangler deploy`
@@ -136,7 +142,7 @@ Shows request count, error rate, latency, CPU time.
 
 ### Frontend deploy status
 
-[GitHub Actions](https://github.com/fabian20ro/alt-stb/actions) > latest workflow run
+[GitHub Actions](https://github.com/fabian20ro/alt-infotb/actions) > latest workflow run
 
 ## Troubleshooting
 

@@ -805,3 +805,13 @@ Each entry should follow this structure:
 - Replaced Worker business logic with a thin Module Worker adapter and current `wrangler.jsonc`.
 - Verified module tests/typecheck/build and Wrangler 4.115 dry-run.
 - Surprise: older local Wrangler accepted deployment but warned that current `secrets.required` configuration was unknown; pinning the current Wrangler removed the warning.
+
+---
+
+### [2026-08-03] Migrate disabled Git transport repository to Alt InfoTB
+
+**Context:** GitHub REST and repository pages remained available for `fabian20ro/alt-stb`, but every HTTPS Git operation returned HTTP 403 and “repository is disabled” after the account/organization rename incident. The replacement needed a fresh repository ID and the product/repository name `alt-infotb`.
+**What happened:** Audited both local clones and GitHub REST refs; neither clone contained the final two signed commits. Reconstructed their exact blobs, tree, signed payloads, and commit objects, matching GitHub `main` at `91a15377`. Saved a verified full-ref bundle and manifests, preserved the old repository ID as `alt-infotb-disabled-archive`, created fresh repository ID `1322174861`, and published all 32 live branches. Updated repository URLs, Pages base/scope/icons, package metadata, deployment docs, workflow badges, and user-visible branding to Alt InfoTB. Preserved local-storage keys, shared-module ID, and the deployed `alt-stb-proxy` name/domain for compatibility. Restored Pages, ruleset, Actions defaults, Dependabot, secret scanning, push protection, private vulnerability reporting, and CodeQL setup. Added a `WORKER_DEPLOY_ENABLED` gate because Actions secret values cannot be exported from the locked source repository.
+**Outcome:** Local Svelte checks passed with 0 diagnostics, all 504 unit tests passed, and the production PWA build succeeded with the `/alt-infotb/` base. The existing Cloudflare Worker remains live; its redeployment stays intentionally disabled until `CLOUDFLARE_API_TOKEN`, `STB_APP_ID`, and `STB_APP_KEY` are restored in the fresh GitHub repository.
+**Insight:** Repository-ID recovery needs both Git-object SHA parity and explicit settings/secret restoration. On a case-insensitive macOS filesystem, an archive checkout can silently collapse case-distinct paths, so compare the reconstructed Git tree SHA instead of trusting extracted files.
+**Promoted to Lessons Learned:** Yes

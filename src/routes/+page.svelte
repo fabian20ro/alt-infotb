@@ -120,7 +120,7 @@
 </script>
 
 <svelte:head>
-	<title>Better STB</title>
+	<title>Alt InfoTB</title>
 </svelte:head>
 
 <DrawerMenu

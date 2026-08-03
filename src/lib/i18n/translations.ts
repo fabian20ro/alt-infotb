@@ -1,6 +1,6 @@
 export const translations = {
 	ro: {
-		appTitle: 'Better STB',
+		appTitle: 'Alt InfoTB',
 		favorites: 'Favorite',
 		recents: 'Recente',
 		theme: 'Temă',
@@ -43,7 +43,7 @@ export const translations = {
 		closeRoute: 'Închide traseul'
 	},
 	en: {
-		appTitle: 'Better STB',
+		appTitle: 'Alt InfoTB',
 		favorites: 'Favorites',
 		recents: 'Recent',
 		theme: 'Theme',

@@ -1,4 +1,4 @@
-# Alt STB shared API module
+# Alt InfoTB shared API module
 
 Provider-neutral STB proxy implementing the
 [shared-api-contract v2.0.0](https://github.com/fabian20ro/shared-api-contract/releases/tag/v2.0.0).

@@ -95,11 +95,11 @@ export default defineConfig(({ mode }) => {
 			SvelteKitPWA({
 				registerType: 'autoUpdate',
 				manifest: {
-					name: 'Alt STB',
-					short_name: 'AltSTB',
+					name: 'Alt InfoTB',
+					short_name: 'AltInfoTB',
 					description: 'Real-time transit arrivals for București — bus, tram, trolleybus',
-					start_url: '/alt-stb/',
-					scope: '/alt-stb/',
+					start_url: '/alt-infotb/',
+					scope: '/alt-infotb/',
 					display: 'standalone',
 					orientation: 'portrait-primary',
 					categories: ['travel', 'utilities'],
@@ -108,22 +108,22 @@ export default defineConfig(({ mode }) => {
 					lang: 'ro',
 					icons: [
 						{
-							src: '/alt-stb/icons/icon-180x180.png',
+							src: '/alt-infotb/icons/icon-180x180.png',
 							sizes: '180x180',
 							type: 'image/png'
 						},
 						{
-							src: '/alt-stb/icons/icon-192x192.png',
+							src: '/alt-infotb/icons/icon-192x192.png',
 							sizes: '192x192',
 							type: 'image/png'
 						},
 						{
-							src: '/alt-stb/icons/icon-512x512.png',
+							src: '/alt-infotb/icons/icon-512x512.png',
 							sizes: '512x512',
 							type: 'image/png'
 						},
 						{
-							src: '/alt-stb/icons/icon-512x512.png',
+							src: '/alt-infotb/icons/icon-512x512.png',
 							sizes: '512x512',
 							type: 'image/png',
 							purpose: 'maskable'

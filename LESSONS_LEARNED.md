@@ -95,6 +95,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Dependencies & External Services
 
+**[2026-08-03]** Fresh GitHub repository IDs require explicit deployment-state restoration — Git data, repository metadata, Pages configuration, rulesets, security controls, environments, variables, webhooks, and Actions secrets are separate migration surfaces. GitHub exposes secret names but never their values. Restore values from a secure source and gate secret-dependent deployment jobs until every required credential exists; do not let a repository rename turn a healthy frontend build into an unauthenticated infrastructure deployment.
+
 **[2026-02-14]** STB API endpoint is `info.stb.ro`, not `info.stbsa.ro` — The older `info.stbsa.ro` domain was used by previous versions of the API. The current v2-6 endpoint is at `info.stb.ro/api/web/v2-6/lines/stop?stop_id=3570`.
 
 **[2026-02-14] Corrected [2026-02-18]** package-lock.json is tracked in git — Despite an earlier note claiming it was gitignored, `package-lock.json` is tracked and must be committed with dependency changes.
