@@ -815,3 +815,13 @@ Each entry should follow this structure:
 **Outcome:** Local Svelte checks passed with 0 diagnostics, all 504 unit tests passed, and the production PWA build succeeded with the `/alt-infotb/` base. The existing Cloudflare Worker remains live; its redeployment stays intentionally disabled until `CLOUDFLARE_API_TOKEN`, `STB_APP_ID`, and `STB_APP_KEY` are restored in the fresh GitHub repository.
 **Insight:** Repository-ID recovery needs both Git-object SHA parity and explicit settings/secret restoration. On a case-insensitive macOS filesystem, an archive checkout can silently collapse case-distinct paths, so compare the reconstructed Git tree SHA instead of trusting extracted files.
 **Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-08-04] Align active agent metadata with Alt InfoTB
+
+**Context:** The repository migration changed the public product identity to Alt InfoTB while two active agent descriptions still used the retired repository name.
+**What happened:** Updated the architect and UX agent descriptions to use Alt InfoTB. Preserved `alt-stb-*` browser-storage keys, the shared-module ID, historical reports, and the deployed Worker identity as compatibility contracts.
+**Outcome:** Active agent guidance now uses the current product name without breaking persisted user data or deployed infrastructure.
+**Insight:** Rename audits must distinguish human-facing metadata from durable runtime identifiers.
+**Promoted to Lessons Learned:** No

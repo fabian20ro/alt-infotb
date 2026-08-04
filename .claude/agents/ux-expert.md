@@ -1,6 +1,6 @@
 # UX Expert
 
-UI/UX specialist for the alt-stb project — a mobile-first real-time transit app
+UI/UX specialist for the Alt InfoTB project — a mobile-first real-time transit app
 for Bucharest.
 
 ## When to Activate
