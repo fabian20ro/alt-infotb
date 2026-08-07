@@ -213,6 +213,8 @@
 		} else {
 			userMarker = L.marker(latLng, {
 				icon: userMarkerModule.createUserIcon(),
+				interactive: false,
+				keyboard: false,
 				zIndexOffset: 1000
 			}).addTo(map);
 		}
@@ -226,7 +228,8 @@
 				color: '#4285f4',
 				fillColor: '#4285f4',
 				fillOpacity: 0.1,
-				weight: 1
+				weight: 1,
+				interactive: false
 			}).addTo(map);
 		}
 	}
@@ -487,6 +490,7 @@
 			class="recenter-btn" 
 			onclick={recenter} 
 			aria-label="Recentrare" 
+			title="Recentrare la locația mea"
 			class:has-position={!!userPosition}
 			class:is-denied={locationPermission === 'denied'}
 		>
@@ -532,35 +536,40 @@
 		width: 2.75rem;
 		height: 2.75rem;
 		border-radius: 50%;
-		border: none;
-		background: var(--color-surface);
-		color: var(--color-text-muted);
-		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+		border: 2px solid var(--color-surface);
+		background: var(--color-accent);
+		color: var(--color-bg);
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: background-color 0.15s, color 0.15s;
-		opacity: 0.7;
+		transition: filter 0.15s, transform 0.15s, box-shadow 0.15s;
+		opacity: 1;
 	}
 
 	.recenter-btn.has-position {
-		color: var(--color-text);
-		opacity: 1;
+		box-shadow: 0 0 0 2px var(--color-surface), 0 2px 8px rgba(0, 0, 0, 0.4);
 	}
 
 	.recenter-btn.is-denied {
-		color: #ff4444;
-		opacity: 1;
+		border-color: var(--color-error);
+		background: var(--color-error);
+		color: white;
 	}
 
 	.recenter-btn:hover {
-		background: var(--color-surface-hover);
+		filter: brightness(1.1);
 	}
 
 	.recenter-btn:active {
 		transform: scale(0.95);
-		background: var(--color-surface-active);
+		filter: brightness(0.95);
+	}
+
+	.recenter-btn:focus-visible {
+		outline: 3px solid var(--color-text);
+		outline-offset: 2px;
 	}
 
 	/* Override Leaflet default styles */
@@ -573,6 +582,10 @@
 	:global(.user-location-marker) {
 		background: transparent !important;
 		border: none !important;
+	}
+
+	:global(.user-location-marker) {
+		pointer-events: none !important;
 	}
 
 	.route-mode :global(.station-marker) {
