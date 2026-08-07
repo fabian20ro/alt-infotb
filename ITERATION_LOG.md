@@ -825,3 +825,13 @@ Each entry should follow this structure:
 **Outcome:** Active agent guidance now uses the current product name without breaking persisted user data or deployed infrastructure.
 **Insight:** Rename audits must distinguish human-facing metadata from durable runtime identifiers.
 **Promoted to Lessons Learned:** No
+
+---
+
+### [2026-08-07] Restore station taps beneath user location and clarify recentering
+
+**Context:** When the user was standing on a station, the visible location marker intercepted the station tap; the recenter control also looked disabled because it used muted surface colors.
+**What happened:** Kept the location marker visually above stations while making both it and the accuracy circle noninteractive, restyled the recenter control with the theme accent and explicit focus/denied states, and removed the obsolete single-route `preloadCode` export that blocked the current SvelteKit development runtime and E2E tests.
+**Outcome:** Success — browser hit-testing at an overlapping Piata Unirii marker reached the station, the recenter control rendered enabled at full opacity, 504 unit tests passed, the production build succeeded, and all four mocked desktop/mobile route-map E2E tests passed.
+**Insight:** Informational map overlays should opt out of pointer and keyboard interaction at the Leaflet layer; development-mode browser verification catches route-option incompatibilities that static builds can miss.
+**Promoted to Lessons Learned:** Yes
