@@ -131,19 +131,18 @@ export function decodeStopResponse(data: Uint8Array, sourceStopId: number): Stat
 			.filter((vehicle): vehicle is VehiclePosition => vehicle !== null);
 
 		// Extract arrival times from field 9 sub-messages
-		const arrivalMessages = getMessages(lineFields, LINE.ARRIVALS);
-		const times: number[] = [];
-
-		for (const arrivalData of arrivalMessages) {
-			const arrivalReader = new ProtoReader(arrivalData);
-			const arrivalFields = arrivalReader.readAllFields();
-			const seconds = getVarint(arrivalFields, ARRIVAL.SECONDS);
+		const seenSeconds = new Set<number>();
+		for (const arrivalData of getMessages(lineFields, LINE.ARRIVALS)) {
+			const seconds = getVarint(
+				new ProtoReader(arrivalData).readAllFields(),
+				ARRIVAL.SECONDS
+			);
 			if (seconds !== undefined && seconds >= 0 && seconds <= MAX_ARRIVAL_SECONDS) {
-				times.push(seconds);
+				seenSeconds.add(seconds);
 			}
 		}
 
-		const uniqueTimes = Array.from(new Set(times)).sort((a, b) => a - b);
+		const uniqueTimes = Array.from(seenSeconds).sort((a, b) => a - b);
 
 		arrivals.push({
 			lineName,

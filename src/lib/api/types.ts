@@ -46,6 +46,20 @@ export type DeserializedStationArrivals = Omit<StationArrivals, 'fetchedAt'> & {
 
 /** Convert raw deserialized data so callers always see a real `Date`. */
 export const deserializeStationArrivals = (raw: DeserializedStationArrivals): StationArrivals => {
+	// Validate structure — corrupted cache entries must fail fast, not crash downstream
+	if (!raw || typeof raw !== 'object') {
+		throw new Error('[deserializeStationArrivals] invalid input: expected non-null object');
+	}
+	if (typeof raw.stationName !== 'string' || !raw.stationName) {
+		throw new Error('[deserializeStationArrivals] missing or empty stationName');
+	}
+	if (typeof raw.address !== 'string') {
+		throw new Error('[deserializeStationArrivals] missing or invalid address');
+	}
+	if (!Array.isArray(raw.arrivals)) {
+		throw new Error('[deserializeStationArrivals] arrivals is not an array');
+	}
+
 	const fetchedAtStr = raw.fetchedAt;
 	if (!fetchedAtStr || typeof fetchedAtStr !== 'string') {
 		throw new Error(
