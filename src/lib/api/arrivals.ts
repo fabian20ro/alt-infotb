@@ -47,6 +47,12 @@ export function formatTime(date: Date): string {
 	return date.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
 }
 
+function validateStopId(id: number, label: string): void {
+	if (!Number.isInteger(id) || id <= 0) {
+		throw new ApiError(`${label} trebuie să fie un număr pozitiv`, 0);
+	}
+}
+
 /** Decode a standard Google encoded polyline into latitude/longitude points. */
 export function decodePolyline(encoded: string): RoutePoint[] {
 	const points: RoutePoint[] = [];
