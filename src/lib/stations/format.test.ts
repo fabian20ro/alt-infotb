@@ -3,7 +3,9 @@ import { formatCatalogDate } from './format.js';
 
 describe('formatCatalogDate', () => {
 	it('formats the source date in Romanian', () => {
-		expect(formatCatalogDate('2026-07-11T13:48:53.000Z', 'ro')).toContain('2026');
+		const result = formatCatalogDate('2026-07-11T13:48:53.000Z', 'ro');
+		expect(result).toContain('2026');
+		expect(result).toContain('iul.'); // July in Romanian
 	});
 
 	it('formats the source date in English', () => {
