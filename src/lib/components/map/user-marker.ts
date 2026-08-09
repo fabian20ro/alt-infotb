@@ -18,9 +18,5 @@ export function createUserIcon(): L.DivIcon {
 		iconAnchor: [14, 14]
 	});
 
-	if (!icon || typeof icon !== 'object') {
-		throw new Error('Leaflet divIcon() returned invalid state — cannot render user marker');
-	}
-
 	return icon;
 }
