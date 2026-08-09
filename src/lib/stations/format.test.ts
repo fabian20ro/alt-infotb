@@ -48,4 +48,24 @@ describe('formatCatalogDate', () => {
 		expect(resultRo).toContain('iul.'); // July in Romanian
 		expect(resultRo).toMatch(/\b12\b/);
 	});
+
+	it('formats UTC-midnight input in winter — same calendar day in Bucharest (UTC+2)', () => {
+		// 2026-01-15T00:00:00Z is Jan 15, 02:00 in Bucharest (winter = UTC+2)
+		const resultEn = formatCatalogDate('2026-01-15T00:00:00.000Z', 'en');
+		expect(resultEn).toMatch(/^Jan\s+15,\s?2026$/);
+
+		const resultRo = formatCatalogDate('2026-01-15T00:00:00.000Z', 'ro');
+		expect(resultRo).toContain('ian.'); // January in Romanian
+		expect(resultRo).toMatch(/\b15\b/);
+	});
+
+	it('formats UTC-midnight input in summer — same calendar day in Bucharest (UTC+3)', () => {
+		// 2026-06-20T00:00:00Z is Jun 20, 03:00 in Bucharest (summer = UTC+3)
+		const resultEn = formatCatalogDate('2026-06-20T00:00:00.000Z', 'en');
+		expect(resultEn).toMatch(/^Jun\s+20,\s?2026$/);
+
+		const resultRo = formatCatalogDate('2026-06-20T00:00:00.000Z', 'ro');
+		expect(resultRo).toContain('iun.'); // June in Romanian
+		expect(resultRo).toMatch(/\b20\b/);
+	});
 });
