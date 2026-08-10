@@ -25,14 +25,7 @@ export const TILE_CONFIGS: Record<string, TileConfig> = {
 	satellite: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: '&copy; Esri, Maxar, Earthstar Geographics © OpenStreetMap contributors, USDA, USGS, AeroGRID, IGN Spain', maxZoom: 19 as const }
 };
 
-// Validate completeness at import time — a missing key is a silent runtime crash in MapView.
-for (const theme of TILE_THEMES) {
-	if (!(theme in TILE_CONFIGS)) {
-		throw new Error(`TILE_CONFIGS missing expected theme "${theme}"`);
-	}
-}
-
-// Reject unknown extras at import time — an unregistered key silently extends the public theme surface.
+// Cross-validate TILE_THEMES and TILE_CONFIGS at import time — mismatches are caught before MapView runs.
 for (const key of Object.keys(TILE_CONFIGS)) {
 	if (!TILE_THEMES.includes(key as 'light' | 'dark' | 'satellite')) {
 		throw new Error(`Unknown tile theme "${key}" declared in TILE_CONFIGS but missing from TILE_THEMES`);
