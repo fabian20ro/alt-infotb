@@ -64,7 +64,12 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 		});
 
 		if (!response.ok) {
-			const hint = STATUS_HINTS.get(response.status) ?? '';
+			let hint = STATUS_HINTS.get(response.status) ?? '';
+			// For rate-limit errors, include Retry-After header if present
+			if (response.status === 429 && response.headers?.has('retry-after')) {
+				const retryAfter = response.headers.get('retry-after')!;
+				hint += `, retry in ${retryAfter}`;
+			}
 			throw new ApiError(`HTTP ${response.status}${hint}`, response.status);
 		}
 
