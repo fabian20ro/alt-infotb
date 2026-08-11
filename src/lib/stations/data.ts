@@ -42,5 +42,5 @@ export function loadStations(): Station[] {
 		);
 	}
 
-	return [...validated];
+	return validated;
 }
