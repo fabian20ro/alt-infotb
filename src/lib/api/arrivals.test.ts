@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ApiError } from './client.js';
-import { formatArrivalTime, decodePolyline } from './arrivals.js';
+import { formatArrivalTime, formatTime, decodePolyline } from './arrivals.js';
 
 /** Protobuf encoding helpers */
 function encodeVarint(value: number): number[] {
@@ -1784,6 +1784,23 @@ describe('formatArrivalTime', () => {
 	it('formats hours and minutes in Romanian with correct singular/plural', () => {
 		expect(formatArrivalTime(3721)).toBe('1 oră, 2 min'); // 62.016 → round to 62 min = 1h 2min
 		expect(formatArrivalTime(7200)).toBe('2 ore');        // 120 min = exactly 2h
+	});
+
+	it('returns "peste o zi" when hours >= 48 (bypassing minutes branch)', () => {
+		// Need totalMinutes > 59 AND hours >= 48 to trigger this guard.
+		const seconds = 173000; // ~2883 min → 48h 3min
+		expect(formatArrivalTime(seconds)).toBe('peste o zi');
+	});
+
+	it('formats "formatTime" with various date inputs', () => {
+		const testDate = new Date(2024, 7, 15, 9, 5); // Aug 15, 2024 09:05
+		expect(formatTime(testDate)).toBe('09:05');
+
+		const midnight = new Date(2024, 0, 1, 0, 0);
+		expect(formatTime(midnight)).toBe('00:00');
+
+		const noon = new Date(2024, 6, 1, 12, 30);
+		expect(formatTime(noon)).toBe('12:30');
 	});
 
 	it('returns empty array when given an empty encoded polyline string', () => {

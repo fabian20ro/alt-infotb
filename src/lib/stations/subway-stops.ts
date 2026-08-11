@@ -170,3 +170,49 @@ for (const gtfsIdStr of Object.keys(SUBWAY_STOP_IDS)) {
 		);
 	}
 }
+
+/** A single subway station entry grouped by line. */
+export interface SubwayStationEntry {
+	gtfsId: number;
+	name: string;
+	stopIds: number[];
+}
+
+type LineGroup = Record<string, SubwayStationEntry[]>;
+
+/** Group all subway stations by their metro line (M1–M4). */
+const STATION_LINE_MAP: Record<number, string> = {
+	// M1
+	14718: 'M1', 14719: 'M1', 14717: 'M1', 14716: 'M1',
+	15102: 'M1', 14712: 'M1', 14697: 'M1', 14713: 'M1',
+	14711: 'M1', 15100: 'M1', 14725: 'M1', 14724: 'M1',
+	15099: 'M1', 14701: 'M1', 14700: 'M1', 14699: 'M1',
+	14698: 'M1', 14703: 'M1', 14704: 'M1', 14705: 'M1',
+	14706: 'M1', 14707: 'M1', 14708: 'M1', 14709: 'M1',
+
+	// M2
+	14727: 'M2', 14728: 'M2', 14729: 'M2', 14730: 'M2',
+	14731: 'M2', 14733: 'M2', 14732: 'M2', 14722: 'M2',
+	14721: 'M2', 14720: 'M2',
+
+	// M3
+	14738: 'M3', 14737: 'M3', 14736: 'M3', 14735: 'M3',
+	14734: 'M3', 14739: 'M3', 14740: 'M3', 14741: 'M3',
+
+	// M4
+	14742: 'M4', 14744: 'M4', 14745: 'M4', 14746: 'M4',
+	14747: 'M4', 57443: 'M4', 57442: 'M4',
+};
+
+export function getStationsByLine(): LineGroup {
+	const grouped: Record<string, SubwayStationEntry[]> = {};
+	for (const gtfsIdStr of Object.keys(SUBWAY_STOP_IDS)) {
+		const id = Number(gtfsIdStr);
+		const line = STATION_LINE_MAP[id];
+		if (!line) continue; // station not in any explicit group (e.g. interchange M1+M3 share GTFS ID)
+
+		if (!grouped[line]) grouped[line] = [];
+		grouped[line].push({ gtfsId: id, name: STATION_NAMES[id], stopIds: SUBWAY_STOP_IDS[id] });
+	}
+	return grouped;
+}

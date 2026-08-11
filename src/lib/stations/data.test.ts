@@ -37,4 +37,24 @@ describe('bundled station catalog', () => {
 			expect(station.lon).toBeLessThanOrEqual(26.4);
 		}
 	});
+
+	it('enforces the Station shape contract on every loaded entry', () => {
+		const stations = loadStations();
+		for (const station of stations) {
+			expect(typeof station.id).toBe('number');
+			expect(typeof station.name).toBe('string');
+			expect(typeof station.lat).toBe('number');
+			expect(typeof station.lon).toBe('number');
+			expect(station.id).not.toBeNaN();
+			expect(Number.isFinite(station.lat)).toBe(true);
+			expect(Number.isFinite(station.lon)).toBe(true);
+			expect(station.name.length).toBeGreaterThan(0);
+		}
+	});
+
+	it('exposes the TPBI source catalog feed version and updated-at timestamp', () => {
+		const meta = stationCatalogMetadata;
+		expect(meta.feedVersion).toMatch(/^\d+(?:\.\d+)*$/);
+		expect(Number.isNaN(Date.parse(meta.sourceUpdatedAt))).toBe(false);
+	});
 });
