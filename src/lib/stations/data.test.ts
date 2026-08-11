@@ -27,4 +27,14 @@ describe('bundled station catalog', () => {
 			expect(station.id).toBe(second[i].id);
 		}
 	});
+
+	it('filters stations outside Bucharest coordinate bounds', () => {
+		const stations = loadStations();
+		for (const station of stations) {
+			expect(station.lat).toBeGreaterThanOrEqual(44.2);
+			expect(station.lat).toBeLessThanOrEqual(44.7);
+			expect(station.lon).toBeGreaterThanOrEqual(25.6);
+			expect(station.lon).toBeLessThanOrEqual(26.4);
+		}
+	});
 });
