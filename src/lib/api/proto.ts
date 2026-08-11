@@ -63,21 +63,15 @@ export class ProtoReader {
 			const value = this.buf.slice(this.pos, this.pos + len);
 			this.pos += len;
 			return { fieldNumber, wireType, value };
-		} else if (wireType === 1) {
-			// 64-bit fixed — skip 8 bytes
-			if (this.pos + 8 > this.buf.length) {
-				throw new ProtoParseError('Invalid 64-bit fixed field: truncated payload');
+		} else if (wireType === 1 || wireType === 5) {
+			// Fixed-size: wire type 1 = 8 bytes (64-bit), wire type 5 = 4 bytes (32-bit).
+			const size = wireType === 1 ? 8 : 4;
+			const label = wireType === 1 ? '64-bit' : '32-bit';
+			if (this.pos + size > this.buf.length) {
+				throw new ProtoParseError(`Invalid ${label}-bit fixed field: truncated payload`);
 			}
 			const value = this.pos;
-			this.pos += 8;
-			return { fieldNumber, wireType, value };
-		} else if (wireType === 5) {
-			// 30-bit fixed — skip 4 bytes
-			if (this.pos + 4 > this.buf.length) {
-				throw new ProtoParseError('Invalid 32-bit fixed field: truncated payload');
-			}
-			const value = this.pos;
-			this.pos += 4;
+			this.pos += size;
 			return { fieldNumber, wireType, value };
 		} else {
 			// Unknown wire type — can't continue

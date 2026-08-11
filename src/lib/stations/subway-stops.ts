@@ -158,3 +158,15 @@ for (const gtfsIdStr of Object.keys(STATION_NAMES)) {
 		);
 	}
 }
+
+// Fail fast on data-entry errors: duplicate stop IDs within a single station break
+// the assumption that each API stop ID maps to exactly one platform.
+for (const gtfsIdStr of Object.keys(SUBWAY_STOP_IDS)) {
+	const id = Number(gtfsIdStr);
+	const apiIds = SUBWAY_STOP_IDS[id];
+	if (!apiIds || new Set(apiIds).size !== apiIds.length) {
+		throw new Error(
+			`[subway-stops] station ${gtfsIdStr} has duplicate stop IDs — expected unique values`,
+		);
+	}
+}
