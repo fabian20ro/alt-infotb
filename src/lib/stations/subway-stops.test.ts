@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getStationName, resolveStopIds, STATION_NAMES, SUBWAY_STOP_IDS } from './subway-stops.js';
+import { getStationName, getStationsByLine, resolveStopIds, STATION_NAMES, SUBWAY_STOP_IDS } from './subway-stops.js';
 
 describe('getStationName', () => {
 	it('resolves known station IDs to their Romanian names', () => {

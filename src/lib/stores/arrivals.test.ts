@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ArrivalInfo, StationArrivals } from '$lib/api/types.js';
 import { formatArrivalTime, formatTime } from './arrivals.svelte.js';
+import { ProtoParseError } from '$lib/api/proto.js';
+
+async function getRealArrivalsModule() {
+    vi.resetModules();
+    const mod = await import('$lib/api/arrivals.js');
+    return mod;
+}
 
 const fetchArrivalsMock = vi.hoisted(() => vi.fn());
 const fetchLineRouteMock = vi.hoisted(() => vi.fn());
