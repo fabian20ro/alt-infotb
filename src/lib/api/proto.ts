@@ -194,19 +194,6 @@ export function getFixed32Float(
 	return typeof offset === 'number' ? decodeFixed32Float(source, offset) : undefined;
 }
 
-/** Parse an embedded sub-message at a length-delimited field and return parsed fields. */
-export function getSubMessage(
-	fields: Map<number, Array<number | Uint8Array>>,
-	num: number
-): Map<number, Array<number | Uint8Array>> | undefined {
-	const vals = fields.get(num);
-	if (!vals) return undefined;
-	for (const v of vals) {
-		if (v instanceof Uint8Array) return new ProtoReader(v).readAllFields();
-	}
-	return undefined;
-}
-
 /** Get the first string from a repeated length-delimited field, or undefined. */
 export function getStringField(
 	fields: Map<number, Array<number | Uint8Array>>,
