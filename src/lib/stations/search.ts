@@ -50,13 +50,10 @@ export function searchStations(
 
 		let score = detectMatchType(normalizedQuery, normalizedName, normalizedDesc);
 
-		// All words present (but not as a contiguous phrase)
-		if (score === 0 && queryWords.length > 1) {
+		// All words present across name and description fields.
+		if (score === 0 && queryWords.length > 1 && queryWords.every(w => normalizedName.includes(w) || normalizedDesc.includes(w))) {
 			const nameMatches = queryWords.filter(w => normalizedName.includes(w)).length;
-			const descMatches = queryWords.filter(w => normalizedDesc.includes(w)).length;
-			if (nameMatches + descMatches === queryWords.length) {
-				score = 10 + (nameMatches * 5);
-			}
+			score = 10 + (nameMatches * 5);
 		}
 
 		if (score > 0) {
