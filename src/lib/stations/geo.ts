@@ -89,7 +89,7 @@ export function findStationsInBounds(
 	);
 
 	if (inBounds.length > maxCount) {
-		return validSelected ? [validSelected] : [];
+		return validSelected !== null ? [validSelected] : [];
 	}
 
 	if (validSelected && !inBounds.some((s) => s.id === validSelected.id)) {
