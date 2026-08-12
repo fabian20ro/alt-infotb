@@ -200,10 +200,11 @@ export function getSubMessage(
 	num: number
 ): Map<number, Array<number | Uint8Array>> | undefined {
 	const vals = fields.get(num);
-	if (!vals || vals.length === 0) return undefined;
-	const v = vals[0];
-	if (!(v instanceof Uint8Array)) return undefined;
-	return new ProtoReader(v).readAllFields();
+	if (!vals) return undefined;
+	for (const v of vals) {
+		if (v instanceof Uint8Array) return new ProtoReader(v).readAllFields();
+	}
+	return undefined;
 }
 
 /** Get the first string from a repeated length-delimited field, or undefined. */
