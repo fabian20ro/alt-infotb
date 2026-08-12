@@ -45,8 +45,13 @@ describe('formatCatalogDate', () => {
 		expect(resultEn).toMatch(/^Jul\s+12,\s?2026$/);
 
 		const resultRo = formatCatalogDate('2026-07-11T22:00:00.000Z', 'ro');
-		expect(resultRo).toContain('iul.'); // July in Romanian
-		expect(resultRo).toMatch(/\b12\b/);
+		expect(resultRo).toBe('12 iul. 2026'); // day, short Romanian month (with period), year
+	});
+
+	it('formats a winter date in Romanian with full pattern', () => {
+		const result = formatCatalogDate('2026-01-15T14:30:00.000Z', 'ro');
+		expect(result).toMatch(/^\d{1,2} [a-z]+\. \d{4}$/); // day short-month-with-period year
+		expect(result).toBe('15 ian. 2026'); // January in Romanian
 	});
 
 	it('formats UTC-midnight input in winter — same calendar day in Bucharest (UTC+2)', () => {

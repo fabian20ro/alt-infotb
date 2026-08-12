@@ -42,9 +42,6 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 
 	try {
 		const parsed = new URL(trimmed, 'http://localhost');
-		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-			throw new ApiError(`URL must use http or https scheme (${parsed.protocol})`, 0);
-		}
 		if (!parsed.hostname) {
 			throw new ApiError('URL is missing a hostname', 0);
 		}
