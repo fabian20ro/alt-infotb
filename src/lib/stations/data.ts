@@ -25,6 +25,14 @@ const BUCHAREST_BOUNDS = {
 /** The catalog is bundled and precached by the PWA; no second browser cache is needed. */
 export function loadStations(): Station[] {
 	const validated = catalog.stations.filter((station) => {
+		if (!Number.isFinite(station.lat)) {
+			console.warn(`Station ${station.id} has invalid latitude: ${station.lat}`);
+			return false;
+		}
+		if (!Number.isFinite(station.lon)) {
+			console.warn(`Station ${station.id} has invalid longitude: ${station.lon}`);
+			return false;
+		}
 		if (station.lat < BUCHAREST_BOUNDS.latMin || station.lat > BUCHAREST_BOUNDS.latMax) {
 			console.warn(`Station ${station.id} has invalid latitude: ${station.lat}`);
 			return false;
