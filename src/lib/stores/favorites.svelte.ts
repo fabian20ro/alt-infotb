@@ -24,25 +24,27 @@ function loadPinnedId(): number | null {
 	}
 }
 
-function persist(key: string, value: unknown): void {
-	try {
-		localStorage.setItem(key, JSON.stringify(value));
-	} catch {
-		// Silently fail
-	}
-}
 
-function removeItemSafely(key: string): void {
-	try {
-		localStorage.removeItem(key);
-	} catch {
-		// Silently fail
-	}
-}
 
 export function createFavoritesStore() {
 	let favorites = $state<Station[]>(loadFavorites());
 	let pinnedId = $state<number | null>(loadPinnedId());
+
+	function persist(key: string, value: unknown): void {
+		try {
+			localStorage.setItem(key, JSON.stringify(value));
+		} catch {
+			// Silently fail — state already updated
+		}
+	}
+
+	function removeItemSafely(key: string): void {
+		try {
+			localStorage.removeItem(key);
+		} catch {
+			// Silently fail
+		}
+	}
 
 	function isValidStation(station: unknown): station is Station {
 		return (
