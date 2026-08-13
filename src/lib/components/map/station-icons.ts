@@ -8,7 +8,7 @@ const TYPE_COLORS: Record<string, string> = {
 	SUBWAY: '#1D1D1B'
 };
 
-const DEFAULT_COLOR = '#888888';
+const DEFAULT_COLOR = '#4cc9f0';
 
 /** Base size for the selected (highlighted) station icon */
 const SELECTED_SIZE = 28;
