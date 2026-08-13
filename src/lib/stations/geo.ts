@@ -35,7 +35,8 @@ export function findNearestStations(
 	lat: number,
 	lon: number,
 	stations: readonly Station[],
-	count = 15
+	count = 15,
+	maxDistanceMeters?: number
 ): StationWithDistance[] {
 	// Accumulate candidates within expanding bounding box (~2km ≈ 0.018°)
 	const seen = new Set<number>();
@@ -55,10 +56,16 @@ export function findNearestStations(
 	const candidates = [...seen].map((id) => stations.find((s) => s.id === id)!);
 
 	// Calculate distances for candidates
-	const withDistance: StationWithDistance[] = candidates.map((s) => ({
+	let withDistance: StationWithDistance[] = candidates.map((s) => ({
 		...s,
 		distanceMeters: distanceMeters(lat, lon, s.lat, s.lon)
 	}));
+
+	if (maxDistanceMeters !== undefined && isFinite(maxDistanceMeters)) {
+		withDistance = withDistance.filter(
+			(d) => d.distanceMeters <= maxDistanceMeters
+		);
+	}
 
 	// Sort by distance and take top N
 	withDistance.sort((a, b) => a.distanceMeters - b.distanceMeters);
