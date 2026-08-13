@@ -74,10 +74,6 @@ export function createGeolocationStore() {
 		watching = false;
 	}
 
-	function setPermission(p: 'granted' | 'denied' | 'prompt') {
-		permission = p;
-	}
-
 	return {
 		get position() { return position; },
 		get error() { return error; },
@@ -85,7 +81,6 @@ export function createGeolocationStore() {
 		get watching() { return watching; },
 		getCenter,
 		startWatching,
-		stopWatching,
-		setPermission
+		stopWatching
 	};
 }
