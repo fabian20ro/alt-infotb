@@ -127,6 +127,21 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toMatchObject({ status: 429 });
 	});
 
+	it('includes Retry-After header value in 429 error hint', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: false,
+				status: 429,
+				headers: new Map([['retry-after', '30']])
+			})
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(/HTTP 429 \(Too many requests\), retry in 30/);
+		await expect(promise).rejects.toMatchObject({ status: 429 });
+	});
+
 	it('throws helpful error on 404', async () => {
 		vi.stubGlobal(
 			'fetch',
