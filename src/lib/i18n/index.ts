@@ -8,12 +8,13 @@ export function setLanguage(lang: Lang): void {
 }
 
 export function t(key: TranslationKey, params?: Record<string, string | number>): string {
+	const p = params ?? {};
 	const value = translations[currentLang][key];
 
 	if (value === undefined) {
 		console.warn(`[i18n] Missing translation for "${String(key)}" in lang "${currentLang}"`);
 		const fallback = translations.ro[key];
-		if (fallback !== undefined) return formatTranslation(fallback, params ?? {});
+		if (fallback !== undefined) return formatTranslation(fallback, p);
 		console.error(
 			`[i18n] FATAL: missing translation key "${String(key)}" in both current lang and Romanian fallback. ` +
 				`Returning raw key — this indicates a broken or incomplete translation bundle.`
@@ -21,6 +22,6 @@ export function t(key: TranslationKey, params?: Record<string, string | number>)
 		return String(key);
 	}
 
-	const translated = formatTranslation(value, params ?? {});
+	const translated = formatTranslation(value, p);
 	return translated;
 }
