@@ -44,6 +44,8 @@ export function loadStations(): Station[] {
 		return true;
 	});
 
+	validated.sort((a, b) => a.id - b.id);
+
 	if (validated.length !== catalog.stations.length) {
 		console.warn(
 			`Filtered out ${catalog.stations.length - validated.length} stations with invalid coordinates from TPBI catalog v${catalog.feedVersion}`
