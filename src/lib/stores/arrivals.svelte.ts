@@ -316,7 +316,7 @@ export function createArrivalsStore() {
 	}
 
 	function selectLine(arrival: ArrivalInfo) {
-		const key = getArrivalSelectionKey(arrival);
+		const key = `${arrival.lineId}|${arrival.vehicleType}|${arrival.directionId}|${arrival.sourceStopId}`;
 		if (routeState?.key === key) {
 			clearLine();
 			return;
