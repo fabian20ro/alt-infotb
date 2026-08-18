@@ -31,3 +31,8 @@ for (const key of Object.keys(TILE_CONFIGS)) {
 		throw new Error(`Unknown tile theme "${key}" declared in TILE_CONFIGS but missing from TILE_THEMES`);
 	}
 }
+for (const key of TILE_THEMES) {
+	if (!(key in TILE_CONFIGS)) {
+		throw new Error(`Tile theme "${key}" declared in TILE_THEMES but missing from TILE_CONFIGS`);
+	}
+}
