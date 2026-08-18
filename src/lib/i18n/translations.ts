@@ -40,7 +40,7 @@ export const translations = {
 		dataUnavailable: 'date indisponibile',
 		towards: 'Spre',
 		routeOverview: 'Vezi întregul traseu',
-		closeRoute: 'Închide traseul'
+		closeRoute: 'Închide traseul',
 	},
 	en: {
 		appTitle: 'Alt InfoTB',
