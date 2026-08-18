@@ -4,7 +4,7 @@ import L from 'leaflet';
 export function createUserIcon(): L.DivIcon {
 	const icon = L.divIcon({
 		className: 'user-location-marker',
-		html: `<style>@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.25);opacity:.7}}@media(prefers-reduced-motion:reduce){.user-location-marker div{animation:none}}</style><div style="
+		html: `<div style="
 			width: 16px;
 			height: 16px;
 			border-radius: 50%;
