@@ -19,40 +19,42 @@ interface VariantOpts {
 	shadows: string;
 }
 
-/** Build a station marker icon from variant parameters */
-function buildVariant(opts: VariantOpts): L.DivIcon {
-	const s = opts.baseSize + 6;
+/** Create a circle marker icon for a station, colored by transport type */
+export function createStationIcon(vehicleType?: string): L.DivIcon {
+	const normalized = String(vehicleType ?? '').trim().toUpperCase();
+	const color = TYPE_COLORS[normalized] ?? DEFAULT_COLOR;
+	const s = 30;
 	return L.divIcon({
-		className: `station-marker${opts.baseSize === SELECTED_SIZE ? '-selected' : ''}`,
+		className: 'station-marker',
 		html: `<div style="
-			width: ${opts.baseSize}px;
-			height: ${opts.baseSize}px;
+			width: 24px;
+			height: 24px;
 			border-radius: 50%;
-			background: ${opts.color};
+			background: ${color};
 			border: 3px solid white;
-			box-shadow: ${opts.shadows};
+			box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 		"></div>`,
 		iconSize: [s, s],
 		iconAnchor: [Math.round(s / 2), Math.round(s / 2)]
 	});
 }
 
-/** Create a circle marker icon for a station, colored by transport type */
-export function createStationIcon(vehicleType?: string): L.DivIcon {
-	const normalized = String(vehicleType ?? '').trim().toUpperCase();
-	return buildVariant({
-		color: TYPE_COLORS[normalized] ?? DEFAULT_COLOR,
-		baseSize: 24,
-		shadows: '0 1px 3px rgba(0,0,0,0.4)'
-	});
-}
-
 /** Create a selected station icon (slightly larger than normal, with subtle glow) */
 export function createSelectedStationIcon(): L.DivIcon {
-	return buildVariant({
-		color: '#4cc9f0',
-		baseSize: SELECTED_SIZE,
-		shadows: '0 0 0 3px rgba(76, 201, 240, 0.3), 0 1px 4px rgba(0,0,0,0.4)'
+	const color = '#4cc9f0';
+	const s = SELECTED_SIZE + 6;
+	return L.divIcon({
+		className: 'station-marker-selected',
+		html: `<div style="
+			width: ${SELECTED_SIZE}px;
+			height: ${SELECTED_SIZE}px;
+			border-radius: 50%;
+			background: ${color};
+			border: 3px solid white;
+			box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.3), 0 1px 4px rgba(0,0,0,0.4);
+		"></div>`,
+		iconSize: [s, s],
+		iconAnchor: [Math.round(s / 2), Math.round(s / 2)]
 	});
 }
 

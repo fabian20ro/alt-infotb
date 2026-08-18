@@ -86,6 +86,7 @@ function ensureStore(): void {
 }
 
 export function getSettings(): { theme: Theme; lang: Lang } {
+	ensureStore();
 	return { theme: _store!.theme, lang: _store!.lang };
 }
 

@@ -259,6 +259,17 @@ describe('searchStations', () => {
 		expect(results.map(s => s.id)).toEqual([1]);
 	});
 
+	it('matches query as substring within a single word without space boundaries (score 30 path)', () => {
+		// Verifies detectMatchType falls back to name.includes(query) returning score 30
+		// when the query appears inside a station name but not at any word boundary.
+		const stations: Station[] = [
+			{ id: 1, name: 'Transport', description: '', lat: 0, lon: 0 },
+		];
+		const results = searchStations('spo', stations);
+		expect(results).toHaveLength(1);
+		expect(results[0].id).toBe(1);
+	});
+
 	it('scores all-words match with name+description split correctly', () => {
 		const stations: Station[] = [
 			{ id: 1, name: 'Hello World', description: '', lat: 0, lon: 0 },              // 2 word matches in name → 10 + 2*5 = 20
