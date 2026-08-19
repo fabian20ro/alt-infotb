@@ -17,17 +17,7 @@ function loadRecents(): Station[] {
 	}
 }
 
-type PersistErrorCallback = (error: unknown) => void;
-
-function persistRecents(recents: Station[], onError?: PersistErrorCallback): void {
-	try {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(recents));
-	} catch (err) {
-		if (onError) onError(err);
-	}
-}
-
-export function createRecentsStore(persistError?: PersistErrorCallback) {
+export function createRecentsStore(persistError?: (error: unknown) => void) {
 	let recents = $state<Station[]>(loadRecents());
 
 	/** Add a station to recents (moves to front if already present) */
@@ -35,7 +25,11 @@ export function createRecentsStore(persistError?: PersistErrorCallback) {
 		if (!isValidStation(station)) return;
 		const filtered = recents.filter((r) => r.id !== station.id);
 		recents = [station, ...filtered].slice(0, MAX_RECENTS);
-		persistRecents(recents, persistError);
+		try {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(recents));
+		} catch (err) {
+			if (persistError) persistError(err);
+		}
 	}
 
 	/** Get recents excluding stations that are in favorites */

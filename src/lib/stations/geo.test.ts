@@ -132,6 +132,17 @@ describe('geo', () => {
 			expect(nearest[0].id).toBe(41); // closer by distance
 			expect(nearest[1].id).toBe(40); // found after expansion
 		});
+
+		it('filters out stations beyond maxDistanceMeters', () => {
+			const stations: Station[] = [
+				{ id: 60, name: 'Near', description: '', lat: 44.41, lon: 26.1 },   // ~1 km
+				{ id: 61, name: 'Far', description: '', lat: 45.0, lon: 27.0 },     // ~80 km
+			];
+			const nearest = findNearestStations(44.4, 26.1, stations, 2, 5_000);
+
+			expect(nearest).toHaveLength(1);
+			expect(nearest[0].id).toBe(60); // only the near station passes the distance filter
+		});
 	});
 
 	describe('findStationsInBounds', () => {
