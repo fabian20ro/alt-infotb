@@ -22,6 +22,24 @@ export function t(key: TranslationKey, params?: Record<string, string | number>)
 		return String(key);
 	}
 
+	const PLACEHOLDER_RE = /\{(\\w+)\}/g;
+	const placeholderKeys = new Set<string>();
+	let m: RegExpExecArray | null;
+	PLACEHOLDER_RE.lastIndex = 0;
+	while ((m = PLACEHOLDER_RE.exec(value)) !== null) {
+		placeholderKeys.add(m[1]);
+	}
+
+	if (placeholderKeys.size > 0) {
+		const dangling = Object.keys(p).filter((k) => !placeholderKeys.has(k));
+		if (dangling.length > 0) {
+			console.warn(
+				`[i18n] Dangling translation params for key "${String(key)}" in lang "${currentLang}": ` +
+					`${JSON.stringify(dangling)}. Template placeholders: ${[...placeholderKeys].join(', ')}.`
+			);
+		}
+	}
+
 	const translated = formatTranslation(value, p);
 	return translated;
 }
