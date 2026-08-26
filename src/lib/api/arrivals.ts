@@ -1,4 +1,5 @@
 import { apiFetchBinary, ApiError } from './client.js';
+import { getArrivalTimeWords } from '$lib/i18n/index.js';
 import { API, PROTO_FIELDS, MAX_ARRIVAL_SECONDS, MAX_ARRIVALS_PER_LINE } from './constants.js';
 import {
 	ProtoReader,

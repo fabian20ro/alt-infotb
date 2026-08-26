@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ApiError } from './client.js';
 import { formatArrivalTime, formatTime, decodePolyline } from './arrivals.js';
+import { setLanguage } from '$lib/i18n/index.js';
 
 /** Protobuf encoding helpers */
 function encodeVarint(value: number): number[] {

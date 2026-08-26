@@ -7,6 +7,25 @@ export function setLanguage(lang: Lang): void {
 	currentLang = lang;
 }
 
+/**
+ * Words used to compose short arrival-time labels (e.g. "1 oră, 30 min").
+ * Kept here so the i18n module stays the single source for language switching.
+ */
+const ARRIVAL_TIME_WORDS: Record<
+	'ro' | 'en',
+	{ now: string; min: string; hour: string; hours: string; overDay: string }
+> = {
+	ro: { now: 'acum', min: 'min', hour: 'oră', hours: 'ore', overDay: 'peste o zi' },
+	en: { now: 'now', min: 'min', hour: 'hour', hours: 'hours', overDay: 'over a day' }
+};
+
+export type ArrivalTimeWords = (typeof ARRIVAL_TIME_WORDS)['ro'];
+
+/** Arrival-time words for the currently selected UI language. */
+export function getArrivalTimeWords(): ArrivalTimeWords {
+	return ARRIVAL_TIME_WORDS[currentLang];
+}
+
 export function t(key: TranslationKey, params?: Record<string, string | number>): string {
 	const p = params ?? {};
 	const value = translations[currentLang][key];
