@@ -40,36 +40,31 @@ export function findNearestStations(
 ): StationWithDistance[] {
 	// Accumulate candidates within expanding bounding box (~2km ≈ 0.018°)
 	const seen = new Set<number>();
+	const candidates: Station[] = [];
 	let radiusDeg = 0.018;
 
-	while (seen.size < count && radiusDeg < 2.0) {
+	while (candidates.length < count && radiusDeg < 2.0) {
 		for (const s of stations) {
 			if (!seen.has(s.id) &&
 				Math.abs(s.lat - lat) < radiusDeg &&
 				Math.abs(s.lon - lon) < radiusDeg) {
 				seen.add(s.id);
+				candidates.push(s);
 			}
 		}
 		radiusDeg *= 2;
 	}
 
-	const candidates = [...seen].map((id) => stations.find((s) => s.id === id)!);
+	const limit =
+		maxDistanceMeters !== undefined && isFinite(maxDistanceMeters)
+			? maxDistanceMeters
+			: Infinity;
 
-	// Calculate distances for candidates
-	let withDistance: StationWithDistance[] = candidates.map((s) => ({
-		...s,
-		distanceMeters: distanceMeters(lat, lon, s.lat, s.lon)
-	}));
-
-	if (maxDistanceMeters !== undefined && isFinite(maxDistanceMeters)) {
-		withDistance = withDistance.filter(
-			(d) => d.distanceMeters <= maxDistanceMeters
-		);
-	}
-
-	// Sort by distance and take top N
-	withDistance.sort((a, b) => a.distanceMeters - b.distanceMeters);
-	return withDistance.slice(0, count);
+	return candidates
+		.map((s) => ({ ...s, distanceMeters: distanceMeters(lat, lon, s.lat, s.lon) }))
+		.filter((d) => d.distanceMeters <= limit)
+		.sort((a, b) => a.distanceMeters - b.distanceMeters)
+		.slice(0, count);
 }
 
 /**
