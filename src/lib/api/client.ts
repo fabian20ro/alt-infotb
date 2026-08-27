@@ -82,6 +82,15 @@ export async function apiFetchBinary(url: string): Promise<Uint8Array> {
 
 		const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB hard cap on response body
 
+		// Fail fast on an oversized declared size before allocating the body
+		const declaredLength = response.headers?.get('content-length');
+		if (declaredLength !== null) {
+			const declaredBytes = Number(declaredLength);
+			if (Number.isFinite(declaredBytes) && declaredBytes > MAX_RESPONSE_BYTES) {
+				throw new ApiError(`Response exceeds maximum size (${MAX_RESPONSE_BYTES} bytes)`, 0);
+			}
+		}
+
 		const buf = await response.arrayBuffer();
 		if (!(buf instanceof ArrayBuffer)) {
 			throw new ApiError('Response data unavailable: invalid buffer type', 0);
