@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
 	ProtoReader,
 	ProtoParseError,
+	decodeFixed32Float,
+	getFixed32Float,
 	decodeFixed64Double,
 	getFixed64Double,
 	getVarbool,
@@ -555,5 +557,28 @@ describe('fixed64 doubles', () => {
 		const data = new Uint8Array(8);
 		expect(() => decodeFixed64Double(data, 1)).toThrow(ProtoParseError);
 		expect(getFixed64Double(new Map(), 2, data)).toBeUndefined();
+	});
+});
+
+describe('fixed32 floats', () => {
+	it('decodes a little-endian fixed32 float from a protobuf field offset', () => {
+		// Wire type 5 (32-bit fixed) stores the payload start index; the payload decodes as little-endian float32.
+		const payload = new Uint8Array(4);
+		new DataView(payload.buffer).setFloat32(0, 3.25, true);
+		const data = new Uint8Array([0x0d, ...payload]); // field 1, wire type 5, tag = 13
+		const fields = new ProtoReader(data).readAllFields();
+
+		expect(getFixed32Float(fields, 1, data)).toBeCloseTo(3.25, 5);
+		expect(decodeFixed32Float(data, 1)).toBeCloseTo(3.25, 5);
+	});
+
+	it('rejects invalid offsets and returns undefined for an absent field', () => {
+		// Offsets outside the 4-byte payload window are rejected; a missing field number yields undefined.
+		const data = new Uint8Array(4);
+		expect(() => decodeFixed32Float(data, 1)).toThrow(ProtoParseError);
+		expect(() => decodeFixed32Float(data, -1)).toThrow(ProtoParseError);
+		expect(() => decodeFixed32Float(data, 0.5)).toThrow(ProtoParseError);
+		expect(decodeFixed32Float(data, 0)).toBeCloseTo(0, 5);
+		expect(getFixed32Float(new Map(), 1, data)).toBeUndefined();
 	});
 });
