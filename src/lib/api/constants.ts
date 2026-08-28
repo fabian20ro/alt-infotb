@@ -34,15 +34,13 @@ export function createStbServerHeaders(appId: string): Record<string, string> {
 	};
 }
 
-function _resolveApiBase(): string {
-	if (import.meta.env?.DEV) return '/stb-api';
-	if (import.meta.env?.VITE_STB_API_BASE) return import.meta.env.VITE_STB_API_BASE;
-	return 'https://info.stb.ro/api/web/v2-6';
-}
-
 /** STB API configuration */
 export const API = {
-	get BASE(): string { return _resolveApiBase(); },
+	get BASE(): string {
+		if (import.meta.env?.DEV) return '/stb-api';
+		if (import.meta.env?.VITE_STB_API_BASE) return import.meta.env.VITE_STB_API_BASE;
+		return 'https://info.stb.ro/api/web/v2-6';
+	},
 	TIMEOUT: 10_000,
 	/** Browser never sends custom headers — the proxy injects them server-side */
 	HEADERS: {} as Record<string, string>
