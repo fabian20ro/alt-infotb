@@ -28,6 +28,28 @@ describe('normalize', () => {
 	});
 });
 
+describe('normalize street-type synonyms', () => {
+	it('equates bulevard full name with its catalog abbreviation', () => {
+		expect(normalize('Bulevard Decebal')).toBe(normalize('Bld. Decebal'));
+	});
+
+	it('equates bulevardul with blvd', () => {
+		expect(normalize('Bulevardul Unirii')).toBe(normalize('Blvd. Unirii'));
+	});
+
+	it('equates strada with str', () => {
+		expect(normalize('Strada Stefan cel Mare')).toBe(normalize('Str. Stefan cel Mare'));
+	});
+
+	it('equates drumul with drm', () => {
+		expect(normalize('Drumul Gura Călmățui')).toBe(normalize('Drm. Gura Călmățui'));
+	});
+
+	it('does not alter unrelated street names', () => {
+		expect(normalize('Piata Unirii')).toBe('piata unirii');
+	});
+});
+
 describe('searchStations', () => {
 	const stations: Station[] = [
 		{ id: 1, name: 'A', description: 'This is a description', lat: 0, lon: 0 },
