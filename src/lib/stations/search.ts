@@ -1,15 +1,34 @@
 import type { Station } from './types.js';
 
+/** Canonical token for each Romanian street-type word/abbreviation. Every synonym
+ *  in a family maps to the same token so a full street name matches its abbreviation. */
+const STREET_TYPE_SYNONYMS: Record<string, string> = {
+	// Bulevard family
+	bulevard: 'bld',
+	bulevardul: 'bld',
+	bld: 'bld',
+	blvd: 'bld',
+	// Stradă family
+	strada: 'str',
+	str: 'str',
+	// Drum family
+	drum: 'drum',
+	drumul: 'drum',
+	drm: 'drum',
+};
+
 export function normalize(text: string): string {
 	let res = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 	// Handle acronyms like C.F.R. or C. F. R.
 	// Match: start of word, then (dot, optional space, letter/number) repeated, then optional dot.
 	res = res.replace(/\b[a-z0-9](?:[\.\-\s]+[a-z0-9])*[\.\-]*[a-z0-9]*/gi, (m) => m.replace(/[\s\.\-]/g, ''));
-	return res
+	const normalized = res
 		.replace(/[^a-z0-9\s]/gi, ' ')
 		.replace(/\s+/g, ' ')
 		.trim()
 		.toLowerCase();
+	// Equate Romanian street-type words with their catalog abbreviations.
+	return normalized.split(' ').map(w => STREET_TYPE_SYNONYMS[w] ?? w).join(' ');
 }
 
 /** Detect the highest-priority match type between a normalized query and station fields.
