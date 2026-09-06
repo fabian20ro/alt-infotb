@@ -175,4 +175,8 @@ describe('station catalog generator', () => {
 
 		expect(stations.map((station) => station.id)).toEqual([42]);
 	});
+
+	it('throws on an unterminated quoted CSV field', () => {
+		expect(() => parseCsvLine('"abc,def')).toThrow('Unterminated quoted CSV field');
+	});
 });
