@@ -73,4 +73,28 @@ describe('formatCatalogDate', () => {
 		expect(resultRo).toContain('iun.'); // June in Romanian
 		expect(resultRo).toMatch(/\b20\b/);
 	});
+
+	it('prepends the abbreviated weekday in English when requested', () => {
+		// January 15, 2026 is a Thursday
+		const result = formatCatalogDate('2026-01-15T14:30:00.000Z', 'en', false, true);
+		expect(result).toMatch(/^Thu,? Jan 15, 2026$/);
+	});
+
+	it('prepends the abbreviated weekday in Romanian when requested', () => {
+		const result = formatCatalogDate('2026-01-15T14:30:00.000Z', 'ro', false, true);
+		expect(result).toContain('joi'); // Romanian short weekday for Thursday
+		expect(result).toContain('15 ian. 2026');
+	});
+
+	it('omits the weekday when withWeekday is omitted or false', () => {
+		const enDefault = formatCatalogDate('2026-01-15T14:30:00.000Z', 'en');
+		const enFalse = formatCatalogDate('2026-01-15T14:30:00.000Z', 'en', false, false);
+		expect(enDefault).toBe(enFalse);
+		expect(enDefault).toBe('Jan 15, 2026');
+
+		const roDefault = formatCatalogDate('2026-01-15T14:30:00.000Z', 'ro');
+		const roFalse = formatCatalogDate('2026-01-15T14:30:00.000Z', 'ro', false, false);
+		expect(roDefault).toBe(roFalse);
+		expect(roDefault).toBe('15 ian. 2026');
+	});
 });
