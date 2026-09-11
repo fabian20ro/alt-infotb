@@ -1,6 +1,6 @@
 const LOCALE_MAP: Record<'ro' | 'en', string> = { ro: 'ro-RO', en: 'en-US' };
 
-export function formatCatalogDate(timestamp: string, lang: 'ro' | 'en', withTime: boolean = false): string {
+export function formatCatalogDate(timestamp: string, lang: 'ro' | 'en', withTime: boolean = false, withWeekday: boolean = false): string {
 	const locale = LOCALE_MAP[lang];
 	if (!locale) return '';
 	const date = new Date(timestamp);
@@ -9,6 +9,7 @@ export function formatCatalogDate(timestamp: string, lang: 'ro' | 'en', withTime
 		day: 'numeric',
 		month: 'short',
 		year: 'numeric',
+		weekday: withWeekday ? 'short' : undefined,
 		timeZone: 'Europe/Bucharest'
 	}).format(date);
 	if (!withTime) return base;
