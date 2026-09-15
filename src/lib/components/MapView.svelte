@@ -164,19 +164,30 @@
 
 				const marker = L.marker([station.lat, station.lon], {
 					icon,
-					title: station.name,
 					alt: station.name
 				})
 					.addTo(map!)
-					.on('click', () => onStationSelect(station));
+					.on('click', () => onStationSelect(station))
+					.on('keydown', (event: L.LeafletKeyboardEvent) => {
+						// Leaflet DivIcons are focusable role=button elements, not native buttons.
+						const key = event.originalEvent.key;
+						if (key === 'Enter' || key === ' ') {
+							event.originalEvent.preventDefault();
+							onStationSelect(station);
+						}
+					});
 
 				marker.bindTooltip(station.name, {
+					className: 'station-name-tooltip',
+					interactive: false,
 					direction: 'top',
 					offset: [0, -16]
 				});
 
 				markerCache.set(station.id, marker);
 			}
+			// setIcon may replace the DivIcon DOM node. Its name must survive selection changes.
+			markerCache.get(station.id)?.getElement()?.setAttribute('aria-label', station.name);
 		}
 
 		currentSelectedId = selectedStationId;
@@ -586,6 +597,19 @@
 
 	:global(.user-location-marker) {
 		pointer-events: none !important;
+	}
+
+	:global(.station-name-tooltip) {
+		pointer-events: none;
+	}
+
+	/* Touch has no hover exit: Leaflet opens labels on tap and leaves them over nearby stops.
+	 * The selected name remains in the station header; desktop hover/focus keeps its label.
+	 * CSS also follows input-capability changes without rebinding Leaflet event handlers. */
+	@media (hover: none), (pointer: coarse) {
+		:global(.station-name-tooltip) {
+			display: none;
+		}
 	}
 
 	.route-mode :global(.station-marker) {

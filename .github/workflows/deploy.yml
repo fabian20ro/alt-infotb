@@ -86,6 +86,27 @@ jobs:
         if: steps.station_catalog.outputs.should_build == 'true'
         run: npm run build
 
+      - name: Install map-test browsers
+        if: steps.station_catalog.outputs.should_build == 'true'
+        timeout-minutes: 10
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Verify map interactions
+        id: map_browser
+        if: steps.station_catalog.outputs.should_build == 'true'
+        timeout-minutes: 10
+        run: npm run test:e2e:map
+
+      - name: Retain failing map evidence
+        if: failure() && steps.map_browser.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-browser-failure
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 3
+
       - name: Commit refreshed station catalog
         if: steps.station_catalog.outputs.changed == 'true'
         run: |

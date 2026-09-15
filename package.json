@@ -15,6 +15,7 @@
 		"test:watch": "vitest --exclude '**/*.integration.test.ts' --exclude 'e2e/**'",
 		"test:integration": "vitest run --config vitest.integration.config.ts",
 		"test:e2e": "playwright test",
+		"test:e2e:map": "playwright test e2e/map-touch.spec.ts e2e/route-map.spec.ts",
 		"test:e2e:ui": "playwright test --ui",
 		"stations:generate": "node scripts/fetch-stations.ts"
 	},

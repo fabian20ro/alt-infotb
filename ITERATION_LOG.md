@@ -835,3 +835,14 @@ Each entry should follow this structure:
 **Outcome:** Success — browser hit-testing at an overlapping Piata Unirii marker reached the station, the recenter control rendered enabled at full opacity, 504 unit tests passed, the production build succeeded, and all four mocked desktop/mobile route-map E2E tests passed.
 **Insight:** Informational map overlays should opt out of pointer and keyboard interaction at the Leaflet layer; development-mode browser verification catches route-option incompatibilities that static builds can miss.
 **Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-09-15] Touch station-label policy and real-map regression gate
+
+**Context:** User reported a floating station name covering the station behind it on a small map. Current Leaflet labels already had noninteractive pointer behavior; the exact user's device, station pair and installed PWA version were unavailable.
+**What happened:** Reproduced with the real MapView/Leaflet component, two nearby stations and a colocated user dot. Baseline A→B→A taps passed, including vertically overlapping marker boxes: label interception was not reproduced. Persistent visual labels failed the new mobile contract; keyboard Enter selection also failed because Leaflet DivIcons are not native buttons. Added input-capability station-label suppression, explicit noninteractive tooltips, durable accessible names after icon replacement, and Enter/Space selection. Preserved marker dimensions, stacking and the approved recents feature. Added deterministic browser fixtures, a shared map-test command and a bounded CI gate with failure-only three-day artifacts. Corrected existing route tests to inspect settled viewport-relative coordinates rather than marker-local styles.
+**Outcome:** Check: zero diagnostics; unit: 532 passed; production build passed. Browser gate repeated twice: 26 passed, 10 intentional device-specific skips, workers=1, across Chromium desktop, Chromium mobile and mobile WebKit. Production fixtures remain excluded from app routes/build. Existing external API calls are mocked and tile/badge dependencies blocked in the selected browser suites.
+**Limitations:** No push/deployment or real-device installed-PWA verification. No claim that all densely overlapping marker taps are fixed: the supplied fixture's actual taps already worked before this change. User's precise station/device scenario still needs comparison if the issue persists after deployment.
+**Insight:** A visual repair and a pointer-event RCA are different assertions; keep separate failing contracts and actual hit-testing evidence.
+**Promoted to Lessons Learned:** Yes
