@@ -32,6 +32,18 @@ export function createRecentsStore(persistError?: (error: unknown) => void) {
 		}
 	}
 
+	/** Remove a station from recents by ID */
+	function remove(id: number) {
+		const filtered = recents.filter((r) => r.id !== id);
+		if (filtered.length === recents.length) return;
+		recents = filtered;
+		try {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(recents));
+		} catch (err) {
+			if (persistError) persistError(err);
+		}
+	}
+
 	/** Get recents excluding stations that are in favorites */
 	function getExcluding(favoriteIds: Set<number>): Station[] {
 		return recents.filter((r) => !favoriteIds.has(r.id));
@@ -40,6 +52,7 @@ export function createRecentsStore(persistError?: (error: unknown) => void) {
 	return {
 		get recents() { return recents; },
 		add,
+		remove,
 		getExcluding
 	};
 }
