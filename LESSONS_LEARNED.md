@@ -79,6 +79,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Testing & Quality
 
+**[2026-09-15]** Separate visual occlusion from hit interception on Leaflet maps — A touch-opened station tooltip can cover another stop while its `pointer-events:none` still allows A→B→A taps. Verify `elementFromPoint` at real visible targets before changing z-index or hit areas. Station labels now follow input capabilities (hidden on coarse/no-hover input), while explicit `aria-label` and Enter/Space activation keep DivIcon buttons usable after `setIcon` replaces their DOM nodes.
+
+**[2026-09-15]** Observe a settled map viewport relative to its container — Leaflet pans parent panes, so marker-local style strings can remain unchanged during real movement. Wait for pan/zoom animation completion, then compare marker bounding coordinates minus map-container coordinates; a route-status panel layout shift is not a map pan. Do not rebuild `.svelte-kit` concurrently with browser tests, because HMR can invalidate an otherwise valid interaction.
+
 **[2026-02-14]** Protobuf tests need encoding helpers — Tests for the protobuf decoder require building valid binary messages. Use `encodeVarint`, `encodeStringField`, `encodeVarintField`, and `encodeMessageField` helpers (defined in `proto.test.ts`) to construct test fixtures.
 
 **[2026-02-15]** E2E tests must run serially (1 worker) — Playwright tests hit the Vite dev proxy which makes real API calls. Running multiple workers in parallel causes auth token race conditions and 15s timeouts. Set `workers: 1` in `playwright.config.ts`.

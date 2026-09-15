@@ -1,9 +1,21 @@
 import { expect, test, type Page } from '@playwright/test';
 
+test.beforeEach(async ({ page, baseURL }) => {
+	// Geometry/selection tests use mocked arrivals; external tiles/badges are not prerequisites.
+	const origin = new URL(baseURL!).origin;
+	await page.route('**/*', (route) => new URL(route.request().url()).origin === origin
+		? route.continue() : route.abort());
+});
+
 async function mapViewportSignature(page: Page): Promise<string | null> {
 	const selectedStationMarker = page.locator('.station-marker-selected');
 	await expect(selectedStationMarker).toHaveCount(1);
-	return selectedStationMarker.getAttribute('style');
+	await expect(page.locator('.leaflet-pan-anim, .leaflet-zoom-anim')).toHaveCount(0);
+	// Leaflet can pan the parent pane without changing a marker's local transform.
+	// Observe rendered coordinates within the map, excluding the route-status panel's layout shift.
+	const box = await selectedStationMarker.boundingBox();
+	const mapBox = await page.locator('.map-container').boundingBox();
+	return box && mapBox ? JSON.stringify({ x: box.x - mapBox.x, y: box.y - mapBox.y }) : null;
 }
 
 function encodeVarint(value: number): number[] {

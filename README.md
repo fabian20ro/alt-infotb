@@ -55,7 +55,18 @@ npm run dev
 
 ```bash
 npm test
+
+# Deterministic browser map checks; no STB credentials or external services needed
+npx playwright install chromium webkit
+npm run test:e2e:map
 ```
+
+Map checks run serially on desktop Chromium, mobile Chromium and mobile WebKit.
+Playwright starts Vite in `--mode test`, which permits the isolated component fixtures;
+stop a normal dev server already using port 5173 before running them, or start it in test mode.
+Do not run a production build concurrently with browser tests: rebuilding `.svelte-kit` can
+reload the development page during an interaction. CI runs these steps sequentially and
+retains browser failure evidence for three days. Installed-device/PWA update checks remain manual.
 
 ## Build
 

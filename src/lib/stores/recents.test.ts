@@ -215,4 +215,37 @@ describe('recents store', () => {
 		store.add(a);
 		expect(store.recents.map((r) => r.id)).toEqual([10]);
 	});
+
+	it('remove deletes the station with the given ID and persists the update', async () => {
+		const a = { id: 14718, name: 'A', description: '', lat: 44.4, lon: 26.1 };
+		const b = { id: 20, name: 'B', description: '', lat: 44.4, lon: 26.1 };
+		const c = { id: 30, name: 'C', description: '', lat: 44.4, lon: 26.1 };
+
+		const { createRecentsStore } = await import('./recents.svelte.js');
+		const store = createRecentsStore();
+		store.add(a);
+		store.add(b);
+		store.add(c);
+		expect(store.recents.map((r) => r.id)).toEqual([30, 20, 14718]);
+
+		store.remove(14718);
+		expect(store.recents.map((r) => r.id)).toEqual([30, 20]);
+
+		const raw = JSON.parse(localStorage.getItem('alt-stb-recents')!);
+		expect(raw.map((r: any) => r.id)).toEqual([30, 20]);
+	});
+
+	it('remove is a no-op when the ID is not in recents', async () => {
+		const a = { id: 10, name: 'A', description: '', lat: 44.4, lon: 26.1 };
+
+		const { createRecentsStore } = await import('./recents.svelte.js');
+		const store = createRecentsStore();
+		store.add(a);
+
+		expect(() => store.remove(99999)).not.toThrow();
+		expect(store.recents.map((r) => r.id)).toEqual([10]);
+
+		const raw = JSON.parse(localStorage.getItem('alt-stb-recents')!);
+		expect(raw.map((r: any) => r.id)).toEqual([10]);
+	});
 });

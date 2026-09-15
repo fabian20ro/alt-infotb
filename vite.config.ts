@@ -89,6 +89,8 @@ export default defineConfig(({ mode }) => {
 	}
 
 	return {
+		// Component browser fixtures are development-only; never part of the deployed routes.
+		server: mode === 'test' ? { fs: { allow: ['./e2e'] } } : undefined,
 		plugins: [
 			stbProxy(appId, appKey),
 			sveltekit(),
