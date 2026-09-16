@@ -10,7 +10,10 @@ import {
 	getVarint,
 	getMessages,
 	getString,
-	getVarints
+	getVarints,
+	decodeString,
+	getStringField,
+	getStrings
 } from './proto.js';
 
 describe('ProtoReader', () => {
@@ -580,5 +583,54 @@ describe('fixed32 floats', () => {
 		expect(() => decodeFixed32Float(data, 0.5)).toThrow(ProtoParseError);
 		expect(decodeFixed32Float(data, 0)).toBeCloseTo(0, 5);
 		expect(getFixed32Float(new Map(), 1, data)).toBeUndefined();
+	});
+});
+
+describe('string field helpers', () => {
+	it('decodeString decodes ASCII and multi-byte UTF-8, substituting invalid sequences', () => {
+		// "Hi" as ASCII; "é" = 0xC3 0xA9; a lone 0x80 is an invalid UTF-8
+		// sequence that TextDecoder replaces with U+FFFD instead of rejecting.
+		expect(decodeString(new Uint8Array([0x48, 0x69]))).toBe('Hi');
+		expect(decodeString(new Uint8Array([0xc3, 0xa9, 0x80]))).toBe('é\ufffd');
+	});
+
+	it('decodeString returns an empty string for a zero-length payload', () => {
+		expect(decodeString(new Uint8Array([]))).toBe('');
+	});
+
+	it('getStringField returns the first string value, skipping varint entries', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(2, [42, new Uint8Array([0x61, 0x62]), new Uint8Array([0x63])]);
+		expect(getStringField(fields, 2)).toBe('ab');
+	});
+
+	it('getStringField returns undefined for absent fields and varint-only fields', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [7, 8]);
+		expect(getStringField(fields, 1)).toBeUndefined();
+		expect(getStringField(fields, 99)).toBeUndefined();
+	});
+
+	it('getStringField returns an empty string for a zero-length payload', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(3, [new Uint8Array([])]);
+		expect(getStringField(fields, 3)).toBe('');
+	});
+
+	it('getStrings returns every string value in order, filtering non-string entries', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(4, [
+			new Uint8Array([0x41]), // "A"
+			99,
+			new Uint8Array([0x42, 0x43]), // "BC"
+		]);
+		expect(getStrings(fields, 4)).toEqual(['A', 'BC']);
+	});
+
+	it('getStrings returns an empty array when the field is absent or holds only varints', () => {
+		const fields = new Map<number, Array<number | Uint8Array>>();
+		fields.set(1, [1, 2]);
+		expect(getStrings(fields, 99)).toEqual([]);
+		expect(getStrings(fields, 1)).toEqual([]);
 	});
 });
