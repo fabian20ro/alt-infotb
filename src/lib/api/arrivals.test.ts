@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ApiError } from './client.js';
-import { formatArrivalTime, formatTime, decodePolyline } from './arrivals.js';
+import { formatArrivalTime, formatTime, decodePolyline, decodeStopResponse } from './arrivals.js';
 import { setLanguage } from '$lib/i18n/index.js';
 
 /** Protobuf encoding helpers */
@@ -1811,5 +1811,43 @@ describe('formatArrivalTime', () => {
 
 	it('throws on truncated encoded polyline input', () => {
 		expect(() => decodePolyline('_p')).toThrow(); // incomplete delta
+	});
+
+	describe('decodeStopResponse', () => {
+		it('keeps boundary times, drops out-of-range, dedupes and caps at MAX_ARRIVALS_PER_LINE', () => {
+			const data = buildStopResponse([
+				{
+					name: '30', id: 99, type: 'TRAM', color: '#BE1622', direction: 'Vitan',
+					directionId: 1,
+					arrivals: [
+						{ seconds: 7201 }, // above MAX_ARRIVAL_SECONDS (7200) -> dropped
+						{ seconds: 7200 }, // boundary -> kept
+						{ seconds: 60 },
+						{ seconds: 60 }, // duplicate -> deduped
+						{ seconds: 30 },
+						{ seconds: 900 },
+						{ seconds: 45 }
+					]
+				}
+			]);
+
+			const result = decodeStopResponse(data, 3570);
+
+			expect(result.stationName).toBe('Piata Unirii');
+			expect(result.arrivals).toHaveLength(1);
+			const line = result.arrivals[0];
+			expect(line.lineName).toBe('30');
+			expect(line.lineId).toBe(99);
+			expect(line.directionId).toBe(1);
+			expect(line.sourceStopId).toBe(3570);
+			expect(line.arrivingTimes).toEqual([30, 45, 60]);
+		});
+
+		it('returns an empty station without throwing on empty protobuf input', () => {
+			const result = decodeStopResponse(new Uint8Array(0), 1);
+			expect(result.stationName).toBe('');
+			expect(result.address).toBe('');
+			expect(result.arrivals).toEqual([]);
+		});
 	});
 });
