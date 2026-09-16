@@ -482,6 +482,28 @@ describe('apiFetchBinary', () => {
 		await expect(promise).rejects.toThrow(/Response exceeds maximum size/);
 	});
 
+	it('rejects oversized declared Content-Length before reading the body', async () => {
+		const arrayBufferSpy = vi.fn().mockResolvedValue(new ArrayBuffer(0));
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				headers: new Map([
+					['content-length', String(10 * 1024 * 1024 + 1)],
+					['content-type', 'application/octet-stream']
+				]),
+				arrayBuffer: arrayBufferSpy
+			})
+		);
+
+		const promise = apiFetchBinary('https://info.stb.ro/test');
+		await expect(promise).rejects.toThrow(ApiError);
+		await expect(promise).rejects.toThrow(/Response exceeds maximum size/);
+		await expect(promise).rejects.toMatchObject({ status: 0 });
+		// The declared-size check must fail fast — the body must never be read
+		expect(arrayBufferSpy).not.toHaveBeenCalled();
+	});
+
 	it('throws ApiError for URL with embedded tab characters', async () => {
 		vi.stubGlobal(
 			'fetch',
