@@ -119,6 +119,13 @@ describe('station catalog generator', () => {
 		expect(() => parseStations('')).toThrow(/empty/);
 	});
 
+	it('parseStations throws when a required GTFS column is missing', () => {
+		const missingDescHeader = 'stop_id,stop_name,stop_lat,stop_lon,location_type';
+		expect(() =>
+			parseStations([missingDescHeader, '42,Station,,44.42,26.10,'].join('\n'))
+		).toThrow(/stop_desc/);
+	});
+
 	it('builds and validates a deterministic catalog', () => {
 		const rows = Array.from({ length: 2_500 }, (_, index) =>
 			`${index + 1},Station ${index + 1},,44.42,26.10,`
