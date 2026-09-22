@@ -17,9 +17,10 @@
 		onThemeChange: (theme: Theme) => void;
 		onLangChange: (lang: Lang) => void;
 		onTogglePin: (id: number) => void;
+		onRemoveRecent: (id: number) => void;
 	}
 
-	let { open, favorites, recents, theme, lang, catalogVersion, catalogUpdatedAt, pinnedId, onClose, onSelectStation, onThemeChange, onLangChange, onTogglePin }: Props = $props();
+	let { open, favorites, recents, theme, lang, catalogVersion, catalogUpdatedAt, pinnedId, onClose, onSelectStation, onThemeChange, onLangChange, onTogglePin, onRemoveRecent }: Props = $props();
 
 	function handleStationClick(station: Station) {
 		onSelectStation(station);
@@ -33,6 +34,11 @@
 	function handlePinClick(e: MouseEvent, stationId: number) {
 		e.stopPropagation();
 		onTogglePin(stationId);
+	}
+
+	function handleRemoveRecent(e: MouseEvent, stationId: number) {
+		e.stopPropagation();
+		onRemoveRecent(stationId);
 	}
 
 	function pinTitle(stationId: number): string {
@@ -81,11 +87,16 @@
 			{:else}
 				<ul class="station-list">
 					{#each recents as station (station.id)}
-						<li>
+						<li class="recent-row">
 							<button class="station-item" onclick={() => handleStationClick(station)}>
 								<span class="station-item-icon">◷</span>
 								<span class="station-item-name">{station.name}</span>
 							</button>
+							<button
+								class="remove-btn"
+								onclick={(e) => handleRemoveRecent(e, station.id)}
+								title={lang === 'ro' ? 'Elimină din recente' : 'Remove from recents'}
+							>✕</button>
 						</li>
 					{/each}
 				</ul>
@@ -264,6 +275,33 @@
 
 	.pin-btn.pinned {
 		opacity: 1;
+	}
+
+	.recent-row {
+		display: flex;
+		align-items: center;
+	}
+
+	.remove-btn {
+		flex-shrink: 0;
+		width: 2.5rem;
+		height: 2.5rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		background: transparent;
+		color: var(--color-text-muted);
+		font-size: 0.9rem;
+		cursor: pointer;
+		opacity: 0.3;
+		transition: opacity 0.15s, color 0.15s;
+		border-radius: 0.375rem;
+	}
+
+	.remove-btn:hover {
+		opacity: 1;
+		color: var(--color-accent);
 	}
 
 	.divider {

@@ -137,6 +137,7 @@
 	onLangChange={(l) => settings.setLang(l)}
 	pinnedId={favorites.pinnedId}
 	onTogglePin={(id) => favorites.togglePin(id)}
+	onRemoveRecent={(id) => recents.remove(id)}
 />
 
 <main class="app-layout">
