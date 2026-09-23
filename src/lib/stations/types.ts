@@ -12,6 +12,8 @@ export interface Station {
 	lat: number;
 	/** Station longitude in decimal degrees (note: the API layer names this `lng`). */
 	lon: number;
+	/** Scheduled GTFS membership in either direction, keyed as `VEHICLE_TYPE:lineName`. */
+	lines?: string[];
 }
 
 /** A {@link Station} annotated with its distance from a reference coordinate. */

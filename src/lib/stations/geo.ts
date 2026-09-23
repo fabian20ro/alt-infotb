@@ -70,13 +70,15 @@ export function findNearestStations(
 /**
  * Find stations within a geographic bounding box.
  * If more than `maxCount` stations fall within bounds, the viewport is too
- * zoomed out for useful markers — returns empty (or just the selected station).
+ * zoomed out for useful background markers — keep only the selected station
+ * and in-bounds priority stops (e.g. both directions of the selected line).
  */
 export function findStationsInBounds(
 	bounds: LatLngBounds,
 	stations: readonly Station[],
 	maxCount: number,
-	selectedId?: number | null
+	selectedId?: number | null,
+	priorityIds?: ReadonlySet<number>
 ): Station[] {
 	const { south, north, west, east } = bounds;
 
@@ -91,7 +93,13 @@ export function findStationsInBounds(
 	);
 
 	if (inBounds.length > maxCount) {
-		return validSelected !== null ? [validSelected] : [];
+		// A line's stops remain useful at overview zoom, even when the citywide
+		// station layer is too dense. Keep both directions and deduplicate selection.
+		const priority = inBounds.filter((station) => priorityIds?.has(station.id));
+		if (validSelected && !priority.some((station) => station.id === validSelected.id)) {
+			priority.unshift(validSelected);
+		}
+		return priority;
 	}
 
 	if (validSelected && !inBounds.some((s) => s.id === validSelected.id)) {

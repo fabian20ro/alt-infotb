@@ -4,12 +4,17 @@
 	import type { Station } from '$lib/stations/types.js';
 	import type { GeoPosition } from '$lib/stores/geolocation.svelte.js';
 	import { findStationsInBounds, type LatLngBounds } from '$lib/stations/geo.js';
+	import { stationServesLine } from '$lib/stations/data.js';
+	import { translations } from '$lib/i18n/translations.js';
+	import type { Lang } from '$lib/stores/settings.svelte.js';
 
 	const MAX_VISIBLE_MARKERS = 100;
 	const DEBOUNCE_MS = 150;
 
 	export interface MapRouteOverlay {
 		key: string;
+		lineName: string;
+		vehicleType: string;
 		primary: ArrivalInfo | null;
 		opposite: ArrivalInfo | null;
 	}
@@ -24,6 +29,8 @@
 		selectedStationId: number | null;
 		userPosition: GeoPosition | null;
 		locationPermission: 'granted' | 'denied' | 'prompt';
+		locationError?: string | null;
+		lang?: Lang;
 		theme: 'light' | 'dark';
 		route?: MapRouteOverlay | null;
 		overviewRequest?: RouteOverviewRequest | null;
@@ -35,6 +42,8 @@
 		selectedStationId,
 		userPosition,
 		locationPermission,
+		locationError = null,
+		lang = 'ro',
 		theme,
 		route = null,
 		overviewRequest = null,
@@ -56,6 +65,13 @@
 	let handledOverviewRequestId = 0;
 	let loaded = $state(false);
 	let initialViewSet = false;
+	let zooming = false;
+	let pendingRecenter = $state(false);
+	let recenterError = $state<'locationDenied' | 'locationUnavailable' | null>(null);
+	let strings = $derived(translations[lang]);
+	let routeStationIds = $derived(new Set(allStations
+		.filter((station) => route && stationServesLine(station, route))
+		.map((station) => station.id)));
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Lazy-load Leaflet modules
@@ -102,6 +118,11 @@
 
 		L.control.zoom({ position: 'topright' }).addTo(map);
 		L.control.attribution({ position: 'bottomleft' }).addTo(map);
+		map.on('zoomstart', () => { zooming = true; });
+		map.on('zoomend', () => {
+			zooming = false;
+			applyPendingRecenter();
+		});
 
 		const config = tileConfigs[theme];
 		tileLayer = L.tileLayer(config.url, {
@@ -131,7 +152,7 @@
 			east: leafletBounds.getEast()
 		};
 
-		const visible = findStationsInBounds(bounds, allStations, MAX_VISIBLE_MARKERS, selectedStationId);
+		const visible = findStationsInBounds(bounds, allStations, MAX_VISIBLE_MARKERS, selectedStationId, routeStationIds);
 		const visibleIds = new Set(visible.map((s) => s.id));
 
 		// Remove markers no longer visible
@@ -187,7 +208,9 @@
 				markerCache.set(station.id, marker);
 			}
 			// setIcon may replace the DivIcon DOM node. Its name must survive selection changes.
-			markerCache.get(station.id)?.getElement()?.setAttribute('aria-label', station.name);
+			const element = markerCache.get(station.id)?.getElement();
+			element?.setAttribute('aria-label', station.name);
+			element?.classList.toggle('station-marker-on-route', routeStationIds.has(station.id));
 		}
 
 		currentSelectedId = selectedStationId;
@@ -246,24 +269,25 @@
 	}
 
 	function recenter() {
-		if (!map || !L) return;
-		
-		if (locationPermission === 'denied') {
-			alert('Accesul la locație este blocat. Vă rugăm să îl activați din setările browserului pentru a folosi această funcție.');
-			return;
-		}
-		
-		if (userPosition) {
-			map.setView([userPosition.lat, userPosition.lon], 15, { animate: true });
-			return;
-		}
-		
-		if (userMarker) {
-			map.setView(userMarker.getLatLng(), 15, { animate: true });
-			return;
-		}
+		recenterError = null;
+		pendingRecenter = true;
+		applyPendingRecenter();
+	}
 
-		console.warn('[MapView] Recenter failed: no user position or marker');
+	function applyPendingRecenter() {
+		if (!map || !pendingRecenter) return;
+		if (locationPermission === 'denied' || (!userPosition && locationError)) {
+			pendingRecenter = false;
+			recenterError = locationPermission === 'denied' ? 'locationDenied' : 'locationUnavailable';
+			return;
+		}
+		// Leaflet ignores setView during CSS zoom, even with animate:false.
+		// Keep this one-shot intent until zoomend or the first GPS fix.
+		if (!userPosition || zooming) return;
+		pendingRecenter = false;
+		initialViewSet = true;
+		map.stop();
+		map.setView([userPosition.lat, userPosition.lon], 15, { animate: false });
 	}
 
 	function safeColor(color: string | undefined): string {
@@ -459,6 +483,18 @@
 		}
 	});
 
+	$effect(() => {
+		if (!loaded) return;
+		userPosition;
+		locationPermission;
+		locationError;
+		if ((recenterError === 'locationDenied' && locationPermission !== 'denied') ||
+			(recenterError === 'locationUnavailable' && userPosition && !locationError)) {
+			recenterError = null;
+		}
+		applyPendingRecenter();
+	});
+
 	// React to theme changes — read theme BEFORE guard to ensure tracking
 	$effect(() => {
 		const t = theme;
@@ -492,7 +528,7 @@
 	<div class="map-container" bind:this={mapContainer}>
 		{#if !loaded}
 			<div class="map-loading">
-				<span class="map-loading-text">Hartă...</span>
+				<span class="map-loading-text">{strings.loadingMap}</span>
 			</div>
 		{/if}
 	</div>
@@ -500,8 +536,9 @@
 		<button 
 			class="recenter-btn" 
 			onclick={recenter} 
-			aria-label="Recentrare" 
-			title="Recentrare la locația mea"
+			aria-label={strings.recenter}
+			title={strings.recenter}
+			aria-busy={pendingRecenter && !userPosition}
 			class:has-position={!!userPosition}
 			class:is-denied={locationPermission === 'denied'}
 		>
@@ -510,6 +547,11 @@
 				<path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
 			</svg>
 		</button>
+		{#if (pendingRecenter && !userPosition) || recenterError}
+			<div class="location-status" role="status">
+				{recenterError ? strings[recenterError] : strings.locationWaiting}
+			</div>
+		{/if}
 	{/if}
 </div>
 
@@ -583,6 +625,20 @@
 		outline-offset: 2px;
 	}
 
+	.location-status {
+		position: absolute;
+		top: 10px;
+		left: 10px;
+		max-width: calc(100% - 80px);
+		z-index: 1000;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.5rem;
+		background: var(--color-surface);
+		color: var(--color-text);
+		font-size: 0.8rem;
+		pointer-events: none;
+	}
+
 	/* Override Leaflet default styles */
 	:global(.leaflet-container) {
 		font-family: inherit;
@@ -614,6 +670,10 @@
 
 	.route-mode :global(.station-marker) {
 		opacity: 0.32;
+	}
+
+	.route-mode :global(.station-marker.station-marker-on-route) {
+		opacity: 0.72;
 	}
 
 	:global(.vehicle-marker-shell) {

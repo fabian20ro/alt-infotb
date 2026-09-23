@@ -846,3 +846,15 @@ Each entry should follow this structure:
 **Limitations:** No push/deployment or real-device installed-PWA verification. No claim that all densely overlapping marker taps are fixed: the supplied fixture's actual taps already worked before this change. User's precise station/device scenario still needs comparison if the issue persists after deployment.
 **Insight:** A visual repair and a pointer-event RCA are different assertions; keep separate failing contracts and actual hit-testing evidence.
 **Promoted to Lessons Learned:** Yes
+
+---
+
+### [2026-09-24] Reliable recenter and selected-line station visibility
+
+**Context:** User reported delayed recentering, requested less-faded stops for both directions of a selected line, and requested a watermark brainstorm with implementation only for a confidently identified local bug. Confirmed the circular control means recenter.
+**What happened:** Reproduced a lost recenter tap during Leaflet CSS zoom: user marker remained 159 pixels off center after animation. Added a one-shot intent applied after zoomend or first GPS fix, immediate nonanimated recenter when ready, localized waiting/error states, and error recovery. Added exact scheduled line membership to the bundled TPBI catalog; route stops render at 0.72 opacity versus background stops at 0.32 and survive dense overview filtering. Generator and CI now join routes/trips/stop_times, including metro parent stations. UX/planner/code-simplifier agents reviewed the work. CARTO documentation confirms a new API-key requirement; kept provider configuration unchanged and documented four options in docs/map-tiles-options.md.
+**Verification:** Installed lockfile dependencies with npm ci before final checks. Svelte check: 0 errors/warnings; 546 unit tests passed; production build passed. Serial map browser suite: 28 passed, 5 intentional device-specific skips, no retries, across desktop Chromium/mobile Chromium/mobile WebKit. New coverage includes active pan/zoom, delayed GPS, one-shot behavior, denial/failure/recovery, language changes, both route directions, both themes, dense filtering, and keyboard selection. Inspected mobile light/dark station screenshots. API and tiles mocked in browser suite; no live STB or physical-device GPS claim.
+**Data validation:** Downloaded official TPBI feed 6.39, source 2026-09-09T19:15:24Z, exactly matching the existing catalog; all original station fields and metadata unchanged. Added memberships to 2,524 of 2,525 stations; line 66 has 36 scheduled stops. Temporary diversions depend on a feed update.
+**Surprises:** Untracked local GTFS was stale Busmaps February data, so it was not used. Existing node_modules also lagged package-lock; reinstalled and repeated checks on pinned versions. macOS sandbox blocked Chromium startup; authorized browser tests passed outside that sandbox.
+**Outcome:** Implementation and verification complete; preparing the requested PR. No deployment or merge requested.
+**Promoted to Lessons Learned:** Yes — Leaflet zoom/recenter sequencing and exact GTFS station membership.

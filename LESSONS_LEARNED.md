@@ -43,6 +43,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Code Patterns & Pitfalls
 
+**[2026-09-24]** Leaflet recenter requests can be swallowed during CSS zoom — In Leaflet 1.9.4, the active-zoom guard runs before `animate:false`; `map.stop()` only cancels pan/fly animations. Track public `zoomstart`/`zoomend` events and preserve the latest recenter intent until zoom ends or the first GPS fix arrives. Clear pending intent before synchronous `setView` to avoid nested zoom-event recursion. Desktop Chromium, mobile Chromium, and WebKit regression tests reproduce the old missed tap and verify the fix.
+
+**[2026-09-24]** Match served stations from GTFS membership, not route proximity — Join `routes` → `trips` → `stop_times`, union both directions, and match `route_short_name` plus transport type because GTFS route IDs differ from live STB IDs. Roll metro platform membership up to `parent_station`. Regenerate coordinates and membership from the same feed; untracked local `data/gtfs` may contain an older Busmaps feed. Scheduled membership includes published service variants and cannot establish live diversions.
+
 **[2026-02-14]** DOMException.name is read-only — When mocking `AbortError` in tests, use the constructor `new DOMException('message', 'AbortError')` instead of `Object.assign(new DOMException(...), { name: 'AbortError' })`. The `name` property on `DOMException` is a getter and cannot be overwritten.
 
 **[2026-07-20]** Usability checks are not automatically type guards — A predicate such as “has at least two path points” can be false for a valid `ArrivalInfo`. Declaring it as `arrival is ArrivalInfo` incorrectly narrows the false branch to `null`; return `boolean` unless the true branch represents a real subtype.

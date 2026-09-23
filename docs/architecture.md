@@ -53,7 +53,7 @@ Both proxies handle the same auth flow:
 - **Static adapter** — SvelteKit prerenders a single HTML shell. All logic runs client-side (`ssr = false`).
 - **PWA** — The app is installable via `vite-plugin-pwa`. Static assets are precached; API calls use `NetworkOnly`; map tiles use `StaleWhileRevalidate`.
 - **Leaflet lazy-loading** — Leaflet (~43KB gzip) is loaded via dynamic `import()` after initial render, with a loading skeleton shown while the map initializes.
-- **Versioned station catalog from GTFS** — Coordinates, TPBI feed version, and the source update date are bundled by `scripts/fetch-stations.ts`. Both current numeric stop IDs and legacy `1008-{stb_id}` IDs map to the STB API. The PWA already precaches the catalog, so no duplicate IndexedDB cache is used.
+- **Versioned station catalog from GTFS** — Coordinates, scheduled line membership, TPBI feed version, and the source update date are bundled by `scripts/fetch-stations.ts`. Both current numeric stop IDs and legacy `1008-{stb_id}` IDs map to the STB API. The PWA already precaches the catalog, so no duplicate IndexedDB cache is used.
 - **Immutable state** — All stores use Svelte 5 `$state` runes. State updates create new values rather than mutating.
 
 ## Protobuf schema (verified 2026-02-15, expanded 2026-07-19)
@@ -147,6 +147,8 @@ For surface transport (bus, tram, trolleybus), the GTFS ID maps directly to the 
 6. Selecting a line and later polls preserve the user's pan/zoom. Only the explicit route-overview control fits the union of both paths.
 7. A one-direction failure shows the successful direction only. Stale coordinates are cleared rather than presented as live.
 
+Station membership comes from the bundled GTFS `routes` → `trips` → `stop_times` join, unioned across scheduled trips and both directions. Each station's `lines` array uses `VEHICLE_TYPE:lineName` keys; matching requires both fields, never distance from a route polyline. Metro platform memberships roll up through `parent_station` to the physical station marker. This adds no API requests and works while live geometry is loading, but reflects the catalog's published schedule, including service variants; temporary live diversions require a TPBI feed update.
+
 ## Station data flow
 
 ```
@@ -157,7 +159,7 @@ Every app load:
 
 Scheduled catalog update:
   1. GitHub Actions downloads the regional TPBI GTFS feed daily after 4 AM Romanian time
-  2. Regenerate and validate the catalog
+  2. Extract stops, feed_info, routes, trips, and stop_times; regenerate and validate the catalog
   3. Skip unchanged feeds; otherwise test, build, commit the catalog, and deploy that artifact
 
 Station selection:

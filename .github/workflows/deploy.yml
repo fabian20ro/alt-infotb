@@ -51,11 +51,14 @@ jobs:
             --dump-header "$catalog_dir/headers.txt" \
             --output "$catalog_dir/feed.zip" \
             "$GTFS_URL"
-          unzip -q "$catalog_dir/feed.zip" stops.txt feed_info.txt -d "$catalog_dir"
+          unzip -q "$catalog_dir/feed.zip" stops.txt feed_info.txt routes.txt trips.txt stop_times.txt -d "$catalog_dir"
           source_updated_at="$(awk 'tolower($1) == "last-modified:" {$1=""; sub(/^ /, ""); print; exit}' "$catalog_dir/headers.txt" | tr -d '\r')"
           npm run stations:generate -- \
             --stops "$catalog_dir/stops.txt" \
             --feed-info "$catalog_dir/feed_info.txt" \
+            --routes "$catalog_dir/routes.txt" \
+            --trips "$catalog_dir/trips.txt" \
+            --stop-times "$catalog_dir/stop_times.txt" \
             --source-updated-at "$source_updated_at"
 
           if git diff --quiet -- src/lib/stations/stations.json; then

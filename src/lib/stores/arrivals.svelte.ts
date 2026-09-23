@@ -24,6 +24,7 @@ export type SelectedRouteStatus =
 export interface SelectedRouteState {
 	key: string;
 	lineName: string;
+	vehicleType: string;
 	direction: string;
 	status: SelectedRouteStatus;
 	selection: LineSelectionRequest;
@@ -339,6 +340,7 @@ export function createArrivalsStore() {
 		routeState = {
 			key,
 			lineName: arrival.lineName,
+			vehicleType: arrival.vehicleType,
 			direction: arrival.direction,
 			status: 'loading',
 			selection: { ...lineSelection },
