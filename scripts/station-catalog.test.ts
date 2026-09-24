@@ -1,9 +1,55 @@
 import { describe, expect, it } from 'vitest';
-import { buildCatalog, parseCsvLine, parseFeedVersion, parseStations, validateCatalog } from './station-catalog.js';
+import { buildCatalog, parseCsvLine, parseFeedVersion, parseStationLines, parseStations, validateCatalog } from './station-catalog.js';
 
 const header = 'stop_id,stop_name,stop_desc,stop_lat,stop_lon,location_type';
+const lineFiles = {
+	routes: 'route_id,route_short_name,route_type\nroute-66,66,11',
+	trips: 'route_id,trip_id,direction_id\nroute-66,outbound,0',
+	stopTimes: 'trip_id,stop_id\noutbound,3570'
+};
 
 describe('station catalog generator', () => {
+	it('joins exact stops across both directions, preserving type and metro parents', () => {
+		const stops = [
+			`${header},parent_station`,
+			'1008-42,Outbound,,44.42,26.1,,',
+			'43,Inbound,,44.42,26.1,,',
+			'44,Nearby unserved,,44.42,26.1,,',
+			'45,No boarding or alighting,,44.42,26.1,,',
+			'14700,Metro,,44.42,26.1,1,',
+			'14700T,Metro platform,,44.42,26.1,,14700',
+			'PV1_44,Regional ID collision,,44.42,26.1,,'
+		].join('\n');
+		const files = {
+			routes: 'route_id,route_short_name,route_type\nr66,66,11\nrBus,66,3\nrMetro,M1,1',
+			trips: 'route_id,trip_id,direction_id\nr66,out,0\nr66,back,1\nrBus,bus,0\nrMetro,metro,0',
+			stopTimes: [
+				'trip_id,stop_id,pickup_type,drop_off_type',
+				'out,1008-42,,',
+				'out,1008-42,,',
+				'back,43,,',
+				'out,45,1,1',
+				'bus,43,,',
+				'bus,PV1_44,,',
+				'metro,14700T,,',
+				'unknown,44,,'
+			].join('\r\n')
+		};
+		const membership = parseStationLines(stops, files);
+		expect(membership.get(42)).toEqual(['TROLLEYBUS:66']);
+		expect(membership.get(43)).toEqual(['BUS:66', 'TROLLEYBUS:66']);
+		expect(membership.get(14700)).toEqual(['SUBWAY:M1']);
+		expect(membership.has(44)).toBe(false);
+		expect(membership.has(45)).toBe(false);
+		expect([...membership.keys()]).toHaveLength(3);
+	});
+
+	it('rejects missing stop-time join columns', () => {
+		expect(() => parseStationLines(header, {
+			...lineFiles, stopTimes: 'trip_id,stop_sequence\noutbound,1'
+		})).toThrow('Missing required GTFS column: stop_id');
+	});
+
 	it('parses quoted CSV fields and escaped quotes', () => {
 		expect(parseCsvLine('42,"Piața, Centrală","Peron ""nou"""')).toEqual([
 			'42',
@@ -66,7 +112,7 @@ describe('station catalog generator', () => {
 	});
 
 	it('buildCatalog throws for invalid timestamps', () => {
-		expect(() => buildCatalog(header, 'feed_publisher_name,feed_version\nTPBI,6.38', 'not-a-date')).toThrow(
+		expect(() => buildCatalog(header, 'feed_publisher_name,feed_version\nTPBI,6.38', 'not-a-date', lineFiles)).toThrow(
 			'Invalid source update timestamp'
 		);
 	});
@@ -84,7 +130,8 @@ describe('station catalog generator', () => {
 		const catalog = buildCatalog(
 			[header, ...rows].join('\n'),
 			'feed_publisher_name,feed_version\nTPBI,6.38',
-			'Sat, 11 Jul 2026 13:48:53 GMT'
+			'Sat, 11 Jul 2026 13:48:53 GMT',
+			lineFiles
 		);
 		catalog.stations.push({ id: 3570, name: 'Duped', description: '', lat: 44.0, lon: 26.0 });
 
@@ -134,12 +181,15 @@ describe('station catalog generator', () => {
 		const catalog = buildCatalog(
 			[header, ...rows].join('\n'),
 			'feed_publisher_name,feed_version\nTPBI,6.38',
-			'Sat, 11 Jul 2026 13:48:53 GMT'
+			'Sat, 11 Jul 2026 13:48:53 GMT',
+			lineFiles
 		);
 
 		expect(catalog.feedVersion).toBe('6.38');
 		expect(catalog.sourceUpdatedAt).toBe('2026-07-11T13:48:53.000Z');
 		expect(catalog.stations).toHaveLength(2_501);
+		expect(catalog.stations.find((station) => station.id === 3570)?.lines).toEqual(['TROLLEYBUS:66']);
+		expect(catalog.stations.find((station) => station.id === 1)?.lines).toEqual([]);
 	});
 
 	it('excludes location_type 2 (platform) with a valid numeric ID', () => {

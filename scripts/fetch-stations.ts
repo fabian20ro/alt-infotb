@@ -5,6 +5,9 @@
  * node scripts/fetch-stations.ts \
  *   --stops /path/to/stops.txt \
  *   --feed-info /path/to/feed_info.txt \
+ *   --routes /path/to/routes.txt \
+ *   --trips /path/to/trips.txt \
+ *   --stop-times /path/to/stop_times.txt \
  *   --source-updated-at "Sat, 11 Jul 2026 13:48:53 GMT"
  */
 
@@ -25,13 +28,21 @@ function option(name: string): string | undefined {
 
 const stopsPath = resolve(option('--stops') ?? resolve(scriptDirectory, '../data/gtfs/stops.txt'));
 const feedInfoPath = resolve(option('--feed-info') ?? resolve(scriptDirectory, '../data/gtfs/feed_info.txt'));
+const routesPath = resolve(option('--routes') ?? resolve(dirname(stopsPath), 'routes.txt'));
+const tripsPath = resolve(option('--trips') ?? resolve(dirname(stopsPath), 'trips.txt'));
+const stopTimesPath = resolve(option('--stop-times') ?? resolve(dirname(stopsPath), 'stop_times.txt'));
 const outputPath = resolve(option('--output') ?? resolve(scriptDirectory, '../src/lib/stations/stations.json'));
 const sourceUpdatedAt = option('--source-updated-at') ?? statSync(stopsPath).mtime.toISOString();
 
 const catalog = buildCatalog(
 	readFileSync(stopsPath, 'utf8'),
 	readFileSync(feedInfoPath, 'utf8'),
-	sourceUpdatedAt
+	sourceUpdatedAt,
+	{
+		routes: readFileSync(routesPath, 'utf8'),
+		trips: readFileSync(tripsPath, 'utf8'),
+		stopTimes: readFileSync(stopTimesPath, 'utf8')
+	}
 );
 
 writeFileSync(outputPath, JSON.stringify(catalog));

@@ -9,6 +9,14 @@ interface BundledStationCatalog {
 
 const catalog = bundledCatalog as BundledStationCatalog;
 
+/** Match catalog membership, never infer a stop from proximity to the route path. */
+export function stationServesLine(
+	station: Station,
+	line: { lineName: string; vehicleType: string }
+): boolean {
+	return station.lines?.includes(`${line.vehicleType.trim().toUpperCase()}:${line.lineName.trim()}`) ?? false;
+}
+
 export const stationCatalogMetadata = {
 	feedVersion: catalog.feedVersion,
 	sourceUpdatedAt: catalog.sourceUpdatedAt

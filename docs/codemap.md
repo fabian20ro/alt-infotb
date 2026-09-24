@@ -35,9 +35,9 @@ src/
 │   │   └── index.ts                t() translation function
 │   ├── stations/
 │   │   ├── types.ts                Station, StationWithDistance interfaces
-│   │   ├── stations.json           Versioned TPBI station catalog (metadata + stops)
+│   │   ├── stations.json           Versioned TPBI catalog (metadata + stops + line membership)
 │   │   ├── subway-stops.ts         GTFS metro ID → STB API subway stop IDs mapping
-│   │   ├── data.ts                 Bundled station catalog loader + source metadata
+│   │   ├── data.ts                 Catalog loader, source metadata, exact line membership
 │   │   ├── data.test.ts            Catalog invariants + line 5 stop regression
 │   │   ├── format.ts               formatCatalogDate() — source-date formatting
 │   │   ├── format.test.ts          Tests for format utilities
@@ -63,7 +63,7 @@ src/
 scripts/
 ├── dump-proto.ts                   Diagnostic: dump all protobuf fields from API
 ├── discover-subway-stops.ts        Scan STB API for subway stop IDs (brute-force)
-├── station-catalog.ts              Parse and validate TPBI GTFS station data
+├── station-catalog.ts              Parse TPBI stops and join scheduled line membership
 ├── station-catalog.test.ts         Generator format and validation tests
 └── fetch-stations.ts               Generate the versioned bundled catalog
 
@@ -141,6 +141,6 @@ All tunable values live in `src/lib/api/constants.ts`:
 
 | Script | What it runs | Tests | Network? |
 |---|---|---|---|
-| `npm test` | Unit tests (vitest) | 457 | No |
+| `npm test` | Unit tests (vitest) | 546 | No |
 | `npm run test:integration` | Real STB API calls (vitest) | 6 | Yes |
 | `npm run test:e2e` | Playwright browser tests | varies | Yes (via proxy) |

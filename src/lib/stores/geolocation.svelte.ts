@@ -34,7 +34,11 @@ export function createGeolocationStore() {
 	}
 
 	function startWatching(): void {
-		if (watching || !navigator.geolocation) return;
+		if (watching) return;
+		if (!navigator.geolocation) {
+			error = 'Geolocation is not supported';
+			return;
+		}
 
 		updatePermissionStatus();
 

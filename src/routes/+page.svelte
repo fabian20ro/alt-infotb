@@ -185,6 +185,8 @@
 		selectedStationId={selectedStation?.id ?? null}
 		userPosition={geo.position}
 		locationPermission={geo.permission}
+		locationError={geo.error}
+		lang={settings.lang}
 		theme={settings.theme}
 		route={arrivals.route}
 		{overviewRequest}
