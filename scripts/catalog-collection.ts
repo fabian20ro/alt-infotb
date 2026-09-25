@@ -128,7 +128,6 @@ export async function createCollector(options: CollectorOptions) {
 				if (
 					response.status === 401 ||
 					response.status === 403 ||
-					response.status === 412 ||
 					response.headers.get('X-Proxy-Error')?.startsWith('auth')
 				) {
 					throw new CollectionError('auth', `Authentication failed (HTTP ${response.status})`);
@@ -140,11 +139,18 @@ export async function createCollector(options: CollectorOptions) {
 						retryDelay = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(retryAfter) - now();
 						if (!Number.isFinite(retryDelay) || retryDelay < 0) retryDelay = 500;
 					}
-					if (response.status !== 429 && response.status < 500)
+					// A raw upstream 412 can be transient after the proxy's token refresh.
+					// Explicit proxy auth failures above remain immediately fatal.
+					if (response.status !== 412 && response.status !== 429 && response.status < 500)
 						throw new CollectionError('http', `HTTP ${response.status}`);
+					await Promise.race([response.body?.cancel(), timedOut]);
 					if (attempt === 2)
-						throw new CollectionError('http', `HTTP ${response.status} after retries`);
-					await response.body?.cancel();
+						throw new CollectionError(
+							response.status === 412 ? 'auth' : 'http',
+							response.status === 412
+								? 'Authentication failed (HTTP 412 after retries)'
+								: `HTTP ${response.status} after retries`
+						);
 				} else {
 					const body = new Uint8Array(await Promise.race([response.arrayBuffer(), timedOut]));
 					if (!body.length) throw new CollectionError('empty', 'Empty HTTP 200 response');

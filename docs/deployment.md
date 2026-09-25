@@ -179,9 +179,18 @@ from retained response bodies; changing the source string alone is not a new liv
 observation. Current audits store the canonical provider as `source` and the
 transport separately as `via`.
 
-Proxy promotion is prepared in private `shared-api-host` PR #2. Its source pin
-includes merged public PR #45 and both dependency updates. The isolated build no
-longer depends on the unavailable unrelated module repository. Actual Cloudflare
-deployment and the first live observation run require renewed Wrangler OAuth or
-the control-plane deployment token. No secret values belong in these commands or
-in observation artifacts.
+The merged private `shared-api-host` PR #2 was deployed on 2026-09-26 using local
+Wrangler OAuth. Worker version `19571dfd-84e7-4b8d-bc3f-316420793cdd` serves the
+registry, line detail, both directions and existing stop requests; all five live
+smoke probes passed. The isolated build no longer depends on an unrelated module.
+Release hashes/rollback reference are recorded in private PR #3. Local OAuth does
+not provision a GitHub Actions deployment token; audit jobs only need the deployed
+public proxy, not Cloudflare deployment credentials.
+
+The first full CI observation (run `36191175483`) saved partial history after a raw
+STB HTTP 412 interrupted stop scanning. This is distinct from Wrangler OAuth.
+The collector now retries raw upstream 412 within its existing three-attempt,
+backoff and time budget. Persistent 412, HTTP 401/403 or proxy-classified auth
+failures still stop collection; empty bodies remain inconclusive. A retry never
+converts an incomplete audit into a conform result. No secret values belong in
+commands or observation artifacts.
