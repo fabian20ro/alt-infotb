@@ -44,7 +44,7 @@ describe('STB catalog composition', () => {
 	});
 
 	it('does not reintroduce a known upstream edge via a stale legacy name', () => {
-		const station = { ...base.stations[0], lineIds: [] };
+		const station = { ...base.stations[0], fallbackLines: ['BUS:103'], lineIds: [] };
 		expect(stationServesLine(station, { lineId: 199, lineName: 'N109', vehicleType: 'BUS' }, new Set([199]))).toBe(false);
 		expect(stationServesLine(station, { lineId: 5, lineName: '103', vehicleType: 'BUS' }, new Set([199]))).toBe(true);
 	});
@@ -125,4 +125,14 @@ describe('STB catalog composition', () => {
 		data.lines[0].allStopIds = [14697, 6165];
 		expect(() => buildStbCatalog(base, data)).toThrow('collides with metro parent');
 	});
+});
+
+it('never aliases an unregistered STB ID to a known service with the same name', () => {
+	const catalog = buildStbCatalog(base, snapshot());
+	const station = catalog.stations.find(stop => stop.id === 6084)!;
+	const known = new Set(catalog.stb.lineIds);
+	expect(station.lines).toContain('BUS:N109');
+	expect(station.fallbackLines).not.toContain('BUS:N109');
+	expect(stationServesLine(station, {lineId: 999, lineName: 'N109', vehicleType: 'BUS'}, known)).toBe(false);
+	expect(stationServesLine(station, {lineId: 5, lineName: '103', vehicleType: 'BUS'}, known)).toBe(true);
 });

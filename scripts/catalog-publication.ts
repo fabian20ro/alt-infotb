@@ -58,6 +58,7 @@ export function verifyStbCatalog(snapshot: TopologySnapshot, catalog: StbStation
 	const sourceUsed = new Set<number>();
 	let directionEdges = 0;
 	const authoritative = new Set(registry.keys());
+	const authoritativeKeys = new Set([...registry.values()].map(line => `${line.type}:${line.name}`));
 	for (const [id, topology] of sourceLines) {
 		const line = registry.get(id)!;
 		const selection = { lineId: id, lineName: line.name, vehicleType: line.rawType };
@@ -89,6 +90,7 @@ export function verifyStbCatalog(snapshot: TopologySnapshot, catalog: StbStation
 	}
 	if (!sameIds(sourceUsed, sourceStops.keys())) fail('source includes unreferenced stops');
 	for (const marker of loaded) {
+		if (marker.fallbackLines?.some(key => authoritativeKeys.has(key) || !marker.lines?.includes(key))) fail(`invalid fallback membership at marker ${marker.id}`);
 		if (!Number.isSafeInteger(marker.id) || marker.id <= 0 || !marker.name.trim()) fail(`invalid catalog marker ${marker.id}`);
 		const expected = expectedMemberships.get(marker.id) ?? new Set<number>();
 		if (!sameIds(marker.lineIds ?? [], expected) || new Set(marker.lineIds).size !== (marker.lineIds ?? []).length) fail(`extra/missing membership at marker ${marker.id}`);

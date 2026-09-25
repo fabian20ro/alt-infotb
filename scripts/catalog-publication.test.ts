@@ -148,3 +148,9 @@ it('does not confuse a proxy transport change with a different upstream source',
 	const catalog = buildStbCatalog(base, snapshot);
 	expect(validatePublication(previous, snapshot, undefined, audit(snapshot, catalog), catalog, { now })).toMatchObject({addedEdges: 0, removedEdges: 0});
 });
+
+it('rejects a fallback key that aliases an authoritative STB service', () => {
+	const snapshot = source(), catalog = buildStbCatalog(base, snapshot);
+	catalog.stations[0].fallbackLines = ['BUS:N109'];
+	expect(() => verifyStbCatalog(snapshot, catalog)).toThrow('invalid fallback membership');
+});

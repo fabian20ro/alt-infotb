@@ -130,6 +130,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Process & Workflow
 
+**[2026-09-25]** Push PR branches with an explicit destination refspec — This workspace has `push.default=upstream`. A new branch created from `origin/main` tracked main, and `git push -u origin branchName` resolved to main. Use `git switch --no-track -c codex/name origin/main` and always `git push --set-upstream origin HEAD:refs/heads/codex/name`; verify remote ref and branch tracking before PR creation. An accidental task commit was reverted without rewriting history and its workflow cancelled before deployment.
+
 **[2026-02-15]** Romanian time pluralization — "oră" (singular, 1 hour) vs "ore" (plural, 2+ hours). Format: "acum" (<30s), "X min" (1-59), "1 oră, Y min" (60-119), "X ore, Y min" (120+).
 
 **[2026-07-29]** GitHub Free private repositories cannot rely on environment secrets or required-reviewer deployment gates — Keep a repository-secret + manual `workflow_dispatch` path for a private control-plane repo, or require GitHub Pro/Team before designing workflows around private environments. Separate secret synchronization from builds so checked-out public code never receives application runtime values.

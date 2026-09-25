@@ -1,7 +1,7 @@
 # Station membership audit
 
 Status: **inconclusive**. Inventory: catalog-and-topology.
-Observation interval: 2026-09-24T23:53:34.816Z – 2026-09-25T00:03:06.333Z.
+Observation interval: 2026-09-24T23:53:34.816Z – 2026-09-25T00:16:21.545Z.
 
 API stops: 3980 known; 3980 requested; 3936 verified; 44 unverified.
 Catalog markers: 3911; 3867 verified; 44 unverified.
@@ -39,6 +39,8 @@ An absent arrival never removes a station or membership. JSON includes exact obs
 | missing-membership | 3896 | 3896 | Piata Rosetti | 1036 | N700 | BUS | 1 | canonical-key |
 | missing-membership | 3899 | 3899 | Calea Mosilor | 1036 | N700 | BUS | 1 | canonical-key |
 | missing-membership | 3902 | 3902 | Traian | 1036 | N700 | BUS | 1 | canonical-key |
+| missing-membership | 6207 | 6207 | Pasaj Cfr Chitila | 907 | 429 | BUS | 1 | canonical-key |
+| missing-membership | 6207 | 6207 | Pasaj Cfr Chitila | 909 | 476 | BUS | 1 | canonical-key |
 | missing-membership | 6886 | 6886 | Piata Unirii 2 | 1036 | N700 | BUS | 1 | canonical-key |
 | missing-membership | 7256 | 7256 | Universitate | 1036 | N700 | BUS | 1 | canonical-key |
 | missing-membership | 7428 | 7428 | Piata Unirii 1 | 1036 | N700 | BUS | 0 | canonical-key |

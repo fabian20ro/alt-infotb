@@ -60,7 +60,7 @@ export function buildStbCatalog(base: StationCatalog, snapshot: TopologySnapshot
 	for (const station of base.stations) {
 		if (stations.has(station.id)) fail(`duplicate base marker ${station.id}`);
 		const fallback = (station.lines ?? []).filter((key) => !authoritativeKeys.has(key));
-		stations.set(station.id, { ...station, lines: [...new Set(fallback)].sort(), lineIds: [], membershipSource: 'gtfs' });
+		stations.set(station.id, { ...station, lines: [...new Set(fallback)].sort(), fallbackLines: [...new Set(fallback)].sort(), lineIds: [], membershipSource: 'gtfs' });
 	}
 	const parentsByPlatform = new Map<number, number[]>();
 	for (const [parent, platforms] of Object.entries(SUBWAY_STOP_IDS)) {
@@ -83,7 +83,7 @@ export function buildStbCatalog(base: StationCatalog, snapshot: TopologySnapshot
 			if (parents && !marker) fail(`mapped metro parent ${markerId} missing from GTFS`);
 			if (!parents && SUBWAY_STOP_IDS[markerId]) fail(`source stop collides with metro parent ${markerId}`);
 			if (!marker) {
-				marker = { id: markerId, name: source.name, description: '', lat: source.lat, lon: source.lon, lines: [], lineIds: [], membershipSource: 'stb' };
+				marker = { id: markerId, name: source.name, description: '', lat: source.lat, lon: source.lon, lines: [], fallbackLines: [], lineIds: [], membershipSource: 'stb' };
 				stations.set(markerId, marker);
 			} else if (!parents) {
 				// Surface station identities are shared; use coordinates and identity from the same live source.

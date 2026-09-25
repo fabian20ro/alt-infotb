@@ -17,7 +17,9 @@ export function stationServesLine(
 		return station.lineIds?.includes(line.lineId) ?? false;
 	}
 	const type = normalizeTransportType(line.vehicleType);
-	return type !== undefined && (station.lines?.includes(`${type}:${line.lineName.trim()}`) ?? false);
+	const keys = line.lineId !== undefined && authoritativeLineIds.size > 0
+		? station.fallbackLines : station.lines;
+	return type !== undefined && (keys?.includes(`${type}:${line.lineName.trim()}`) ?? false);
 }
 
 /** Geography belongs to source coverage, not an implicit city rectangle. */

@@ -16,7 +16,7 @@ Catalogul inclus în PR este revizuit pentru cele 203 de linii din registru. Nu 
 
 ## Verificări efectuate
 
-948 teste unitare, verificările TypeScript ale aplicației/scripturilor/proxy-ului și buildul de producție trec. Browser: 31 trecute, 5 omise intenționat după capabilitățile dispozitivului, fără retry și cu un worker. Gate-ul de publicare a fost încercat cu auditul real și refuză corect rezultatul neconcludent. Verificarea separată a scripturilor a descoperit erori de tip neacoperite de Svelte; au fost corectate și check-ul este acum în CI.
+950 teste unitare, verificările TypeScript ale aplicației/scripturilor/proxy-ului și buildul de producție trec. Browser: 31 trecute, 5 omise intenționat după capabilitățile dispozitivului, fără retry și cu un worker. Gate-ul de publicare a fost încercat cu auditul real și refuză corect rezultatul neconcludent. Verificarea separată a scripturilor a descoperit erori de tip neacoperite de Svelte; au fost corectate și check-ul este acum în CI.
 
 ## Probleme descoperite și restanțe
 
@@ -30,7 +30,7 @@ Catalogul inclus în PR este revizuit pentru cele 203 de linii din registru. Nu 
 | P2 | Descoperirea actuală pornește din registrul STB + catalog + mapările platformelor. Un ID absent din toate acestea nu poate fi descoperit. | Extinderea descrisă mai jos; procentul raportat rămâne numai pentru inventarul declarat. |
 | P3 | Actualizările GTFS rămân dependente de interpretarea existentă a tipurilor/ID-urilor și de filtrul regional al fallbackului. | STB nu mai este tăiat de acel filtru. Pentru servicii numai-GTFS: raport explicit al rândurilor excluse, calendare de serviciu și mapări namespaced înainte de extinderea acoperirii. |
 
-Rezultat final al auditului: 3.980 ID-uri parcurse; 3.966 răspunsuri numite cu date, dintre care 30 conțin serviciile neînregistrate; 14 răspunsuri goale. Clasificarea strictă: 3.936 verificate fără incidente și 44 neconcludente. 29 apartenențe lipsă, toate N700; nicio contradicție de sens pentru liniile din registrul colectat. Toate cele 20 de platforme M5 au răspuns cu date de linie.
+Rezultat final al auditului: 3.980 ID-uri parcurse; 3.966 răspunsuri numite cu date, dintre care 30 conțin serviciile neînregistrate; 14 răspunsuri goale. Clasificarea strictă: 3.936 verificate fără incidente și 44 neconcludente. 31 apartenențe neconfirmate: 29 pentru N700 și câte una pentru ID-urile 907/909; nicio contradicție de sens pentru liniile din registrul colectat. Toate cele 20 de platforme M5 au răspuns cu date de linie.
 
 ## Recomandarea arhitecturală următoare
 

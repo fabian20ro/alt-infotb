@@ -8,6 +8,7 @@ export interface AuditStation {
 	id: number;
 	name: string;
 	lines?: string[];
+	fallbackLines?: string[];
 	lineIds?: number[];
 	apiStopIds?: number[];
 }
@@ -67,7 +68,8 @@ function validateId(id: number): void {
 /** Stable identities are authoritative only for lines declared in the STB catalog version. */
 function serves(station: AuditStation, line: StbStopMemberships['lines'][number], authoritative: Set<number>): boolean {
 	if (authoritative.has(line.id)) return station.lineIds?.includes(line.id) ?? false;
-	return (station.lines ?? []).some((key) => {
+	const keys = authoritative.size ? station.fallbackLines : station.lines;
+	return (keys ?? []).some((key) => {
 		const separator = key.indexOf(':');
 		return separator > 0 && normalizeTransportType(key.slice(0, separator)) === line.type &&
 			key.slice(separator + 1).trim().toUpperCase() === line.name.trim().toUpperCase();
