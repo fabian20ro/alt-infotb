@@ -39,6 +39,7 @@ export interface StopAuditResult {
 export interface MembershipAuditReport {
 	schemaVersion: 1;
 	source?: string;
+	via?: string;
 	catalogHash: string;
 	snapshotHash?: string;
 	status: 'conform' | 'nonconform' | 'inconclusive';
@@ -86,7 +87,7 @@ export async function auditStationMembership(
 	snapshot?: TopologySnapshot
 ): Promise<MembershipAuditReport> {
 	const report: MembershipAuditReport = {
-		schemaVersion: 1, source: collector.source, catalogHash: sha256(JSON.stringify(catalog)),
+		schemaVersion: 1, source: snapshot?.source ?? collector.source, via: collector.source, catalogHash: sha256(JSON.stringify(catalog)),
 		snapshotHash: snapshot ? sha256(JSON.stringify(snapshot)) : undefined,
 		status: 'inconclusive', inventoryScope: snapshot ? 'catalog-and-topology' : 'catalog-only',
 		startedAt: collector.startedAt, completedAt: '',

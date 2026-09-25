@@ -1,11 +1,16 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "noEmit": true },
+  "compilerOptions": {
+    "noEmit": true
+  },
   "include": [
     "scripts/catalog*.ts",
     "scripts/*stb-catalog*.ts",
     "scripts/station-membership*.ts",
     "scripts/audit-station-membership.ts",
-    "scripts/transit-day.ts"
+    "scripts/transit-day.ts",
+    "scripts/service-*.ts",
+    "scripts/observe-service-inventory.ts",
+    "scripts/store-service-inventory.ts"
   ]
 }

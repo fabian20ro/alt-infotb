@@ -145,3 +145,43 @@ Rollback a data release by reverting its source/catalog commit together and
 running Deploy. For a schema/code rollback, revert the compatible runtime adapter
 in the same change. Favorites use preserved physical marker IDs; no second
 IndexedDB catalog or per-user network discovery needs migration.
+
+## Service history and discovery
+
+The audit workflow now restores `service-inventory.json` from the dedicated
+`data/service-inventory` branch before collection. On main, it persists valid
+observations even when an audit/discovery is inconclusive. This branch contains
+observation history only; `STB_CATALOG_PUBLISH_ENABLED` still gates catalog
+publication and Pages deployment. Dispatches on other branches produce artifacts
+but do not save shared history. Never reset or delete the history branch to clear
+an audit failure.
+
+```sh
+npm run stations:history -- --restore --output data/service-history/previous.json --head-file data/service-history/head.json
+# Omit --previous only on the explicitly reported first run.
+npm run stations:observe -- --live --snapshot data/catalog-audit/topology.json \
+  --audit data/catalog-audit/membership-audit.json --catalog data/catalog-audit/candidate.json \
+  --previous data/service-history/previous.json --output data/catalog-audit \
+  --cache data/discovery-cache --budget-ms 600000
+npm run stations:history -- --save --input data/catalog-audit/service-inventory.json --head-file data/service-history/head.json
+```
+
+Without `--audit`, observation records only the registry snapshot and performs no
+network calls. With an audit, `--live` is mandatory; discovery defaults to three
+rounds, 25 unregistered services and 250 new stops (`--max-rounds`,
+`--max-services`, `--max-stops`; positive integers). Exit 2 denotes inconclusive
+observation, but the inventory output can still be valid and persisted. A fatal
+hash/schema/source error produces no new inventory. Preserve the restore head
+file: a save with a stale lease fails instead of overwriting another run.
+
+Historical audits whose `source` contained a proxy URL must be explicitly rebuilt
+from retained response bodies; changing the source string alone is not a new live
+observation. Current audits store the canonical provider as `source` and the
+transport separately as `via`.
+
+Proxy promotion is prepared in private `shared-api-host` PR #2. Its source pin
+includes merged public PR #45 and both dependency updates. The isolated build no
+longer depends on the unavailable unrelated module repository. Actual Cloudflare
+deployment and the first live observation run require renewed Wrangler OAuth or
+the control-plane deployment token. No secret values belong in these commands or
+in observation artifacts.

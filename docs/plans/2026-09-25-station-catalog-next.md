@@ -2,6 +2,8 @@
 
 Data: 2026-09-25. Urmează planului inițial `2026-09-25-station-catalog-audit.md`.
 
+Continuarea implementată și restanțele actualizate: [inventar istoric și descoperire](2026-09-25-service-inventory-next.md).
+
 ## Implementat în această iterație
 
 - Proxy comun dev/producție: căi de topologie validate, autentificare coordonată, timeout inclusiv corpul autentificării și anulare propagată.
