@@ -114,6 +114,8 @@ function stopResponse(selectedDirection: 0 | 1 | null, responseDirection = selec
 test.describe('Selected line route map', () => {
 	test('real CABLE_CAR response selects all 66 stops by ID even without live geometry', async ({ page }) => {
 		const catalog = JSON.parse(readFileSync('src/lib/stations/stations.json', 'utf8'));
+		const source = JSON.parse(readFileSync('catalog/stb-topology.json', 'utf8'));
+		const sourceStops = source.lines.find((item: { id: number }) => item.id === 72).allStopIds;
 		const station = catalog.stations.find((item: { id: number }) => item.id === 3684);
 		await page.addInitScript((favorite) => {
 			localStorage.setItem('alt-stb-favorites', JSON.stringify([favorite]));
@@ -131,7 +133,7 @@ test.describe('Selected line route map', () => {
 			await page.getByRole('button', { name: 'Zoom out' }).click();
 			await page.waitForTimeout(300);
 		}
-		await expect(page.locator('.station-marker-on-route')).toHaveCount(36);
+		await expect(page.locator('.station-marker-on-route')).toHaveCount(new Set(sourceStops).size);
 		await expect(page.locator('.route-status')).toContainText('66');
 	});
 
