@@ -25,6 +25,8 @@ export interface ArrivalInfo {
 	lineName: string;
 	lineId: number;
 	vehicleType: string;
+	/** Provider value retained for diagnostics; vehicleType is canonical when known. */
+	rawVehicleType?: string;
 	color: string;
 	direction: string;
 	/** Numeric direction required by the selected-line API request. */

@@ -18,6 +18,21 @@
       "path": "/lines/stop",
       "methods": ["GET", "OPTIONS"],
       "response": "binary"
+    },
+    {
+      "path": "/lines",
+      "methods": ["GET", "OPTIONS"],
+      "response": "binary"
+    },
+    {
+      "path": "/lines/:lineId",
+      "methods": ["GET", "OPTIONS"],
+      "response": "binary"
+    },
+    {
+      "path": "/lines/:lineId/direction/:direction",
+      "methods": ["GET", "OPTIONS"],
+      "response": "binary"
     }
   ],
   "config": [

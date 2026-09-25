@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 test.beforeEach(async ({ page, baseURL }) => {
 	// Geometry/selection tests use mocked arrivals; external tiles/badges are not prerequisites.
@@ -111,6 +112,31 @@ function stopResponse(selectedDirection: 0 | 1 | null, responseDirection = selec
 }
 
 test.describe('Selected line route map', () => {
+	test('real CABLE_CAR response selects all 66 stops by ID even without live geometry', async ({ page }) => {
+		const catalog = JSON.parse(readFileSync('src/lib/stations/stations.json', 'utf8'));
+		const source = JSON.parse(readFileSync('catalog/stb-topology.json', 'utf8'));
+		const sourceStops = source.lines.find((item: { id: number }) => item.id === 72).allStopIds;
+		const station = catalog.stations.find((item: { id: number }) => item.id === 3684);
+		await page.addInitScript((favorite) => {
+			localStorage.setItem('alt-stb-favorites', JSON.stringify([favorite]));
+		}, station);
+		const body = readFileSync('src/lib/api/fixtures/topology/bucur-obor-3684.pb');
+		await page.route('**/lines/stop**', (route) => route.fulfill({
+			status: 200, contentType: 'application/octet-stream', body
+		}));
+		await page.goto('/');
+		const line = page.locator('button.arrival-row', { hasText: /^66\s/ });
+		await expect(line).toBeVisible();
+		await line.click();
+		await expect(line).toHaveAttribute('aria-pressed', 'true');
+		for (let index = 0; index < 4; index++) {
+			await page.getByRole('button', { name: 'Zoom out' }).click();
+			await page.waitForTimeout(300);
+		}
+		await expect(page.locator('.station-marker-on-route')).toHaveCount(new Set(sourceStops).size);
+		await expect(page.locator('.route-status')).toContainText('66');
+	});
+
 	test('tap fetches and renders both directions with distinct vehicles', async ({ page }) => {
 		const selectedRequests: URL[] = [];
 		await page.route('**/lines/stop**', async (route) => {
