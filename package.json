@@ -17,7 +17,13 @@
 		"test:e2e": "playwright test",
 		"test:e2e:map": "playwright test e2e/map-touch.spec.ts e2e/route-map.spec.ts",
 		"test:e2e:ui": "playwright test --ui",
-		"stations:generate": "node scripts/fetch-stations.ts"
+		"stations:generate": "node scripts/fetch-stations.ts",
+		"stations:collect": "node scripts/collect-stb-catalog.ts",
+		"stations:compose": "node scripts/generate-stb-catalog.ts",
+		"stations:audit": "node scripts/audit-station-membership.ts",
+		"stations:verify": "node scripts/verify-stb-catalog.ts",
+		"test:catalog": "vitest run scripts/station-membership.test.ts scripts/catalog-collection.test.ts scripts/station-membership-audit.test.ts scripts/stb-catalog.test.ts scripts/catalog-publication.test.ts src/lib/api/topology.test.ts src/lib/api/transport.test.ts src/lib/stations/data.test.ts",
+		"check:catalog": "tsc --project tsconfig.catalog.json"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.58.2",

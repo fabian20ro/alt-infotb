@@ -43,9 +43,20 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Code Patterns & Pitfalls
 
+**[2026-09-25]** Registry consistency is not complete service inventory — A complete 203-line STB registry/topology capture agrees internally, yet live stop responses expose IDs 1036 (N700), 907 (429), and 909 (476) absent from the registry. All nine detail/direction requests for those IDs return HTTP 200 with empty bodies. Stop 6207 simultaneously reports 796/907 for 429 and 798/909 for 476 across directions; do not alias by display name. Keep observed identities, report incomplete coverage and block automatic publication.
+
+**[2026-09-25]** Keep upstream identity separate from transport provenance — A local proxy and the deployed Worker can query the same STB source. Store the canonical upstream in `source` and transport in `via`; comparing proxy URLs as source identity incorrectly blocks a later scheduled publication.
+
+**[2026-09-25]** M5 now has usable STB topology and stop data — The 2026-09-25 full audit confirms line IDs 657/658 and all 20 platform IDs, including shared Eroilor. Explicit platform-to-existing-parent mapping preserves favorites and prevents duplicate metro markers. M2 Tudor Arghezi is also mapped. Previous claims that M5 has no API data are obsolete.
+
+**[2026-09-25]** Native Node catalog tooling requires its own type check — Svelte's generated include set does not cover all Node scripts. `npm run check:catalog` checks collectors/generators/auditors and their tests. Native Node stripping also rejects constructor parameter properties; shared proxy classes use explicit fields.
+
+
+**[2026-09-25]** STB trolleybus identifiers differ from GTFS — Live STB responses use `CABLE_CAR` for observed trolleybus lines (including 66, 93, 97); GTFS route_type 11 generates `TROLLEYBUS`. The decoder currently preserves raw vehicleType, so exact membership comparisons fail without alias normalization. A 31-stop audit confirmed this for 13 trolleybus lines. Fixtures using only the intuitive `TROLLEYBUS` value miss the actual integration failure; preserve real observed identifiers in boundary tests.
+
 **[2026-09-24]** Leaflet recenter requests can be swallowed during CSS zoom — In Leaflet 1.9.4, the active-zoom guard runs before `animate:false`; `map.stop()` only cancels pan/fly animations. Track public `zoomstart`/`zoomend` events and preserve the latest recenter intent until zoom ends or the first GPS fix arrives. Clear pending intent before synchronous `setView` to avoid nested zoom-event recursion. Desktop Chromium, mobile Chromium, and WebKit regression tests reproduce the old missed tap and verify the fix.
 
-**[2026-09-24]** Match served stations from GTFS membership, not route proximity — Join `routes` → `trips` → `stop_times`, union both directions, and match `route_short_name` plus transport type because GTFS route IDs differ from live STB IDs. Roll metro platform membership up to `parent_station`. Regenerate coordinates and membership from the same feed; untracked local `data/gtfs` may contain an older Busmaps feed. Scheduled membership includes published service variants and cannot establish live diversions.
+**[2026-09-24]** Match served stations from GTFS membership, not route proximity — Join `routes` → `trips` → `stop_times`, union both directions, and match `route_short_name` plus transport type because GTFS route IDs differ from live STB IDs. This remains a GTFS fallback adapter; the 2026-09-25 STB catalog uses native line IDs authoritatively because the GTFS membership was demonstrably incomplete. Roll metro platform membership up to `parent_station`. Regenerate coordinates and membership from the same feed; untracked local `data/gtfs` may contain an older Busmaps feed. Scheduled membership includes published service variants and cannot establish live diversions.
 
 **[2026-02-14]** DOMException.name is read-only — When mocking `AbortError` in tests, use the constructor `new DOMException('message', 'AbortError')` instead of `Object.assign(new DOMException(...), { name: 'AbortError' })`. The `name` property on `DOMException` is a getter and cannot be overwritten.
 
@@ -67,7 +78,7 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-15]** Svelte 5 `$effect` dependency tracking requires unconditional reads — `$effect` only tracks reactive values (`$state`, `$derived`, `$props`) that are read during execution. If a guard using plain `let` variables short-circuits before a prop is read (e.g., `if (!map) return` before reading `theme`), Svelte records zero dependencies and the effect never re-runs. Fix: read all reactive values at the top before any guards: `const t = theme; if (!map) return; use(t);`.
 
-**[2026-02-15]** GTFS metro parent station IDs ≠ STB API subway stop IDs — The STB API uses internal stop IDs (9500–9757) for subway stations, not the GTFS parent station IDs (14xxx, 15xxx, 57xxx). Each physical station has 2+ API stops (one per platform/direction). The mapping is stored in `src/lib/stations/subway-stops.ts` and was discovered via `scripts/discover-subway-stops.ts`. M5 (Drumul Taberei) stations have no API data.
+**[2026-02-15]** GTFS metro parent station IDs ≠ STB API subway stop IDs — The STB API uses internal stop IDs (9500–9757) for subway stations, not the GTFS parent station IDs (14xxx, 15xxx, 57xxx). Each physical station has 2+ API stops (one per platform/direction). The mapping is stored in `src/lib/stations/subway-stops.ts` and was discovered via `scripts/discover-subway-stops.ts`. M5 was unavailable during that initial discovery; the complete 2026-09-25 capture now provides mapped M5 topology and stop data.
 
 **[2026-02-15]** Multi-stop fetch+merge pattern for metro stations — `fetchArrivals()` accepts `number | number[]`. For arrays, use `Promise.allSettled` (not `Promise.all`) to tolerate partial failures. Merge by concatenating arrivals from all successful fetches and re-sorting. This way, one failing platform doesn't crash the entire station's view.
 
@@ -102,6 +113,8 @@ move it to the Archive section at the bottom with a date and reason.
 **[2026-02-14]** CI runs type-check, tests, then build — The GitHub Actions workflow (`deploy.yml`) runs `npm run check`, `npm test`, and `npm run build` in sequence. It also runs on PRs (not just main branch pushes), with deploy only on main/master.
 
 ## Dependencies & External Services
+
+**[2026-09-25]** A recent GTFS feed timestamp does not guarantee current line membership — TPBI feed 6.39 (2026-09-09) omits N109 at Isovolta 6084, while the production STB stop response explicitly includes it and STB announced that extension in May 2024. A generated-catalog-versus-feed check only proves internal consistency. For missing line stops, cross-check an actual reported stop against live STB data before claiming complete coverage; misclassified route stops are hidden by the background-marker density filter.
 
 **[2026-08-03]** Fresh GitHub repository IDs require explicit deployment-state restoration — Git data, repository metadata, Pages configuration, rulesets, security controls, environments, variables, webhooks, and Actions secrets are separate migration surfaces. GitHub exposes secret names but never their values. Restore values from a secure source and gate secret-dependent deployment jobs until every required credential exists; do not let a repository rename turn a healthy frontend build into an unauthenticated infrastructure deployment.
 

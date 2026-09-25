@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { ApiError } from './client.js';
 import { formatArrivalTime, formatTime, decodePolyline, decodeStopResponse } from './arrivals.js';
 import { setLanguage } from '$lib/i18n/index.js';
+
+it('normalizes the real STB trolleybus type while preserving source identity', () => {
+	const bytes = readFileSync(new URL('./fixtures/topology/bucur-obor-3684.pb', import.meta.url));
+	const line = decodeStopResponse(bytes, 3684).arrivals.find((arrival) => arrival.lineId === 72);
+	expect(line).toMatchObject({ lineName: '66', vehicleType: 'TROLLEYBUS', rawVehicleType: 'CABLE_CAR', sourceStopId: 3684 });
+});
 
 /** Protobuf encoding helpers */
 function encodeVarint(value: number): number[] {

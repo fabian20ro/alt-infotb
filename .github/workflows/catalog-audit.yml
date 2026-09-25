@@ -1,0 +1,123 @@
+name: Station catalog audit
+
+on:
+  schedule:
+    # After the 04:00 Europe/Bucharest transit boundary in either season.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      full:
+        description: Cross-check every known API stop (required for publication)
+        type: boolean
+        default: true
+      publish:
+        description: Publish a validated change (also requires STB_CATALOG_PUBLISH_ENABLED)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: station-catalog-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
+    env:
+      STB_CATALOG_PROXY: ${{ vars.STB_CATALOG_PROXY || 'https://alt-stb-proxy.fabian20ro.workers.dev' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Select audit depth
+        id: mode
+        env:
+          REQUEST_FULL: ${{ inputs.full }}
+          REQUEST_PUBLISH: ${{ inputs.publish }}
+          PUBLISH_ENABLED: ${{ vars.STB_CATALOG_PUBLISH_ENABLED }}
+        run: |
+          full=false
+          if [[ "$REQUEST_FULL" == true || "$(date -u +%u)" == 7 || "$PUBLISH_ENABLED" == true ]]; then full=true; fi
+          publish=false
+          if [[ "$PUBLISH_ENABLED" == true && ( "$GITHUB_EVENT_NAME" == schedule || "$REQUEST_PUBLISH" == true ) ]]; then publish=true; fi
+          echo "full=$full" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          mkdir -p data/catalog-audit
+      - name: Collect every registered STB line and direction
+        run: npm run stations:collect -- --output data/catalog-audit/topology.json --cache data/topology-cache --budget-ms 1800000
+      - name: Refresh independent GTFS fallback
+        run: |
+          mkdir -p data/gtfs-current
+          curl --fail --silent --show-error --location --max-time 180 --retry 2 \
+            --dump-header data/gtfs-current/headers.txt --output data/gtfs-current/feed.zip \
+            https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip
+          unzip -q data/gtfs-current/feed.zip stops.txt feed_info.txt routes.txt trips.txt stop_times.txt -d data/gtfs-current
+          source_updated_at="$(awk 'tolower($1) == "last-modified:" {$1=""; sub(/^ /, ""); print; exit}' data/gtfs-current/headers.txt | tr -d '\r')"
+          npm run stations:generate -- --stops data/gtfs-current/stops.txt --feed-info data/gtfs-current/feed_info.txt \
+            --source-updated-at "$source_updated_at" --output data/catalog-audit/gtfs.json
+      - name: Build and verify candidate without changing published data
+        run: |
+          npm run stations:compose -- --gtfs data/catalog-audit/gtfs.json --snapshot data/catalog-audit/topology.json --output data/catalog-audit/candidate.json
+          npm run stations:verify -- --snapshot data/catalog-audit/topology.json --catalog data/catalog-audit/candidate.json --output data/catalog-audit/topology-verification.json
+      - name: Cross-check every known API stop
+        if: steps.mode.outputs.full == 'true'
+        run: npm run stations:audit -- --live --full --snapshot data/catalog-audit/topology.json --catalog data/catalog-audit/candidate.json --output data/catalog-audit --cache data/stop-cache --budget-ms 6600000
+      - name: Confirm source independently before publication
+        if: steps.mode.outputs.publish == 'true'
+        run: |
+          npm run stations:collect -- --output data/catalog-audit/confirmation.json --cache data/confirmation-cache --budget-ms 1800000
+          npm run stations:verify -- --snapshot data/catalog-audit/topology.json --catalog data/catalog-audit/candidate.json \
+            --previous catalog/stb-topology.json --confirmation data/catalog-audit/confirmation.json \
+            --audit data/catalog-audit/membership-audit.json --publish-check --output data/catalog-audit/publication-check.json
+      - name: Verify candidate as the bundled application catalog
+        run: |
+          cp data/catalog-audit/topology.json catalog/stb-topology.json
+          cp data/catalog-audit/gtfs.json catalog/gtfs-fallback.json
+          cp data/catalog-audit/candidate.json src/lib/stations/stations.json
+          npm run check
+          npm run check:catalog
+          npm --prefix shared-api run check
+          npm test
+          npm run build
+      - name: Verify browser selection and map interactions
+        if: steps.mode.outputs.publish == 'true'
+        run: |
+          npx playwright install --with-deps chromium webkit
+          npm run test:e2e:map
+      - name: Commit validated semantic change and dispatch deployment
+        if: steps.mode.outputs.publish == 'true' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          old_hash="$(git show HEAD:src/lib/stations/stations.json | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>console.log(JSON.parse(s).stb?.contentHash ?? "legacy"))')"
+          new_hash="$(node -e 'console.log(JSON.parse(require("fs").readFileSync("src/lib/stations/stations.json")).stb.contentHash)')"
+          if [[ "$old_hash" == "$new_hash" ]]; then echo 'No semantic change; no deployment'; exit 0; fi
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add catalog/stb-topology.json catalog/gtfs-fallback.json src/lib/stations/stations.json
+          git commit -m 'chore(data): publish validated STB station catalog'
+          git push origin HEAD:main
+          # GITHUB_TOKEN pushes do not trigger push workflows. Deploy tests/builds
+          # the committed catalog again and uploads exactly that tested artifact.
+          gh workflow run deploy.yml --ref main
+      - name: Retain coverage and evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: station-catalog-audit
+          path: |
+            data/catalog-audit/
+            data/topology-cache/
+            data/stop-cache/
+            data/confirmation-cache/
+            test-results/
+          retention-days: 30

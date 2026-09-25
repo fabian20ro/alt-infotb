@@ -6,8 +6,8 @@
  * for subway stations. Each physical station has 2+ stops (one per platform/direction).
  * Interchange stations (where lines cross) have 4+ stops.
  *
- * Discovered via scripts/discover-subway-stops.ts on 2026-02-15.
- * M5 (Drumul Taberei) stations have no API data and are excluded.
+ * Initial mapping: scripts/discover-subway-stops.ts, 2026-02-15.
+ * M5 and Tudor Arghezi: complete STB line topology, verified 2026-09-25.
  */
 
 /** Maps GTFS metro parent station ID → STB API subway stop IDs */
@@ -35,7 +35,7 @@ export const SUBWAY_STOP_IDS: Record<number, number[]> = {
 	14705: [9721, 9729], // Crângași (M1)
 	14706: [9707, 9714], // Petrache Poenaru (M1)
 	14707: [9673, 9676], // Grozăvești (M1)
-	14708: [9578, 9579], // Eroilor (M1+M3 interchange)
+	14708: [9578, 9579, 10994, 10995], // Eroilor (M1+M3+M5 interchange)
 	14709: [9539, 9540], // Izvor (M1+M3 shared)
 
 	// M2 line stations (not already covered above)
@@ -49,6 +49,7 @@ export const SUBWAY_STOP_IDS: Record<number, number[]> = {
 	14722: [9613, 9614], // Aviatorilor (M2)
 	14721: [9616, 9617], // Aurel Vlaicu (M2)
 	14720: [9620, 9621], // Pipera (M2)
+	14783: [12338, 12355], // Tudor Arghezi (M2)
 
 	// M3 line stations (not already covered above)
 	14738: [9584, 9585], // Politehnica (M3)
@@ -68,6 +69,17 @@ export const SUBWAY_STOP_IDS: Record<number, number[]> = {
 	14747: [9727, 9728], // Parc Bazilescu (M4)
 	57443: [9722, 9723], // Laminorului (M4)
 	57442: [9712, 9713], // Străulești (M4)
+
+	// M5: both branches retain the existing physical GTFS marker identities.
+	99010: [10969, 10975], // Valea Ialomiței
+	99020: [10958, 10977], // Râul Doamnei
+	99030: [10959, 10976], // Constantin Brâncuși
+	99040: [10960, 10974], // Romancierilor
+	99050: [10961, 10973], // Parc Drumul Taberei
+	99060: [10962, 10972], // Tudor Vladimirescu
+	99070: [10963, 10971], // Favorit
+	99080: [10964, 10970], // Orizont
+	99090: [10965, 10968], // Academia Militară
 };
 
 /** Maps GTFS metro parent station ID → human-readable Romanian name. */
@@ -106,6 +118,7 @@ export const STATION_NAMES: Record<number, string> = {
 	14722: 'Aviatorilor',
 	14721: 'Aurel Vlaicu',
 	14720: 'Pipera',
+	14783: 'Tudor Arghezi',
 	14738: 'Politehnica',
 	14737: 'Lujerului',
 	14736: 'Gorjului',
@@ -121,6 +134,15 @@ export const STATION_NAMES: Record<number, string> = {
 	14747: 'Parc Bazilescu',
 	57443: 'Laminorului',
 	57442: 'Străulești',
+	99010: 'Valea Ialomiței',
+	99020: 'Râul Doamnei',
+	99030: 'Constantin Brâncuși',
+	99040: 'Romancierilor',
+	99050: 'Parc Drumul Taberei',
+	99060: 'Tudor Vladimirescu',
+	99070: 'Favorit',
+	99080: 'Orizont',
+	99090: 'Academia Militară',
 };
 
 /** Resolve a station ID to its STB API stop IDs. Non-subway stations return [stationId]. */
@@ -180,7 +202,7 @@ export interface SubwayStationEntry {
 
 type LineGroup = Record<string, SubwayStationEntry[]>;
 
-/** Group all subway stations by their metro line (M1–M4). */
+/** Group subway stations for discovery tooling; interchange grouping is historical. */
 const STATION_LINE_MAP: Record<number, string> = {
 	// M1
 	14718: 'M1', 14719: 'M1', 14717: 'M1', 14716: 'M1',
@@ -194,6 +216,7 @@ const STATION_LINE_MAP: Record<number, string> = {
 	14727: 'M2', 14728: 'M2', 14729: 'M2', 14730: 'M2',
 	14731: 'M2', 14733: 'M2', 14732: 'M2', 14722: 'M2',
 	14721: 'M2', 14720: 'M2',
+	14783: 'M2',
 
 	// M3
 	14738: 'M3', 14737: 'M3', 14736: 'M3', 14735: 'M3',
@@ -202,6 +225,10 @@ const STATION_LINE_MAP: Record<number, string> = {
 	// M4
 	14742: 'M4', 14744: 'M4', 14745: 'M4', 14746: 'M4',
 	14747: 'M4', 57443: 'M4', 57442: 'M4',
+
+	// M5
+	99010: 'M5', 99020: 'M5', 99030: 'M5', 99040: 'M5', 99050: 'M5',
+	99060: 'M5', 99070: 'M5', 99080: 'M5', 99090: 'M5',
 };
 
 export function getStationsByLine(): LineGroup {
