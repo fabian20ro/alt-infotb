@@ -131,18 +131,70 @@ describe('collector retries, pacing and failures', () => {
   await result;
   expect(request).toHaveBeenCalledTimes(3);
  });
- it.each([401, 403, 412])('stops immediately on HTTP %s authentication failure', async status => {
+ it('bounds retries when cancellation of an error response body never settles', async () => {
+  const cancel = vi.fn(() => new Promise<void>(() => {}));
+  const request = vi.fn(async () => new Response(new ReadableStream({ cancel }), { status: 503 }));
+  const { collector, sleep } = await setup(request, { timeoutMs: 20 });
+  vi.useFakeTimers();
+  const result = expect(collector.get(path)).rejects.toMatchObject({ code: 'timeout' });
+  await vi.waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
+  await vi.advanceTimersByTimeAsync(60);
+  await result;
+  expect(request).toHaveBeenCalledTimes(3);
+  expect(cancel).toHaveBeenCalledTimes(3);
+  expect(sleep.mock.calls.map(([delay]) => delay)).toEqual([500, 1000]);
+  expect(collector.evidence.size).toBe(0);
+  expect(vi.getTimerCount()).toBe(0);
+ });
+ it.each([401, 403])('stops immediately on HTTP %s authentication failure', async status => {
   const request = vi.fn(async () => new Response(null, { status }));
   const { collector, sleep } = await setup(request);
   await expect(collector.get(path)).rejects.toMatchObject({ code: 'auth' });
   expect(request).toHaveBeenCalledTimes(1);
   expect(sleep).not.toHaveBeenCalled();
  });
- it('does not retry proxy-classified auth failure', async () => {
-  const request = vi.fn(async () => new Response(null, { status: 502, headers: { 'X-Proxy-Error': 'auth-http' } }));
-  const { collector } = await setup(request);
+ it.each([412, 502])('does not retry proxy-classified auth failure with HTTP %s', async status => {
+  const request = vi.fn(async () => new Response(null, { status, headers: { 'X-Proxy-Error': 'auth-http' } }));
+  const { collector, sleep } = await setup(request);
   await expect(collector.get(path)).rejects.toMatchObject({ code: 'auth' });
   expect(request).toHaveBeenCalledTimes(1);
+  expect(sleep).not.toHaveBeenCalled();
+ });
+ it('recovers transient upstream 412 responses with bounded backoff and caches only success', async () => {
+  const cancel = vi.fn();
+  const expired = () => new Response(new ReadableStream({ cancel }), { status: 412 });
+  const request = vi.fn().mockImplementationOnce(expired).mockImplementationOnce(expired).mockImplementationOnce(payload);
+  const { collector, sleep, directory } = await setup(request);
+  expect(await collector.get(path)).toEqual(new Uint8Array([10, 1, 65]));
+  expect(request).toHaveBeenCalledTimes(3);
+  expect(cancel).toHaveBeenCalledTimes(2);
+  expect(sleep.mock.calls.map(([delay]) => delay)).toEqual([500, 1000]);
+  expect(collector.evidence.get(path)).toMatchObject({ sha256: sha256(new Uint8Array([10, 1, 65])) });
+  const cached = JSON.parse(await readFile(join(directory, `${sha256(path)}.json`), 'utf8'));
+  expect([...Buffer.from(cached.body, 'base64')]).toEqual([10, 1, 65]);
+  await collector.get(path);
+  expect(request).toHaveBeenCalledTimes(3);
+ });
+ it('caps persistent upstream 412 responses at three attempts and remains fatal auth', async () => {
+  const cancel = vi.fn();
+  const request = vi.fn(async () => new Response(new ReadableStream({ cancel }), { status: 412 }));
+  const { collector, sleep, directory } = await setup(request);
+  await expect(collector.get(path)).rejects.toMatchObject({ code: 'auth', message: 'Authentication failed (HTTP 412 after retries)' });
+  expect(request).toHaveBeenCalledTimes(3);
+  expect(cancel).toHaveBeenCalledTimes(3);
+  expect(sleep.mock.calls.map(([delay]) => delay)).toEqual([500, 1000]);
+  expect(collector.evidence.size).toBe(0);
+  await expect(readFile(join(directory, `${sha256(path)}.json`))).rejects.toMatchObject({ code: 'ENOENT' });
+ });
+ it('stops upstream 412 retries when the next backoff would exceed the collection budget', async () => {
+  const cancel = vi.fn();
+  const request = vi.fn(async () => new Response(new ReadableStream({ cancel }), { status: 412 }));
+  const { collector, sleep } = await setup(request, { budgetMs: 1200 });
+  await expect(collector.get(path)).rejects.toMatchObject({ code: 'budget' });
+  expect(request).toHaveBeenCalledTimes(2);
+  expect(cancel).toHaveBeenCalledTimes(2);
+  expect(sleep.mock.calls.map(([delay]) => delay)).toEqual([500]);
+  expect(collector.evidence.size).toBe(0);
  });
  it('treats HTTP 200 with no bytes as inconclusive, not success', async () => {
   const { collector } = await setup(async () => new Response(null));

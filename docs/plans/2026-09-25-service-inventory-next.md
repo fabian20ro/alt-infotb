@@ -1,6 +1,8 @@
 # Inventar istoric: implementare și pașii următori
 
-Data: 2026-09-25. Continuarea planului de catalog, după integrarea PR #45.
+Data: 2026-09-25; actualizat 2026-09-26. Continuarea planului de catalog, după integrarea PR #45.
+
+**Rollout 2026-09-26:** proxy-ul a fost publicat și probele live trec. Prima execuție completă solicitată în CI s-a oprit la 1.535/3.980 stații pe un HTTP 412 temporar de la STB; istoricul parțial s-a salvat. Retry-ul limitat pentru acest caz este adăugat în continuare, fără relaxarea gate-ului. OAuth Cloudflare și autentificarea upstream STB sunt mecanisme distincte. Reluarea din checkpoint a parcurs toate cele 3.980 de stații: 3.936 verificate, 44 neconcludente și 31 apartenențe neconfirmate; fără alte erori de autentificare. Ambele observații sunt păstrate în istoricul separat.
 
 ## Livrat
 
@@ -20,7 +22,7 @@ Scenariile automate acoperă servicii absente/reapărute, ID nou cu aceeași eti
 
 ## Restanțe și probleme descoperite
 
-1. **Promovarea efectivă Cloudflare:** `/lines` răspunde încă 404. OAuth local expirat; control-plane fără token de deploy. Actualizarea e pregătită și verificată, dar necesită autentificare. Nu s-au schimbat secrete.
+1. **Promovare Cloudflare rezolvată pe 2026-09-26:** endpointurile noi răspund 200; secretele runtime existente au fost păstrate. Pentru viitoare deployuri din GitHub Actions lipsește încă tokenul de deploy; acesta nu este necesar pentru auditul prin proxy-ul public.
 2. **Buildul control-plane depindea de alt proiect indisponibil:** corectat în PR-ul privat prin selectarea modulului pentru Cloudflare/Vercel. Render păstrează buildul compus; disponibilitatea celuilalt proiect rămâne problema acelui sistem.
 3. **Testele modulului proxy izolat căutau configurația Svelte a aplicației:** adăugat tsconfig pentru teste, independent de frontend.
 4. **Proveniență registru instabil:** proba finală suprascrie dovada inițială. Inventarul exclude etichetele registrului când cele două probe diferă; observațiile pozitive independente rămân păstrate.
@@ -32,7 +34,7 @@ Scenariile automate acoperă servicii absente/reapărute, ID nou cu aceeași eti
 
 ## Recomandarea următoare
 
-Prioritate operațională: integrarea PR-urilor, autentificare Cloudflare, deploy doar al modulului STB și probe live pentru registru, detaliu, ambele sensuri și sosiri. Apoi audit complet `publish=false` și încă o captură independentă; un rezultat neconcludent păstrează dovezile și catalogul anterior.
+Prioritate operațională: integrarea corecției pentru 412 temporar și o nouă execuție CI integrală, cu `publish=false`, apoi încă o captură independentă. Proxy-ul este deja publicat și verificat; un rezultat neconcludent păstrează dovezile și catalogul anterior.
 
 Prioritate arhitecturală: **contract explicit între dovezi și catalogul publicabil**. Separăm inventarul listat de serviciile cu topologie verificată și identitatea afișată. Un adaptor comun rezolvă platformele/stațiile fizice; relațiile de înlocuire între servicii includ sursă și perioadă de valabilitate. Calendarul și starea operațională sunt dimensiuni independente de calitatea topologiei.
 

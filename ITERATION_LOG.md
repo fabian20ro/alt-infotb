@@ -931,3 +931,22 @@ Each entry should follow this structure:
 **Promoted lessons:** Independent observation persistence, unstable-registry provenance and serializing Vitest versus browser verification.
 
 **Final isolated browser verification:**31passed/5intentional device-specific skips, workers1/retries0, desktop/mobileChromium and mobileWebKit. No app UI changes needed.
+
+### [2026-09-26] Post-merge rollout status and authentication instructions
+
+**Request:** Verify both merged PRs and explain remaining login steps.
+**Verified:** Public PR46 and private shared-api-host PR2 merged. Public main Deploy36118091765 succeeded: build and frontend deployment successful, Worker job skipped. No private API deployment run since merge. Live proxy /lines?lang=ro still404. Wrangler4.115.0 whoami still reports expired/unrefreshable OAuth; shared-api-host has no CLOUDFLARE_API_TOKEN. No runtime changes performed.
+**Next action:** User runs local Wrangler login and approves Cloudflare OAuth in the browser, verifies whoami; then proxy deployment and live smoke/audit can proceed. Local OAuth does not populate GitHub Actions secrets. Official Cloudflare general command documentation checked. No new reusable lesson.
+
+### [2026-09-26] Deploy authenticated Cloudflare topology handler
+
+**Authorization:** User completed requested Wrangler OAuth login and said gata; continued the previously approved proxy rollout/live verification.
+**Deployment:** Verified OAuth, fetched merged private host0914036, repeated hostTypeScript/3tests/scopedSTBbuild. Deployed immutable public modulebee1455 from the source lock. Worker version19571dfd-84e7-4b8d-bc3f-316420793cdd replacesd00cec76-e366-461e-bf3a-576d2601bd4b. Existing STBsecretbindings retained; no runtime credential values read or changed.
+**Live smoke:** /lines200 with203registryentries; N109detail200 with57stopentries, direction0=28 anddirection1=29; Isovolta6084returns200 with103/246/N109/640. AllowedOriginCORS correct; all bodies decoded with production customprotobuf. Earlier404topology block resolved.
+**Evidence:** Private shared-api-host PR3 records immutable source/artifact hashes, Worker version and rollback reference. Dispatched full catalog workflow36191175483 onmain withfull=true,publish=false. Automatic publication remains disabled; public legacyWORKER_DEPLOY_ENABLED remainsfalse. LocalOAuthdoesnotprovisionGitHubCItoken. Final audit outcome to follow.
+
+**CI outcome and recovery:** Full observation36191175483 stopped after1535/3980requests at stop6935 on rawSTBHTTP412, despite proxyrefresh. It correctly saved a partial206-service inventory (commitd95807f) and failed the publication gate. Immediate probes6935/6936/6084allreturned200. Resumed locally against the same publishedproxy using original validated checkpoints; all3980requested,3936verified/44inconclusive,31membershipdiscrepancies. Remaining issues:14emptyresponses and31unregistered-line observations; noauthfailure remains in the completed resumedreport. N700observedat29stops;907/909atoneeach. Appcatalogunchanged.
+**Reliability correction:** Rawupstream412nowretries withinexisting3-attempt/backoff/Retry-After/budget. Persistent412remainsfatal;401/403/proxy-auth-errorsremainimmediatefatal. Errorbodycancellationboundedbytimeout; nofailedresponsecached.41collector tests and1053rootunit tests pass; catalogTypeScript/diffchecks pass. NoWorker runtime changes or seconddeploy required. Resumed audit+discovery produce a secondhistorycapture, retaining the interruptedfirstcapture and originalresponse timestamps.
+**Evidence:** Completed resumed audit hash a7e927dad72a7b929203bb6776b440ee0e49f0740963ea216ba3f68b2af74995; discovery hash782dbbbb6bc60fff9e2cd5c780ba089b03d0b74e01ac1d1d3448a31ee63b8c7e; topologyhash7fe0a53f34eab386333789d41ca5d14091dcad5cebddaf7fe1ed394934971af8. Full localreports/checkpoints under/tmp/better-stb-live-audit-resumed-20260926 and/tmp/better-stb-live-audit-20260926/data/stop-cache. CIpartialrawartifacts remain attached to the run; durablehistory stores assessments/evidence, not secretvalues.
+
+**Durable history:** Saved both captures with exact-ref compare-and-swap to data/service-inventory commit be86a3b1df15cdb2259967b10e0cc50cdb7abbbf; 206 service identities preserved independently of catalog publication.
