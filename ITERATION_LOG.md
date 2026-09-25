@@ -910,3 +910,11 @@ Each entry should follow this structure:
 **Promoted to Lessons Learned:** Yes — explicit push destination and no-track branch creation.
 
 **Final browser-fixture refinement:** The real 66 response checks the count from the independent versioned topology snapshot, rather than permanently requiring today's36stops. This preserves the decoder-to-map regression while allowing a legitimate future route update. Final local browser suite:31passed/5intentional skips; PR#45 opened from the explicit feature ref.
+
+### [2026-09-25] Clarify temporary and regional service lifecycle
+
+**User context:** N700 runs for concerts; 4xx services reach surrounding localities. User asks whether absent service IDs may reflect cancellation/recreation.
+**Evidence:** Current official TPBI program lists 429/476 as regional Ecotrans services; official 2024-08-24 notice documents a 476 route change, not an API ID replacement. Retained topology includes stop6207 in both directions for listed IDs796/798; stop response additionally names907/909. Cancellation/recreation remains a hypothesis, not a proven alias. No official N700 calendar was established in this check; event-service context is attributed to the user.
+**Plan refinement:** Added operational status, service calendar and topology evidence as separate dimensions; temporal provenance and verified replacement relationships; regional coverage independent of city limits and provider distinct from operator. Added lifecycle regression scenarios. No runtime, snapshot or publication-gate changes.
+**Verification:** Documentation diff/whitespace review only; implementation tests unchanged.
+**Surprise:** An API branded STB also describes other operators' regional services; operational status cannot be inferred from provider branding or registry absence. Recorded in next plan with official source.
