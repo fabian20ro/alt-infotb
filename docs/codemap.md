@@ -193,3 +193,19 @@ Catalog collection configuration is separate in `scripts/catalog-cli.ts`: proxy 
 | `npm run test:integration` | Real STB API integration tests | Yes |
 | `npm run test:e2e:map` | Mocked Chromium/WebKit map flows, one worker | Mocked API |
 | `npm run test:e2e` | General Playwright suite, one worker | May use live proxy |
+
+## Service observation tooling
+
+- `scripts/service-discovery.ts`: bounded traversal from positive stop responses;
+  validates service identity, both directions, new stop responses and registry stability.
+- `scripts/service-inventory-capture.ts`: source/artifact bindings and observation normalization.
+- `scripts/service-inventory.ts`: validated immutable capture history and per-service summaries.
+- `scripts/service-inventory-storage.ts`: durable single-file Git branch with append-only validation and concurrency leases.
+- `scripts/observe-service-inventory.ts` / `scripts/store-service-inventory.ts`:
+  `stations:observe` / `stations:history` CLIs.
+- Adjacent tests cover disappearance/reappearance, distinct same-name IDs,
+  regional stop expansion, source failures, limits, provenance and real Git races.
+
+The browser continues to consume only the versioned station catalog. History and
+discovered topology are diagnostic artifacts until explicitly admitted by a
+future catalog/publication policy.

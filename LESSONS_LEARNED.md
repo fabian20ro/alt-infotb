@@ -43,6 +43,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Code Patterns & Pitfalls
 
+**[2026-09-25]** A registry consistency recheck can overwrite response evidence — `collectTopology` retains the initial registry rows but the evidence map keeps the final `/lines?lang=ro` response. On `registry-changed`, do not bind those initial labels to the final response hash/timestamp. The historical inventory omits these uncertain registry positives while retaining independently proven stop observations.
+
+**[2026-09-25]** Preserve observation history independently of publication — Inconclusive scans still contain useful positive evidence. Save a validated, append-only history separately from the app catalog, preserve response timestamps when replaying cache, and distinguish registry-only from full/partial stop scans. A failed remote restore must never be interpreted as empty history.
+
 **[2026-09-25]** Registry consistency is not complete service inventory — A complete 203-line STB registry/topology capture agrees internally, yet live stop responses expose IDs 1036 (N700), 907 (429), and 909 (476) absent from the registry. All nine detail/direction requests for those IDs return HTTP 200 with empty bodies. Stop 6207 simultaneously reports 796/907 for 429 and 798/909 for 476 across directions; do not alias by display name. Keep observed identities, report incomplete coverage and block automatic publication.
 
 **[2026-09-25]** Keep upstream identity separate from transport provenance — A local proxy and the deployed Worker can query the same STB source. Store the canonical upstream in `source` and transport in `via`; comparing proxy URLs as source identity incorrectly blocks a later scheduled publication.
@@ -93,6 +97,8 @@ move it to the Archive section at the bottom with a date and reason.
 **[2026-07-20]** Viewport mutations must be tied to one-shot, route-scoped events — A Svelte effect that reads the live route while an overview counter remains positive can call `fitBounds` again on every polling snapshot. Keep route drawing viewport-pure, identify overview requests by ID and route key, and mark each request handled only after its fit succeeds.
 
 ## Testing & Quality
+
+**[2026-09-25]** Do not run Vitest alongside browser tests either — Root `npm test` / `test:catalog` load the Vite/Svelte plugin and can regenerate `.svelte-kit/generated/*`, even without an explicit `svelte-kit sync` or build. A reproduced full-page reload cleared the selected route mid-E2E at the exact Vitest startup timestamp. Run browser verification after unit/type/build checks finish; this was verification interference, not a route-selection bug.
 
 **[2026-09-15]** Separate visual occlusion from hit interception on Leaflet maps — A touch-opened station tooltip can cover another stop while its `pointer-events:none` still allows A→B→A taps. Verify `elementFromPoint` at real visible targets before changing z-index or hit areas. Station labels now follow input capabilities (hidden on coarse/no-hover input), while explicit `aria-label` and Enter/Space activation keep DivIcon buttons usable after `setIcon` replaces their DOM nodes.
 

@@ -22,8 +22,10 @@
 		"stations:compose": "node scripts/generate-stb-catalog.ts",
 		"stations:audit": "node scripts/audit-station-membership.ts",
 		"stations:verify": "node scripts/verify-stb-catalog.ts",
-		"test:catalog": "vitest run scripts/station-membership.test.ts scripts/catalog-collection.test.ts scripts/station-membership-audit.test.ts scripts/stb-catalog.test.ts scripts/catalog-publication.test.ts src/lib/api/topology.test.ts src/lib/api/transport.test.ts src/lib/stations/data.test.ts",
-		"check:catalog": "tsc --project tsconfig.catalog.json"
+		"test:catalog": "vitest run scripts/station-membership.test.ts scripts/catalog-collection.test.ts scripts/station-membership-audit.test.ts scripts/stb-catalog.test.ts scripts/catalog-publication.test.ts src/lib/api/topology.test.ts src/lib/api/transport.test.ts src/lib/stations/data.test.ts scripts/service-inventory.test.ts scripts/service-inventory-capture.test.ts scripts/service-discovery.test.ts scripts/service-inventory-storage.test.ts",
+		"check:catalog": "tsc --project tsconfig.catalog.json",
+		"stations:observe": "node scripts/observe-service-inventory.ts",
+		"stations:history": "node scripts/store-service-inventory.ts"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.58.2",

@@ -2,6 +2,8 @@
 
 Data: 2026-09-25. Urmează planului inițial `2026-09-25-station-catalog-audit.md`.
 
+Continuarea implementată și restanțele actualizate: [inventar istoric și descoperire](2026-09-25-service-inventory-next.md).
+
 ## Implementat în această iterație
 
 - Proxy comun dev/producție: căi de topologie validate, autentificare coordonată, timeout inclusiv corpul autentificării și anulare propagată.
@@ -37,6 +39,18 @@ Rezultat final al auditului: 3.980 ID-uri parcurse; 3.966 răspunsuri numite cu 
 Separăm explicit trei identități: **stație fizică → platformă API → serviciu/variantă STB**. Deasupra serviciilor, o linie afișată poate grupa mai multe variante numai pe baza unei relații verificate. Numele și tipul sunt etichete, nu chei de identitate între surse.
 
 Registrul de linii devine o sursă de inventar, iar răspunsurile stațiilor devin o a doua sursă de descoperire. Modelul păstrează distinct „listat în registru”, „observat la sosiri”, „topologie verificată” și „neclar”. Nu transformăm automat orice observație într-o linie completă sau într-o asociere permanentă.
+
+### Clarificare: servicii temporare, regionale și schimbări de identitate
+
+Context oferit de utilizator: N700 este un serviciu nocturn introdus pentru concerte. Absența din registrul obișnuit poate avea o explicație operațională legitimă; observația nu confirmă însă calendarul sau starea serviciului la momentul capturii. Cele 29 de apartenențe rămân neconfirmate, fără a fi etichetate automat drept regresii ale aplicației sau stații de șters.
+
+[Programul oficial TPBI](https://tpbi.ro/programul-de-transport/) listează 429 și 476 ca autobuze regionale Ecotrans, între Pasaj CFR Chitila și Valea Cascadelor, respectiv M Străulești. [TPBI documentează modificarea traseului 476 din 24.08.2024](https://tpbi.ro/tpbi-reconfigureaza-liniile-de-transport-din-zona-terminalului-clabucet-pentru-executarea-lucrarilor-la-magistrala-6-de-metrou-2/). Aceasta dovedește evoluția traseului, nu anularea/reînființarea liniei sau relația dintre ID-urile API. În captura noastră, ID-urile listate 796/798 includ deja stația 6207 în ambele sensuri; răspunsul stației adaugă 907/909. Sunt posibile versiuni istorice, variante sau sincronizare incompletă; nu avem dovada care le distinge.
+
+Extinderea recomandată: separăm **starea operațională** (activ, temporar suspendat, retras, necunoscut), **calendarul de serviciu** și **calitatea dovezii de topologie**. Păstrăm prima/ultima observație, sursa, perioada de valabilitate când este cunoscută și relațiile de înlocuire între ID-uri numai când sunt verificate. Un serviciu de eveniment poate reapărea; lipsa dintr-o captură nu stabilește retragerea. Operatorul este metadată distinctă de furnizorul API și de identitatea liniei.
+
+Acoperirea include traseele regionale 4xx și localitățile din jur. Nu deducem validitatea unei stații din limitele Bucureștiului sau din prefixul numărului liniei. Filtrul geografic pentru datele STB a fost eliminat în implementare; limitările fallbackului GTFS rămân restanța separată din tabel.
+
+Teste suplimentare pentru următoarea iterație: serviciu de eveniment absent și reapărut, ID nou pentru aceeași etichetă fără dovadă de echivalență, înlocuire verificată cu valabilitate temporală, schimbare de operator și stații regionale în afara vechii limite. Politica de publicare trebuie să distingă schimbările operaționale documentate de o colectare incompletă; gate-ul actual rămâne neschimbat până la implementarea și verificarea acestei politici.
 
 ### Planul următoarei iterații
 

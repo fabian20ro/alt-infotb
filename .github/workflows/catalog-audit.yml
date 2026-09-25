@@ -50,9 +50,15 @@ jobs:
           echo "full=$full" >> "$GITHUB_OUTPUT"
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
           mkdir -p data/catalog-audit
+      - name: Restore durable service history
+        id: history
+        run: npm run stations:history -- --restore --output data/service-history/previous.json --head-file data/service-history/head.json
       - name: Collect every registered STB line and direction
+        id: topology
+        continue-on-error: true
         run: npm run stations:collect -- --output data/catalog-audit/topology.json --cache data/topology-cache --budget-ms 1800000
       - name: Refresh independent GTFS fallback
+        if: steps.topology.outcome == 'success'
         run: |
           mkdir -p data/gtfs-current
           curl --fail --silent --show-error --location --max-time 180 --retry 2 \
@@ -63,12 +69,34 @@ jobs:
           npm run stations:generate -- --stops data/gtfs-current/stops.txt --feed-info data/gtfs-current/feed_info.txt \
             --source-updated-at "$source_updated_at" --output data/catalog-audit/gtfs.json
       - name: Build and verify candidate without changing published data
+        if: steps.topology.outcome == 'success'
         run: |
           npm run stations:compose -- --gtfs data/catalog-audit/gtfs.json --snapshot data/catalog-audit/topology.json --output data/catalog-audit/candidate.json
           npm run stations:verify -- --snapshot data/catalog-audit/topology.json --catalog data/catalog-audit/candidate.json --output data/catalog-audit/topology-verification.json
       - name: Cross-check every known API stop
-        if: steps.mode.outputs.full == 'true'
+        id: membership
+        continue-on-error: true
+        if: steps.mode.outputs.full == 'true' && steps.topology.outcome == 'success'
         run: npm run stations:audit -- --live --full --snapshot data/catalog-audit/topology.json --catalog data/catalog-audit/candidate.json --output data/catalog-audit --cache data/stop-cache --budget-ms 6600000
+      - name: Discover observed services and append historical observations
+        id: observation
+        if: always() && steps.history.outcome == 'success' && hashFiles('data/catalog-audit/topology.json') != ''
+        continue-on-error: true
+        run: |
+          args=(--snapshot data/catalog-audit/topology.json --output data/catalog-audit --cache data/discovery-cache --budget-ms 600000)
+          if [[ -f data/service-history/previous.json ]]; then args+=(--previous data/service-history/previous.json); fi
+          if [[ -f data/catalog-audit/membership-audit.json ]]; then
+            args+=(--live --audit data/catalog-audit/membership-audit.json --catalog data/catalog-audit/candidate.json)
+          fi
+          npm run stations:observe -- "${args[@]}"
+      - name: Persist observations independently of catalog publication
+        if: always() && steps.history.outcome == 'success' && github.ref == 'refs/heads/main' && hashFiles('data/catalog-audit/service-inventory.json') != ''
+        run: npm run stations:history -- --save --input data/catalog-audit/service-inventory.json --head-file data/service-history/head.json
+      - name: Require conclusive collection before catalog publication
+        if: always() && (steps.topology.outcome == 'failure' || steps.membership.outcome == 'failure' || steps.observation.outcome == 'failure')
+        run: |
+          echo 'Observation retained; collection/audit/discovery is inconclusive. Published catalog is unchanged.'
+          exit 1
       - name: Confirm source independently before publication
         if: steps.mode.outputs.publish == 'true'
         run: |
@@ -119,5 +147,7 @@ jobs:
             data/topology-cache/
             data/stop-cache/
             data/confirmation-cache/
+            data/discovery-cache/
+            data/service-history/head.json
             test-results/
           retention-days: 30

@@ -193,7 +193,7 @@ Deterministic tests traverse every captured line, both directions, and every sto
 
 The live audit enumerates the union of catalog and topology API IDs, deduplicating shared metro platforms. Positive stop responses can reveal missing memberships or unregistered services. Empty responses, unknown types and failures remain unverified; absent arrivals never delete an edge. JSON/Markdown reports distinguish conform, nonconform and inconclusive results and retain coverage, exact discrepancies and evidence.
 
-`.github/workflows/catalog-audit.yml` runs daily after 04:00 Romanian time. Sunday/manual runs scan every known API stop; enabling publication requires that full scan on each publication attempt. Audit concurrency is separate from Pages and artifacts survive failed runs for 30 days. `STB_CATALOG_PUBLISH_ENABLED` gates all automatic writes. The publication guard requires a conform full audit bound to the exact snapshot and catalog hashes, observations within six hours, a later independent capture confirming deletions, and explicit review for initial or bulk changes.
+`.github/workflows/catalog-audit.yml` runs daily after 04:00 Romanian time. Sunday/manual runs scan every known API stop; enabling publication requires that full scan on each publication attempt. Audit concurrency is separate from Pages and artifacts survive failed runs for 30 days. `STB_CATALOG_PUBLISH_ENABLED` gates catalog publication; observation history is saved independently. The publication guard requires a conform full audit bound to the exact snapshot and catalog hashes, observations within six hours, a later independent capture confirming deletions, and explicit review for initial or bulk changes.
 
 Candidates pass type checks, unit tests and build; publishing also runs serial map browser tests. A semantic hash suppresses timestamp-only commits. The workflow checks that main has not advanced, commits the validated source/catalog files, then explicitly dispatches `deploy.yml` because `GITHUB_TOKEN` pushes do not trigger another workflow. Deploy rebuilds and tests the committed data and uploads its tested artifact. Normal app PRs/deployments never depend on live catalog acquisition; failed acquisition preserves the committed catalog.
 
@@ -203,4 +203,37 @@ The collector, comparator, runtime integration and protected publisher are imple
 
 Observed stop responses contain services absent from the independent registry, including IDs 907/909 and N700 ID 1036. Their probed line-detail endpoints return empty HTTP 200 bodies. Equal display names do not establish identity equivalence; the catalog must not invent aliases. Catalog topology coverage therefore means every **registered, captured** line, not every service known to every STB endpoint.
 
-The next improvement is a separate observed-service inventory plus bounded discovery: each newly observed line ID gets one deduplicated discovery attempt, a provenance record and an unresolved/resolved status. Its result can expand the inventory only after identity and topology validation. This closes discoverable registry gaps without unioning historical arrival evidence forever. See the current [implementation/follow-up plan](plans/2026-09-25-station-catalog-audit.md) for remaining work and rollout criteria.
+The separate observed-service inventory and bounded discovery are now implemented: each newly observed line ID gets one deduplicated discovery attempt, a provenance record and an unresolved/resolved status. Its result can expand the inventory only after identity and topology validation. This closes discoverable registry gaps without unioning historical arrival evidence forever. See the current [implementation/follow-up plan](plans/2026-09-25-station-catalog-audit.md) for remaining work and rollout criteria.
+
+### Historical service inventory and bounded discovery
+
+`service-discovery.ts` follows positive stop observations into unregistered service
+IDs. Each service is queried once for detail and both directions. Only a complete,
+consistent identity and stop union expands the stop frontier; responses from new
+stops can reveal another service. Defaults cap traversal at three rounds, 25
+services and 250 new stops, in addition to the collector's time budget. Pending
+frontiers, empty bodies, conflicts, stale evidence or registry changes remain
+inconclusive. Discovery does not add services to the provider's registry or to the
+runtime station catalog.
+
+`service-inventory-capture.ts` binds the snapshot, audit and discovery hashes and
+normalizes their timestamped observations. `service-inventory.ts` appends validated
+captures and rebuilds per-ID summaries: first/last observation, label history,
+registry presence, topology quality and latest positively observed stops. Capture
+assessment records registry-only versus stop-scan scope, requested coverage and
+outcomes. Direction evidence is retained. Reusing cached responses cannot advance
+last-seen time. Operational status remains unknown: neither registry absence nor
+an empty stop response proves cancellation, and equal labels never merge IDs.
+
+`service-inventory-storage.ts` stores this history on the dedicated
+`data/service-inventory` branch, independently of catalog publication. It validates
+and restores the previous JSON, rejects truncation/corruption, and writes a single
+file through Git objects without changing the working branch or index. Explicit
+compare-and-swap leases reject concurrent writers. Failed remote reads never
+silently initialize empty history. Failed/inconclusive audits can still append
+valid observations before the workflow fails; publication guards remain strict.
+
+History is lossless initially. Future archival must preserve lifecycle transitions
+and provenance explicitly; the branch is not a browser data source. Promotion of
+verified discovered topology into a future catalog needs its own reviewed schema
+and publication policy. See [next implementation plan](plans/2026-09-25-service-inventory-next.md).
