@@ -1,34 +1,58 @@
 import type { Station } from './types.js';
 import bundledCatalog from './stations.json';
-import { stationServesLine as servesLine, validateStations, type CatalogLineSelection } from './membership.ts';
 
 interface BundledStationCatalog {
 	feedVersion: string;
 	sourceUpdatedAt: string;
 	stations: Station[];
-	stb?: { source: string; observedAt: string; contentHash: string; lineIds: number[] };
 }
 
 const catalog = bundledCatalog as BundledStationCatalog;
-const authoritativeLineIds = new Set(catalog.stb?.lineIds ?? []);
 
 /** Match catalog membership, never infer a stop from proximity to the route path. */
 export function stationServesLine(
 	station: Station,
-	line: CatalogLineSelection
+	line: { lineName: string; vehicleType: string }
 ): boolean {
-	return servesLine(station, line, authoritativeLineIds);
+	return station.lines?.includes(`${line.vehicleType.trim().toUpperCase()}:${line.lineName.trim()}`) ?? false;
 }
 
 export const stationCatalogMetadata = {
 	feedVersion: catalog.feedVersion,
-	sourceUpdatedAt: catalog.sourceUpdatedAt,
-	stb: catalog.stb
+	sourceUpdatedAt: catalog.sourceUpdatedAt
+} as const;
+
+/** Bucharest metro coordinate bounds for validating catalog stations. */
+const BUCHAREST_BOUNDS = {
+	latMin: 44.2,
+	latMax: 44.7,
+	lonMin: 25.6,
+	lonMax: 26.4
 } as const;
 
 /** The catalog is bundled and precached by the PWA; no second browser cache is needed. */
 export function loadStations(): Station[] {
-	const validated = validateStations(catalog.stations);
+	const validated = catalog.stations.filter((station) => {
+		if (!Number.isFinite(station.lat)) {
+			console.warn(`Station ${station.id} has invalid latitude: ${station.lat}`);
+			return false;
+		}
+		if (!Number.isFinite(station.lon)) {
+			console.warn(`Station ${station.id} has invalid longitude: ${station.lon}`);
+			return false;
+		}
+		if (station.lat < BUCHAREST_BOUNDS.latMin || station.lat > BUCHAREST_BOUNDS.latMax) {
+			console.warn(`Station ${station.id} has invalid latitude: ${station.lat}`);
+			return false;
+		}
+		if (station.lon < BUCHAREST_BOUNDS.lonMin || station.lon > BUCHAREST_BOUNDS.lonMax) {
+			console.warn(`Station ${station.id} has invalid longitude: ${station.lon}`);
+			return false;
+		}
+		return true;
+	});
+
+	validated.sort((a, b) => a.id - b.id);
 
 	if (validated.length !== catalog.stations.length) {
 		console.warn(

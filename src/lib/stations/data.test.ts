@@ -5,7 +5,6 @@ describe('bundled station catalog', () => {
 	it('matches the line name and vehicle type without inferring from station coordinates', () => {
 		const station = { id: 42, name: 'Stop', description: '', lat: 44.42, lon: 26.1, lines: ['TROLLEYBUS:66'] };
 		expect(stationServesLine(station, { lineName: '66', vehicleType: 'TROLLEYBUS' })).toBe(true);
-		expect(stationServesLine(station, { lineName: '66', vehicleType: 'CABLE_CAR' })).toBe(true);
 		expect(stationServesLine(station, { lineName: '66', vehicleType: 'TRAM' })).toBe(false);
 		expect(stationServesLine(station, { lineName: '67', vehicleType: 'TROLLEYBUS' })).toBe(false);
 		expect(stationServesLine({ ...station, lines: undefined }, { lineName: '66', vehicleType: 'TROLLEYBUS' })).toBe(false);
@@ -37,13 +36,13 @@ describe('bundled station catalog', () => {
 		}
 	});
 
-	it('accepts valid world coordinates without clipping supported regional lines', () => {
+	it('filters stations outside Bucharest coordinate bounds', () => {
 		const stations = loadStations();
 		for (const station of stations) {
-			expect(station.lat).toBeGreaterThanOrEqual(-90);
-			expect(station.lat).toBeLessThanOrEqual(90);
-			expect(station.lon).toBeGreaterThanOrEqual(-180);
-			expect(station.lon).toBeLessThanOrEqual(180);
+			expect(station.lat).toBeGreaterThanOrEqual(44.2);
+			expect(station.lat).toBeLessThanOrEqual(44.7);
+			expect(station.lon).toBeGreaterThanOrEqual(25.6);
+			expect(station.lon).toBeLessThanOrEqual(26.4);
 		}
 	});
 

@@ -15,10 +15,6 @@ src/
 │   │   ├── client.test.ts          Tests for HTTP client
 │   │   ├── arrivals.ts             Decode arrivals, selected route, live vehicles
 │   │   ├── arrivals.test.ts        Tests for arrival decoding
-│   │   ├── topology.ts             Strict registry, line topology and stop-evidence decoders
-│   │   ├── topology.test.ts        Actual protobuf contract and malformed-input tests
-│   │   ├── transport.ts            Canonical types; CABLE_CAR → TROLLEYBUS alias
-│   │   ├── fixtures/topology/      Captured binary responses, hashes and provenance
 │   │   ├── constants.ts            API config, auth, proto field numbers
 │   │   ├── stb-api.integration.test.ts  Real API integration tests (network)
 │   │   └── types.ts                TypeScript interfaces
@@ -39,11 +35,10 @@ src/
 │   │   └── index.ts                t() translation function
 │   ├── stations/
 │   │   ├── types.ts                Station, StationWithDistance interfaces
-│   │   ├── stations.json           Composed STB/GTFS catalog, line IDs and source metadata
-│   │   ├── subway-stops.ts         Physical metro marker → API platforms, including M5
+│   │   ├── stations.json           Versioned TPBI catalog (metadata + stops + line membership)
+│   │   ├── subway-stops.ts         GTFS metro ID → STB API subway stop IDs mapping
 │   │   ├── data.ts                 Catalog loader, source metadata, exact line membership
-│   │   ├── membership.ts           Pure authoritative matching and coordinate validation
-│   │   ├── data.test.ts            Catalog invariants and membership regression
+│   │   ├── data.test.ts            Catalog invariants + line 5 stop regression
 │   │   ├── format.ts               formatCatalogDate() — source-date formatting
 │   │   ├── format.test.ts          Tests for format utilities
 │   │   ├── geo.ts                  Haversine distance, nearest stations, viewport bounds filter
@@ -68,44 +63,20 @@ src/
 scripts/
 ├── dump-proto.ts                   Diagnostic: dump all protobuf fields from API
 ├── discover-subway-stops.ts        Scan STB API for subway stop IDs (brute-force)
-├── station-catalog.ts              Parse TPBI stops and scheduled fallback membership
-├── fetch-stations.ts               Generate fresh GTFS fallback input
-├── catalog-cli.ts                 CLI options and remote/in-process shared-proxy transport
-├── catalog-collection.ts           Serial, resumable registry/topology collection + evidence
-├── collect-stb-catalog.ts          Topology collection CLI
-├── transit-day.ts                  Europe/Bucharest 04:00 service-day boundary
-├── stb-catalog.ts                  Pure STB topology + fresh GTFS composition
-├── generate-stb-catalog.ts         Composition CLI
-├── station-membership-audit.ts     Full known-stop live audit and Markdown/JSON reporting
-├── audit-station-membership.ts     Explicit --live --full audit CLI
-├── catalog-publication.ts          Exhaustive runtime comparator + protected publication gate
-├── verify-stb-catalog.ts           Verification/publication-check CLI
-├── station-membership.test.ts      Every captured line/direction through real map filtering
-└── *.test.ts                       Collector, generator, audit and publication failure tests
-
-catalog/
-├── gtfs-fallback.json              Independent GTFS generation input
-└── stb-topology.json               Independent STB registry, directions, stops and evidence
+├── station-catalog.ts              Parse TPBI stops and join scheduled line membership
+├── station-catalog.test.ts         Generator format and validation tests
+└── fetch-stations.ts               Generate the versioned bundled catalog
 
 e2e/
 ├── arrival-board.spec.ts           General Playwright E2E tests
-├── map-touch.spec.ts               Mocked desktop/mobile map interactions
 └── route-map.spec.ts               Mocked selected-route desktop/mobile E2E
 
-shared-api/
-├── src/index.ts                    Shared path/query validation, auth and binary proxy handler
-└── test/contract.test.ts           Proxy allowlist, auth concurrency and response contracts
-
-worker/                              Cloudflare Worker (deployment explicitly gated)
+worker/                              Cloudflare Worker (auto-deploys on push)
 ├── src/
 │   └── index.ts                    Proxy: injects headers + auth token
 ├── package.json                    Worker dependencies (wrangler)
 ├── tsconfig.json                   Worker TypeScript config
-└── wrangler.jsonc                  Worker name, entry point, compat date
-
-.github/workflows/
-├── deploy.yml                     Offline app checks/build, browser tests and Pages artifact
-└── catalog-audit.yml               Daily topology, weekly/full audit, protected data publication
+└── wrangler.toml                   Worker name, entry point, compat date
 
 docs/
 ├── api.md                          STB API reference, auth flow, curl examples
@@ -129,7 +100,7 @@ docs/
   │    └─ map/tiles.ts
   ├─ RouteStatus.svelte
   ├─ DrawerMenu.svelte
-│    └─ stations/format.ts (formatCatalogDate)
+  │    └─ stations/format.ts (formatLastUpdate)
   ├─ stores/arrivals ─── api/arrivals + stations/geo
   │   │                    ├── api/client (apiFetchBinary)
   │   │                    ├── api/proto (ProtoReader, helpers)
@@ -140,34 +111,21 @@ docs/
   ├─ stores/favorites
   ├─ stores/recents
   └─ stations/
-       ├── data.ts ─── stations.json + membership.ts (versioned PWA bundle)
+       ├── data.ts ─── stations.json (versioned PWA bundle)
        ├── geo.ts
        └── search.ts
 
 Proxy chain (not in browser bundle):
   vite.config.ts (stbProxy plugin)
-    └── shared-api/src/index.ts (createHandler)
+    └── api/constants (createStbServerHeaders, STB_AUTH_PATH)
     └── .env (STB_APP_ID, STB_APP_KEY — not committed)
 
   worker/src/index.ts (uses Cloudflare secrets: STB_APP_ID, STB_APP_KEY)
-    └── shared-api/src/index.ts (same createHandler)
-
-Offline catalog pipeline:
-  catalog-collection.ts ─── shared proxy + api/topology.ts
-    └── catalog/stb-topology.json (independent source snapshot)
-  station-catalog.ts ─── TPBI files
-    └── catalog/gtfs-fallback.json
-  stb-catalog.ts ─── both source inputs + subway-stops.ts
-    └── stations.json (composition)
-  catalog-publication.ts ─── source snapshot + composition
-    └── membership.ts + geo.ts (same loader policy/matcher/map filter as runtime)
-  station-membership-audit.ts ─── all known API IDs + shared proxy
-    └── exact discrepancies, coverage and source/catalog hash bindings
 ```
 
 ## Configuration
 
-Runtime API constants live in `src/lib/api/constants.ts`:
+All tunable values live in `src/lib/api/constants.ts`:
 
 | Constant | Value | Purpose |
 |---|---|---|
@@ -179,17 +137,10 @@ Runtime API constants live in `src/lib/api/constants.ts`:
 | `ARRIVALS_REFRESH_INTERVAL` | `20000` | Auto-refresh period (ms) |
 | `PROTO_FIELDS` | Field numbers | Protobuf schema mapping |
 
-Catalog collection configuration is separate in `scripts/catalog-cli.ts`: proxy source, cache directory, request spacing, timeout, retry/time budget and checkpoint freshness. Publication requires `STB_CATALOG_PUBLISH_ENABLED`; Worker deployment separately requires `WORKER_DEPLOY_ENABLED`. Neither gate is enabled by this implementation. Production proxy activation and unresolved upstream registry gaps remain rollout dependencies; see [architecture](architecture.md#current-operational-limits-and-next-architectural-step).
-
 ## Test structure
 
-| Script | What it runs | Network? |
-|---|---|---|
-| `npm test` | Unit, captured-source and exhaustive catalog tests | No |
-| `npm run test:catalog` | Catalog collection/composition/audit/publication and source regressions | No |
-| `npm run stations:verify` | Complete source-to-runtime comparator; optional protected publication check | No |
-| `npm run stations:collect` | Independent registry and topology acquisition | Yes, via shared proxy |
-| `npm run stations:audit -- --live --full` | Every known catalog/topology API stop | Yes, via shared proxy |
-| `npm run test:integration` | Real STB API integration tests | Yes |
-| `npm run test:e2e:map` | Mocked Chromium/WebKit map flows, one worker | Mocked API |
-| `npm run test:e2e` | General Playwright suite, one worker | May use live proxy |
+| Script | What it runs | Tests | Network? |
+|---|---|---|---|
+| `npm test` | Unit tests (vitest) | 546 | No |
+| `npm run test:integration` | Real STB API calls (vitest) | 6 | Yes |
+| `npm run test:e2e` | Playwright browser tests | varies | Yes (via proxy) |

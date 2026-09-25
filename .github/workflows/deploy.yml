@@ -5,6 +5,9 @@ on:
     branches: [main, master]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # 05:17 EET / 06:17 EEST — after the 4 AM transit-day boundary.
+    - cron: '17 3 * * *'
 
 permissions:
   contents: write
@@ -19,7 +22,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      should_deploy: 'true'
+      should_deploy: ${{ steps.station_catalog.outputs.should_build }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,29 +33,70 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Refresh TPBI station catalog
+        id: station_catalog
+        env:
+          GTFS_URL: https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" != "schedule" && "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          catalog_dir="$RUNNER_TEMP/tpbi-catalog"
+          mkdir -p "$catalog_dir"
+          curl --fail --silent --show-error --location \
+            --dump-header "$catalog_dir/headers.txt" \
+            --output "$catalog_dir/feed.zip" \
+            "$GTFS_URL"
+          unzip -q "$catalog_dir/feed.zip" stops.txt feed_info.txt routes.txt trips.txt stop_times.txt -d "$catalog_dir"
+          source_updated_at="$(awk 'tolower($1) == "last-modified:" {$1=""; sub(/^ /, ""); print; exit}' "$catalog_dir/headers.txt" | tr -d '\r')"
+          npm run stations:generate -- \
+            --stops "$catalog_dir/stops.txt" \
+            --feed-info "$catalog_dir/feed_info.txt" \
+            --routes "$catalog_dir/routes.txt" \
+            --trips "$catalog_dir/trips.txt" \
+            --stop-times "$catalog_dir/stop_times.txt" \
+            --source-updated-at "$source_updated_at"
+
+          if git diff --quiet -- src/lib/stations/stations.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+              echo "should_build=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "should_build=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install dependencies
+        if: steps.station_catalog.outputs.should_build == 'true'
         run: npm ci
 
       - name: Type check
+        if: steps.station_catalog.outputs.should_build == 'true'
         run: npm run check
 
-      - name: Check catalog tooling and shared proxy types
-        run: |
-          npm run check:catalog
-          npm --prefix shared-api run check
-
       - name: Test
+        if: steps.station_catalog.outputs.should_build == 'true'
         run: npm test
 
       - name: Build
+        if: steps.station_catalog.outputs.should_build == 'true'
         run: npm run build
 
       - name: Install map-test browsers
+        if: steps.station_catalog.outputs.should_build == 'true'
         timeout-minutes: 10
         run: npx playwright install --with-deps chromium webkit
 
       - name: Verify map interactions
         id: map_browser
+        if: steps.station_catalog.outputs.should_build == 'true'
         timeout-minutes: 10
         run: npm run test:e2e:map
 
@@ -66,8 +110,17 @@ jobs:
             test-results/
           retention-days: 3
 
+      - name: Commit refreshed station catalog
+        if: steps.station_catalog.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/stations/stations.json
+          git commit -m "chore(data): refresh TPBI station catalog"
+          git push origin "HEAD:$GITHUB_REF_NAME"
+
       - name: Upload artifact
-        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        if: steps.station_catalog.outputs.should_build == 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         uses: actions/upload-pages-artifact@v3
         with:
           path: build

@@ -2,39 +2,72 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { defineConfig, loadEnv } from 'vite';
 import type { Plugin } from 'vite';
-import { createHandler } from './shared-api/src/index.js';
+import { createStbServerHeaders, STB_AUTH_PATH } from './src/lib/api/constants.js';
 
-/** Adapt Node HTTP to the shared proxy contract; policy/auth live in one place. */
-function stbProxy(appId: string | undefined, appKey: string | undefined): Plugin {
-	let handle: ReturnType<typeof createHandler> | undefined;
+const STB_API_BASE = 'https://info.stb.ro/api/web/v2-6';
+
+/**
+ * Vite plugin that proxies /stb-api/* requests to the real STB API,
+ * injecting required headers and managing the User-Info auth token.
+ */
+function stbProxy(appId: string, appKey: string): Plugin {
+	let userInfoToken: string | null = null;
+	const serverHeaders = createStbServerHeaders(appId);
+
+	async function fetchAuthToken(): Promise<string> {
+		const url = `${STB_API_BASE}${STB_AUTH_PATH}`;
+		const res = await fetch(url, {
+			headers: { 'App-key': appKey, 'App-Id': appId }
+		});
+		const json = (await res.json()) as { data: { userInfo: string } };
+		return json.data.userInfo;
+	}
+
+	async function proxyRequest(
+		targetPath: string,
+		token: string
+	): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
+		const url = `${STB_API_BASE}${targetPath}`;
+		const res = await fetch(url, {
+			headers: { ...serverHeaders, 'User-Info': token }
+		});
+		const body = Buffer.from(await res.arrayBuffer());
+		const headers: Record<string, string> = {};
+		res.headers.forEach((v, k) => {
+			headers[k] = v;
+		});
+		return { status: res.status, headers, body };
+	}
+
 	return {
 		name: 'stb-proxy',
 		configureServer(server) {
 			server.middlewares.use('/stb-api', async (req, res) => {
-				if (!appId || !appKey) {
-					res.writeHead(503, { 'content-type': 'text/plain' });
-					res.end('STB dev proxy credentials are not configured');
-					return;
-				}
 				try {
-					handle ??= createHandler(
-						{ STB_APP_ID: appId, STB_APP_KEY: appKey, ALLOWED_ORIGINS: [] },
-						{ clock: { now: Date.now }, logger: console }
-					);
-					const response = await handle(new Request(`http://localhost${req.url ?? '/'}`, {
-						method: req.method,
-						headers: { Origin: req.headers.origin ?? 'http://localhost' }
-					}));
-					const body = Buffer.from(await response.arrayBuffer());
-					const headers = new Headers(response.headers);
-					// Fetch already decoded the body; Node must frame these bytes anew.
-					headers.delete('content-encoding');
-					headers.delete('content-length');
-					headers.delete('transfer-encoding');
-					res.writeHead(response.status, Object.fromEntries(headers));
-					res.end(body);
-				} catch {
+					if (!userInfoToken) {
+						userInfoToken = await fetchAuthToken();
+					}
+
+					const targetPath = req.url ?? '/';
+					let result = await proxyRequest(targetPath, userInfoToken);
+
+					// Token expired — re-auth and retry once
+					if (result.status === 412) {
+						userInfoToken = await fetchAuthToken();
+						result = await proxyRequest(targetPath, userInfoToken);
+					}
+
+					res.writeHead(result.status, {
+						'content-type': result.headers['content-type'] ?? 'application/octet-stream',
+						'access-control-allow-origin': '*',
+						'x-content-type-options': 'nosniff',
+						'x-frame-options': 'DENY',
+						'content-security-policy': "default-src 'none'; frame-ancestors 'none';"
+					});
+					res.end(result.body);
+				} catch (err) {
 					res.writeHead(502, { 'content-type': 'text/plain' });
+					console.error('STB proxy error:', err);
 					res.end('STB proxy error: Internal Server Error');
 				}
 			});

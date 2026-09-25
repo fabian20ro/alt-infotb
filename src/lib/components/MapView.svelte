@@ -13,7 +13,6 @@
 
 	export interface MapRouteOverlay {
 		key: string;
-		lineId: number;
 		lineName: string;
 		vehicleType: string;
 		primary: ArrivalInfo | null;

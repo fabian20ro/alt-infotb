@@ -4,11 +4,11 @@
 	import type { GeoPosition } from '../../src/lib/stores/geolocation.svelte';
 	const routeFixture = location.search.includes('routes');
 	const stations: Station[] = [
-		{ id: 1, name: 'Stația A cu un nume foarte lung', description: '', lat: 44.4268, lon: 26.1025, lines: ['TROLLEYBUS:66'], lineIds: [72] },
-		{ id: 2, name: 'Stația B', description: '', lat: location.search.includes('close') ? 44.4274 : 44.4281, lon: 26.1025, lines: ['TROLLEYBUS:66'], lineIds: [72] },
+		{ id: 1, name: 'Stația A cu un nume foarte lung', description: '', lat: 44.4268, lon: 26.1025, lines: ['TROLLEYBUS:66'] },
+		{ id: 2, name: 'Stația B', description: '', lat: location.search.includes('close') ? 44.4274 : 44.4281, lon: 26.1025, lines: ['TROLLEYBUS:66'] },
 		...(routeFixture ? [
-			{ id: 3, name: 'Sens întors', description: '', lat: 44.4253, lon: 26.1025, lines: ['TROLLEYBUS:66'], lineIds: [72] },
-			{ id: 4, name: 'Altă linie', description: '', lat: 44.4268, lon: 26.1042, lines: ['TRAM:41'], lineIds: [57] }
+			{ id: 3, name: 'Sens întors', description: '', lat: 44.4253, lon: 26.1025, lines: ['TROLLEYBUS:66'] },
+			{ id: 4, name: 'Altă linie', description: '', lat: 44.4268, lon: 26.1042, lines: ['TRAM:41'] }
 		] : [])
 	];
 	let selected = $state<Station | null>(routeFixture ? stations[0] : null);
@@ -22,7 +22,7 @@
 	let lang = $state<'ro' | 'en'>('ro');
 	let route = $state<MapRouteOverlay | null>(null);
 	function selectLine(lineName: string, vehicleType: string) {
-		route = { key: lineName, lineId: lineName === '66' ? 72 : 57, lineName, vehicleType, primary: null, opposite: null };
+		route = { key: lineName, lineName, vehicleType, primary: null, opposite: null };
 	}
 </script>
 
@@ -42,7 +42,7 @@
 	<button onclick={() => { lang = 'en'; }}>English</button>
 {/if}
 {#if routeFixture}
-	<button onclick={() => selectLine('66', 'CABLE_CAR')}>Line 66</button>
+	<button onclick={() => selectLine('66', 'TROLLEYBUS')}>Line 66</button>
 	<button onclick={() => selectLine('41', 'TRAM')}>Line 41</button>
 	<button onclick={() => { route = null; }}>Clear line</button>
 	<button onclick={() => { catalog = [...stations, ...Array.from({ length: 101 }, (_, i) => ({

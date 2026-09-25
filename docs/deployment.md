@@ -1,147 +1,239 @@
-# Deployment and catalog operations
+# Deployment
 
-The static app is deployed to `https://fabian20ro.github.io/alt-infotb/` by
-`.github/workflows/deploy.yml` on main/master pushes or manual dispatch. PRs run
-the same deterministic checks without deploying. The tested build artifact is
-uploaded to Pages; data is not regenerated between test and deployment.
+Alt InfoTB has two deployed components that auto-deploy on push to `main`:
 
-The deployed STB proxy URL is configured in `.env.production`. Vite, the Worker
-wrapper and the catalog CLI's local mode use `shared-api/src/index.ts`. Browser
-requests never carry STB authentication headers. Provider configuration and
-promotion of the shared module belong to the private `shared-api-host` control
-plane; merging this public repository does not itself promote its pinned module.
+| Component | Hosting | URL | Trigger |
+|---|---|---|---|
+| Static app (frontend) | GitHub Pages | `https://fabian20ro.github.io/alt-infotb/` | Any push to `main` |
+| API proxy (worker) | Cloudflare Workers | `https://alt-stb-proxy.fabian20ro.workers.dev` | Any push to `main` |
 
-## Current activation status (2026-09-25)
+Both deploy from a single GitHub Actions workflow (`.github/workflows/deploy.yml`).
 
-- `WORKER_DEPLOY_ENABLED=false`; the repository has no configured Actions secrets.
-- The existing public Worker still supports stop requests; its deployment must be
-  updated before the new topology endpoints are available to scheduled collection.
-- The topology and full stop audit were verified through the shared local proxy.
-- Automatic catalog publication is **off by default**. Upstream discrepancies
-  remain: N700 and two service IDs for 429/476 appear in arrivals but return empty
-  topology details; 14 GTFS-only IDs return empty stop responses.
-- See [the next plan](plans/2026-09-25-station-catalog-next.md) and
-  [full audit](station-membership-full-audit-2026-09-25.md). A successful static
-  build is not a claim that the live network audit is conform.
+## Secrets management
 
-## Local verification
+**All secrets are stored in one place: GitHub repository secrets.**
 
-Use Node 24+ and the committed lockfile:
+Go to: [GitHub repo](https://github.com/fabian20ro/alt-infotb) > Settings > Secrets and variables > Actions
 
-```sh
-npm ci
-npm run check
-npm run check:catalog
-npm --prefix shared-api run check
-npm test
-npm run stations:verify
+| Secret name | Purpose | Where it's used |
+|---|---|---|
+| `STB_APP_ID` | STB API app identifier | Worker (Cloudflare secret), local dev (`.env`) |
+| `STB_APP_KEY` | STB API app key | Worker (Cloudflare secret), local dev (`.env`) |
+| `CLOUDFLARE_API_TOKEN` | Deploys the worker via wrangler | GitHub Actions `deploy-worker` job |
+
+### Setting secrets (one-time setup)
+
+1. Get the STB credentials from the official STB web app's JS bundle at `info.stb.ro`
+2. Create a Cloudflare API token at [Cloudflare dashboard](https://dash.cloudflare.com/profile/api-tokens) > Create Token > "Edit Cloudflare Workers" template
+3. Add all three as GitHub repository secrets
+4. Set the repository variable `WORKER_DEPLOY_ENABLED` to `true`
+
+The Worker deployment job stays skipped while the variable is absent or `false`.
+This lets frontend CI and Pages remain healthy during credential rotation without
+deploying an unauthenticated Worker. The currently deployed Worker keeps serving
+traffic until the next enabled deployment.
+
+### Rotating credentials
+
+When STB changes their API credentials (check `info.stb.ro/main-es2015.*.js`):
+
+1. Extract the new `App-Id` and `App-key` values from the JS bundle
+2. Update the two GitHub secrets (`STB_APP_ID`, `STB_APP_KEY`)
+3. Push any commit (or use "Run workflow" button) — the worker redeploys with new secrets
+4. Update your local `.env` file for dev
+
+That's it. The GitHub Actions workflow pushes the secrets to Cloudflare automatically via `wrangler-action`'s `secrets` parameter.
+
+### Local development
+
+Copy `.env.example` to `.env` and fill in `STB_APP_ID` and `STB_APP_KEY`. These are loaded by:
+- Vite dev proxy (via `loadEnv()`)
+- Scripts (via `dotenv/config`)
+- Integration tests (vitest loads `.env` automatically)
+
+## Frontend (GitHub Pages)
+
+**Deploys automatically** on every push to `main` via the `build` + `deploy-frontend` jobs.
+
+Pipeline: `svelte-check` -> `vitest` -> `vite build` -> deploy to GitHub Pages.
+
+The production build reads `VITE_STB_API_BASE` from `.env.production` to know the worker URL.
+
+### How it connects to the worker
+
+```
+.env.production
+  VITE_STB_API_BASE=https://alt-stb-proxy.fabian20ro.workers.dev
+
+    |  baked into the JS bundle at build time
+    v
+
+build/_app/immutable/nodes/2.*.js
+  contains: "https://alt-stb-proxy.fabian20ro.workers.dev"
+```
+
+If the worker URL ever changes, update `.env.production` and push.
+
+## Worker (Cloudflare)
+
+**Deploys automatically** on every push to `main` via the `deploy-worker` job in GitHub Actions when `WORKER_DEPLOY_ENABLED` is `true`.
+
+The `cloudflare/wrangler-action@v3` action:
+1. Deploys the worker code via `wrangler deploy`
+2. Pushes `STB_APP_ID` and `STB_APP_KEY` as Cloudflare secrets (from GitHub secrets)
+
+No separate Cloudflare Git integration needed — everything goes through GitHub Actions.
+
+## Manual deployment (fallback)
+
+If auto-deploy breaks or you need to deploy outside of Git:
+
+### First-time setup (one-time)
+
+```bash
+cd worker
+npm install
+npx wrangler login    # Opens browser to authenticate with Cloudflare
+```
+
+### Deploy manually
+
+```bash
+cd worker
+npm run deploy        # Alias for: npx wrangler deploy
+```
+
+If secrets haven't been set yet via GitHub Actions, set them manually:
+
+```bash
+cd worker
+npx wrangler secret put STB_APP_ID    # Prompts for value
+npx wrangler secret put STB_APP_KEY   # Prompts for value
+```
+
+### Test locally before deploying
+
+```bash
+cd worker
+npm run dev           # Starts worker at http://localhost:8787
+```
+
+```bash
+curl -s -o /dev/null -w "%{http_code}" 'http://localhost:8787/lines/stop?stop_id=3570'
+# Should print: 200
+```
+
+## Monitoring
+
+### Worker logs
+
+```bash
+cd worker
+npx wrangler tail     # Live log stream
+```
+
+Or: [Cloudflare dashboard](https://dash.cloudflare.com/) > Workers & Pages > `alt-stb-proxy` > Logs
+
+### Worker metrics
+
+[Cloudflare dashboard](https://dash.cloudflare.com/) > Workers & Pages > `alt-stb-proxy` > Metrics
+
+Shows request count, error rate, latency, CPU time.
+
+### Frontend deploy status
+
+[GitHub Actions](https://github.com/fabian20ro/alt-infotb/actions) > latest workflow run
+
+## Troubleshooting
+
+### Worker issues
+
+| Problem | Cause | Fix |
+|---|---|---|
+| Worker returns 502 | STB API down or auth changed | Check `npx wrangler tail` for errors |
+| Worker returns 404 | Path not in whitelist | Only `/lines/stop` is allowed (`ALLOWED_PATHS` in `index.ts`) |
+| Worker returns 405 | Non-GET request | Worker only accepts GET and OPTIONS |
+| Auth 412 loops | STB changed credentials | Re-extract from `info.stb.ro/main-es2015.*.js`, update GitHub secrets, push |
+| CORS errors in browser | Origin not in allow list | Add origin to `ALLOWED_ORIGINS` in `worker/src/index.ts` |
+
+### Deployment issues
+
+| Problem | Cause | Fix |
+|---|---|---|
+| Worker deploy fails in CI | Missing `CLOUDFLARE_API_TOKEN` secret | Add it in GitHub repo settings > Secrets |
+| Worker deploys but auth fails | Missing `STB_APP_ID`/`STB_APP_KEY` secrets | Add them in GitHub repo settings > Secrets |
+| `wrangler deploy` fails locally | Not logged in | Run `npx wrangler login` |
+| Frontend shows old worker URL | `.env.production` not committed | Verify it's tracked in git and has correct URL |
+| Frontend loads but no data | Worker down or URL wrong | Test worker directly: `curl https://alt-stb-proxy.fabian20ro.workers.dev/lines/stop?stop_id=3570` |
+
+### Nuclear option: redeploy everything from scratch
+
+```bash
+# 1. Redeploy worker
+cd worker && npm install && npx wrangler deploy
+
+# 2. Set secrets manually if needed
+npx wrangler secret put STB_APP_ID
+npx wrangler secret put STB_APP_KEY
+
+# 3. Verify worker works
+curl -s -o /dev/null -w "%{http_code}" 'https://alt-stb-proxy.fabian20ro.workers.dev/lines/stop?stop_id=3570'
+
+# 4. Rebuild and redeploy frontend
+cd .. && npm run build && git push origin main
+```
+
+## Architecture diagram
+
+```
+GitHub repo (push to main)
+    |
+    v
+GitHub Actions (.github/workflows/deploy.yml)
+    |
+    ├── build job
+    |     npm run check → npm test → npm run build
+    |
+    ├── deploy-frontend job (needs: build)
+    |     Upload to GitHub Pages
+    |     |
+    |     v
+    |   GitHub Pages (static HTML/JS)
+    |
+    └── deploy-worker job (needs: build)
+          wrangler deploy + push secrets
+          |
+          v
+        Cloudflare Edge (alt-stb-proxy worker)
+
+    Browser ──GET──▸ Worker ──GET + headers──▸ info.stb.ro
+             (no custom       (injects App-Id,
+              headers)         User-Info, etc.)
+```
+
+Secrets flow:
+```
+GitHub Secrets (single source of truth)
+    |
+    ├── STB_APP_ID ──▸ wrangler-action ──▸ Cloudflare Worker secret
+    ├── STB_APP_KEY ──▸ wrangler-action ──▸ Cloudflare Worker secret
+    └── CLOUDFLARE_API_TOKEN ──▸ wrangler-action (auth to deploy)
+```
+
+## Quick reference
+
+```bash
+# Everything auto-deploys on push. But if you need to do it manually:
+
+# Deploy worker
+cd worker && npm run deploy
+
+# Test worker
+curl 'https://alt-stb-proxy.fabian20ro.workers.dev/lines/stop?stop_id=3570'
+
+# View worker logs
+cd worker && npx wrangler tail
+
+# Rebuild frontend
 npm run build
-npm run test:e2e:map
 ```
-
-Playwright uses one worker. The map suites mock transit responses and external
-tiles, so failures are independent of upstream availability. `test:catalog`
-selects the exhaustive catalog, decoder, collection, audit and publication suites.
-The separate TypeScript check is required: Svelte's generated config does not
-include all Node scripts.
-
-## Source collection and audit
-
-After the configured proxy supports topology:
-
-```sh
-npm run stations:collect -- --output data/stb-topology.json
-npm run stations:compose -- --snapshot data/stb-topology.json --output data/candidate.json
-npm run stations:verify -- --snapshot data/stb-topology.json --catalog data/candidate.json
-npm run stations:audit -- --full --live --snapshot data/stb-topology.json --catalog data/candidate.json --output data/audit
-```
-
-The clean GTFS base defaults to `catalog/gtfs-fallback.json`; `--gtfs` accepts a
-fresh catalog generated by `stations:generate`. Never pass a previously composed
-STB catalog as the GTFS base. Candidates retain fresh provenance even when their
-semantic content hash is unchanged; only the publisher decides whether to deploy.
-
-Collector options:
-
-- `--proxy URL` / `STB_CATALOG_PROXY`: existing proxy URL; `--origin` defaults to
-  the allowed app origin. No browser/API keys in these options.
-- `--proxy-config /private/path/config.json`: invoke the shared handler locally.
-  The private JSON contains `STB_APP_ID`, `STB_APP_KEY` and
-  `ALLOWED_ORIGINS: ["http://localhost"]`. Keep it outside the repo, permissions
-  0600; never attach it to reports. `.env.example` describes server-side dev config.
-- `--cache DIRECTORY`: response-body checkpoints, source identity and hashes;
-  no credentials or auth headers. Treat captures as historical public transit data.
-- `--interval-ms`, `--timeout-ms`, `--budget-ms`, `--max-age-ms`: bounded serial
-  work and cache freshness. `--max-age-ms 0` forces fresh response bodies.
-
-Cache reuse requires the same transport identity/version, verified hash, age and
-Romanian transit day. Crossing 04:00 makes collection inconclusive. `source`
-identifies the STB upstream; snapshot `via` records the collection transport.
-
-Exit codes: topology collection `0` complete / `2` inconclusive; stop audit `0`
-conform / `1` discrepancy / `2` inconclusive. JSON and Markdown preserve every
-known API target, including failures. Stop responses that omit a line never
-justify deleting a membership. Completeness is relative to the declared inventory.
-
-## Scheduled audit and protected publication
-
-`.github/workflows/catalog-audit.yml` runs daily after 04:00 Romanian time,
-independently of Pages and independently of whether GTFS changed. It collects
-all listed lines and both directions, refreshes the GTFS fallback, generates a
-candidate and verifies every source edge. Sundays and full manual runs also
-visit every known API stop. Artifacts retain reports and raw checkpoints for
-30 days, including failed runs.
-
-The workflow is installed by merging the PR. It cannot pass live collection
-until the proxy promotion above is complete. It reports this failure instead of
-silently skipping the audit or overwriting the catalog.
-
-Publication additionally requires repository variable
-`STB_CATALOG_PUBLISH_ENABLED=true`. Manual runs also require `publish=true`;
-scheduled runs may publish once the variable is enabled. Enabling publication
-forces a full live audit. Leave the variable absent/false until the activation
-criteria in the next plan are met. `STB_CATALOG_PROXY` may select a promoted proxy.
-
-Publication gates:
-
-1. Complete source and exhaustive candidate verification.
-2. Conform full live audit bound to exact snapshot/catalog hashes, contemporary
-   evidence and the same Romanian transit day.
-3. For removals, a later independent complete capture confirming deleted edges;
-   reused cached evidence is rejected. Initial or >20% edge changes require
-   explicit review via the local publication verifier, not automatic CI override.
-4. Type checks, unit tests, production build and serial browser verification.
-5. Compare semantic hashes; no timestamp-only commit/deploy. Reject a stale main
-   checkout before committing (a concurrent push is not force-overwritten).
-
-The workflow commits the validated source/catalog files and explicitly dispatches
-`deploy.yml`: commits made with `GITHUB_TOKEN` do not trigger push workflows.
-The deploy workflow rechecks and builds those committed data, then publishes that
-exact tested artifact. This dispatch requires the workflow's `actions:write`
-permission. If dispatch fails after commit, manually run Deploy; do not regenerate
-or silently discard the validated commit.
-
-## Proxy deployment
-
-The legacy Worker job remains conditional on `WORKER_DEPLOY_ENABLED=true` plus
-main/master. It requires Actions secrets `CLOUDFLARE_API_TOKEN`, `STB_APP_ID` and
-`STB_APP_KEY`. Do not enable it with missing secrets. An existing Worker retains
-its prior configuration until a successful deployment.
-
-For a provider managed by `shared-api-host`, promote the new public module commit
-through that control plane instead. The module manifest describes routes; strict
-ID/query validation and authentication behavior live in the shared handler.
-Verify `/lines?lang=ro`, `/lines/199?lang=ro`, both directions, and the existing
-`/lines/stop?stop_id=6084`, with an allowed Origin, after promotion.
-
-## Failures and rollback
-
-An upstream timeout, unknown enum, conflicting stop, empty response or missing
-source edge fails closed. Data publication stops; the PWA retains the last
-versioned catalog. Ordinary app fixes still build/deploy against committed data.
-Source timestamps remain truthful; failed audits do not mark data fresh.
-
-Rollback a data release by reverting its source/catalog commit together and
-running Deploy. For a schema/code rollback, revert the compatible runtime adapter
-in the same change. Favorites use preserved physical marker IDs; no second
-IndexedDB catalog or per-user network discovery needs migration.

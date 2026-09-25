@@ -14,12 +14,6 @@ export interface Station {
 	lon: number;
 	/** Scheduled GTFS membership in either direction, keyed as `VEHICLE_TYPE:lineName`. */
 	lines?: string[];
-	/** Authoritative STB line identities, unioned across both directions. */
-	lineIds?: number[];
-	/** Exact upstream platforms represented by this marker (metro may have several). */
-	apiStopIds?: number[];
-	/** Membership provenance; GTFS-only services remain explicitly supplemental. */
-	membershipSource?: 'stb' | 'gtfs' | 'mixed';
 }
 
 /** A {@link Station} annotated with its distance from a reference coordinate. */
