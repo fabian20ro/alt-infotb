@@ -1,4 +1,5 @@
 import { apiFetchBinary, ApiError } from './client.js';
+import { normalizeTransportType } from './transport.ts';
 import { getArrivalTimeWords } from '$lib/i18n/index.js';
 import { API, PROTO_FIELDS, MAX_ARRIVAL_SECONDS, MAX_ARRIVALS_PER_LINE } from './constants.js';
 import {
@@ -126,7 +127,8 @@ export function decodeStopResponse(data: Uint8Array, sourceStopId: number): Stat
 
 		const lineName = getString(lineFields, LINE.NAME) ?? '';
 		const lineId = getVarint(lineFields, LINE.ID) ?? 0;
-		const vehicleType = getString(lineFields, LINE.VEHICLE_TYPE) ?? '';
+		const rawVehicleType = getString(lineFields, LINE.VEHICLE_TYPE) ?? '';
+		const vehicleType = normalizeTransportType(rawVehicleType) ?? rawVehicleType;
 		const color = getString(lineFields, LINE.COLOR) ?? '#888888';
 		const direction = getString(lineFields, LINE.DIRECTION) ?? '';
 		const rawDirectionId = getVarint(lineFields, LINE.DIRECTION_ID);
@@ -155,6 +157,7 @@ export function decodeStopResponse(data: Uint8Array, sourceStopId: number): Stat
 			lineName,
 			lineId,
 			vehicleType,
+			rawVehicleType,
 			color,
 			direction,
 			directionId,

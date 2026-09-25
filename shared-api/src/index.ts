@@ -23,11 +23,16 @@ const AUTH_PATH = "/proxy/user/auth";
 const TOKEN_TTL_MS = 50 * 60 * 1000;
 
 class ProxyError extends Error {
+  readonly stage: "auth-fetch" | "auth-http" | "auth-response" | "upstream-fetch";
+  readonly upstreamStatus?: number;
+
   constructor(
-    readonly stage: "auth-fetch" | "auth-http" | "auth-response" | "upstream-fetch",
-    readonly upstreamStatus?: number
+    stage: "auth-fetch" | "auth-http" | "auth-response" | "upstream-fetch",
+    upstreamStatus?: number
   ) {
     super(stage);
+    this.stage = stage;
+    this.upstreamStatus = upstreamStatus;
   }
 }
 
@@ -96,6 +101,30 @@ function withCors(response: Response, origin: string | null, allowed: string[]):
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
+function isPositiveId(value: string): boolean {
+  return /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value));
+}
+
+/** The same read-only contract is used by the Worker and the development proxy. */
+function validateTarget(url: URL): 400 | 404 | undefined {
+  const isStop = url.pathname === "/lines/stop";
+  const line = /^\/lines\/([^/]+)(?:\/direction\/([01]))?$/.exec(url.pathname);
+  if (!isStop && url.pathname !== "/lines" && (!line || !isPositiveId(line[1]))) return 404;
+
+  const allowed = isStop ? ["stop_id", "selected_line_id", "direction", "lang"] : ["lang"];
+  const seen = new Set<string>();
+  for (const [key, value] of url.searchParams) {
+    if (!allowed.includes(key) || seen.has(key)) return 400;
+    seen.add(key);
+    if (key === "lang") {
+      if (value !== "ro" && value !== "en") return 400;
+    } else if (key === "direction") {
+      if (value !== "0" && value !== "1") return 400;
+    } else if (!isPositiveId(value)) return 400;
+  }
+  return undefined;
+}
+
 export function createHandler(
   rawConfig: Readonly<Record<string, unknown>>,
   dependencies: ModuleDependencies
@@ -105,11 +134,13 @@ export function createHandler(
   let cachedToken: { value: string; fetchedAt: number } | undefined;
   let tokenRequest: Promise<string> | undefined;
 
-  async function send(url: string, headers: Headers, stage: "auth-fetch" | "upstream-fetch"): Promise<Response> {
+  async function send(url: string, headers: Headers, stage: "auth-fetch" | "upstream-fetch", callerSignal?: AbortSignal): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort("upstream timeout"), config.UPSTREAM_TIMEOUT_MS);
+    const signal = callerSignal ? AbortSignal.any([controller.signal, callerSignal]) : controller.signal;
     try {
-      return await transport.fetch(new Request(url, { headers, signal: controller.signal }));
+      signal.throwIfAborted();
+      return await transport.fetch(new Request(url, { headers, signal }));
     } catch {
       throw new ProxyError(stage);
     } finally {
@@ -119,32 +150,52 @@ export function createHandler(
 
   async function authenticate(): Promise<string> {
     const headers = new Headers({ "App-key": config.STB_APP_KEY, "App-Id": config.STB_APP_ID });
-    const response = await send(`${API_BASE}${AUTH_PATH}`, headers, "auth-fetch");
-    if (!response.ok) throw new ProxyError("auth-http", response.status);
+    // Authentication is shared across callers. Its own deadline must cover the
+    // JSON body too, otherwise one stalled response holds tokenRequest forever.
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const timedOut = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort("authentication timeout");
+        reject(new ProxyError("auth-fetch"));
+      }, config.UPSTREAM_TIMEOUT_MS);
+    });
     try {
-      const body = await response.json() as { data?: { userInfo?: unknown } };
-      if (typeof body.data?.userInfo !== "string") throw new Error("invalid token");
-      cachedToken = { value: body.data.userInfo, fetchedAt: dependencies.clock.now() };
-      return body.data.userInfo;
-    } catch {
-      throw new ProxyError("auth-response");
+      const response = await Promise.race([
+        send(`${API_BASE}${AUTH_PATH}`, headers, "auth-fetch", controller.signal), timedOut
+      ]);
+      if (!response.ok) throw new ProxyError("auth-http", response.status);
+      try {
+        const body = await Promise.race([response.json(), timedOut]) as { data?: { userInfo?: unknown } };
+        if (typeof body.data?.userInfo !== "string" || !body.data.userInfo.trim()) throw new Error("invalid token");
+        cachedToken = { value: body.data.userInfo, fetchedAt: dependencies.clock.now() };
+        return body.data.userInfo;
+      } catch (error) {
+        if (error instanceof ProxyError) throw error;
+        throw new ProxyError("auth-response");
+      }
+    } finally {
+      clearTimeout(timer!);
     }
   }
 
-  async function token(force = false): Promise<string> {
-    if (!force && cachedToken && dependencies.clock.now() - cachedToken.fetchedAt < TOKEN_TTL_MS) {
+  async function token(rejectedToken?: string): Promise<string> {
+    // A late 412 for an old request must not invalidate the token another request
+    // has already refreshed. Concurrent rejections share one authentication call.
+    if (rejectedToken && cachedToken?.value === rejectedToken) cachedToken = undefined;
+    if (cachedToken && dependencies.clock.now() - cachedToken.fetchedAt < TOKEN_TTL_MS) {
       return cachedToken.value;
     }
-    if (!tokenRequest || force) {
+    if (!tokenRequest) {
       tokenRequest = authenticate().finally(() => { tokenRequest = undefined; });
     }
     return tokenRequest;
   }
 
-  async function upstream(pathAndQuery: string, userToken: string): Promise<Response> {
+  async function upstream(pathAndQuery: string, userToken: string, signal: AbortSignal): Promise<Response> {
     const headers = appHeaders(config.STB_APP_ID);
     headers.set("User-Info", userToken);
-    return send(`${API_BASE}${pathAndQuery}`, headers, "upstream-fetch");
+    return send(`${API_BASE}${pathAndQuery}`, headers, "upstream-fetch", signal);
   }
 
   return async (request: Request): Promise<Response> => {
@@ -152,12 +203,19 @@ export function createHandler(
     const origin = request.headers.get("Origin");
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(origin, config.ALLOWED_ORIGINS) });
     if (request.method !== "GET") return new Response("Method not allowed", { status: 405, headers: cors(origin, config.ALLOWED_ORIGINS) });
-    if (url.pathname !== "/lines/stop") return new Response("Not found", { status: 404, headers: cors(origin, config.ALLOWED_ORIGINS) });
+    const invalidTarget = validateTarget(url);
+    if (invalidTarget) return new Response(invalidTarget === 404 ? "Not found" : "Invalid query", { status: invalidTarget, headers: cors(origin, config.ALLOWED_ORIGINS) });
     if (!isOriginAllowed(origin, config.ALLOWED_ORIGINS)) return new Response("Origin not allowed", { status: 403, headers: cors(origin, config.ALLOWED_ORIGINS) });
 
     try {
-      let response = await upstream(`${url.pathname}${url.search}`, await token());
-      if (response.status === 412) response = await upstream(`${url.pathname}${url.search}`, await token(true));
+      request.signal.throwIfAborted();
+      const userToken = await token();
+      let response = await upstream(`${url.pathname}${url.search}`, userToken, request.signal);
+      if (response.status === 412) {
+        await response.body?.cancel();
+        request.signal.throwIfAborted();
+        response = await upstream(`${url.pathname}${url.search}`, await token(userToken), request.signal);
+      }
       return withCors(response, origin, config.ALLOWED_ORIGINS);
     } catch (error) {
       const failure = error instanceof ProxyError ? error : new ProxyError("upstream-fetch");

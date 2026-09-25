@@ -1,0 +1,38 @@
+[
+  {
+    "file": "lines_657.pb",
+    "path": "/lines/657?lang=ro",
+    "sha256": "0a520c979d2e9baeb105a0b08a08ea1e8924176b213a4fcbdd605f66fbc05f85",
+    "capturedAt": "2026-09-24T23:51:39.597Z"
+  },
+  {
+    "file": "lines_72.pb",
+    "path": "/lines/72?lang=ro",
+    "sha256": "382c4705a44b7c8e1479a7811c4a45632f87848bd88e9d8e180828a4c027d16a",
+    "capturedAt": "2026-09-24T23:50:41.250Z"
+  },
+  {
+    "file": "lines_199_direction_0.pb",
+    "path": "/lines/199/direction/0?lang=ro",
+    "sha256": "a0a05458ea58f56609d79b114bda1b746c93fed900d12cc57b31254e7fcdd3ce",
+    "capturedAt": "2026-09-24T23:51:32.445Z"
+  },
+  {
+    "file": "lines.pb",
+    "path": "/lines?lang=ro",
+    "sha256": "b6d5d2c136bc18a4f0f0728ecb7b22a00786fab8bd14e121f4727011d3a136ca",
+    "capturedAt": "2026-09-24T23:51:40.207Z"
+  },
+  {
+    "file": "lines_199.pb",
+    "path": "/lines/199?lang=ro",
+    "sha256": "8d092a1728a1c69db96f357a09c64316b9f84363f71a5093cef2d2e594644c59",
+    "capturedAt": "2026-09-24T23:51:32.342Z"
+  },
+  {
+    "file": "lines_199_direction_1.pb",
+    "path": "/lines/199/direction/1?lang=ro",
+    "sha256": "10a56b6a009259c4db970d995916c3b8cd7e3f5a96b62317247a7e97bbb73cfc",
+    "capturedAt": "2026-09-24T23:51:32.534Z"
+  }
+]
