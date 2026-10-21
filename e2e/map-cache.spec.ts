@@ -25,7 +25,7 @@ async function tileNetwork(context: BrowserContext) {
 		const request = route.request();
 		const url = new URL(request.url());
 		if (url.hostname === 'localhost') return route.continue();
-		if (url.hostname.endsWith('cartocdn.com') || url.hostname === 'server.arcgisonline.com') {
+		if (url.hostname === 'basemaps.cartocdn.com' || url.hostname === 'server.arcgisonline.com') {
 			outgoing.push(request.url());
 			if (request.serviceWorker()) workerOutgoing.push(request.url());
 			if (state.offline) return route.abort('internetdisconnected');
@@ -229,7 +229,7 @@ test('placeholder on a fresh install retains stations and offers an attributed s
 	await page.getByRole('button', { name: 'Înapoi la harta stradală', exact: true }).click();
 	await expect(page.locator('.leaflet-control-attribution')).toContainText('CARTO');
 	await expect(page.locator('.leaflet-control-attribution')).not.toContainText('Esri');
-	expect(network.outgoing.some((url) => url.includes('server.arcgisonline.com'))).toBe(true);
+	expect(network.outgoing.some((url) => new URL(url).hostname === 'server.arcgisonline.com')).toBe(true);
 });
 
 test('theme change uses the corresponding keyed style and preserves map attribution', async ({ page, context }) => {
@@ -240,7 +240,7 @@ test('theme change uses the corresponding keyed style and preserves map attribut
 	await page.getByRole('button', { name: 'Light theme', exact: true }).click();
 	await expect.poll(() => network.outgoing.some((url) => url.includes('/rastertiles/voyager/'))).toBe(true);
 	await expect(page.locator('.leaflet-control-attribution')).toContainText('CARTO');
-	const carto = network.outgoing.filter((url) => new URL(url).hostname.endsWith('cartocdn.com'));
+	const carto = network.outgoing.filter((url) => new URL(url).hostname === 'basemaps.cartocdn.com');
 	expect(carto.length).toBeGreaterThan(0);
 	for (const url of carto) {
 		expect(new URL(url).hostname).toBe('basemaps.cartocdn.com');
@@ -257,7 +257,7 @@ test.describe('uncontrolled first visit', () => {
 		await expect(page.getByTestId('tile-status')).toContainText('Fundalul hărții nu este disponibil complet');
 		await expect(page.locator('.station-marker').first()).toBeVisible();
 		await expect(page.locator('.leaflet-tile')).toHaveCount(0);
-		expect(network.outgoing.filter((url) => new URL(url).hostname.endsWith('cartocdn.com'))).toHaveLength(1);
+		expect(network.outgoing.filter((url) => new URL(url).hostname === 'basemaps.cartocdn.com')).toHaveLength(1);
 		expect(network.workerOutgoing).toHaveLength(0);
 	});
 });

@@ -7,7 +7,7 @@ test('missing build key keeps stations visible without CARTO requests and offers
 	await context.route('**/*', async (route) => {
 		const url = new URL(route.request().url());
 		if (url.hostname === 'localhost') return route.continue();
-		if (url.hostname.endsWith('cartocdn.com')) {
+		if (url.hostname === 'basemaps.cartocdn.com') {
 			cartoRequests.push(url.href);
 			return route.abort();
 		}
