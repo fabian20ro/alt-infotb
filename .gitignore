@@ -21,3 +21,7 @@ node_modules
 
 # Compound Autopilot infrastructure metadata
 .compound-autopilot/
+
+# Production PWA verification artifacts
+/playwright-report-pwa/
+/test-results-pwa/

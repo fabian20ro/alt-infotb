@@ -65,6 +65,12 @@
 	let oppositeVehicleMarkers = new Map<number, L.Marker>();
 	let handledOverviewRequestId = 0;
 	let loaded = $state(false);
+	let satellite = $state(false);
+	let tileStatus = $state<'loading' | 'ready' | 'missing-key' | 'unavailable'>('loading');
+	let tileRetryCoolingDown = $state(false);
+	let tileActivation = 0;
+	let tileProbe: AbortController | null = null;
+	let tileRetryTimer: ReturnType<typeof setTimeout> | null = null;
 	let initialViewSet = false;
 	let zooming = false;
 	let pendingRecenter = $state(false);
@@ -77,7 +83,7 @@
 
 	// Lazy-load Leaflet modules
 	let L: typeof import('leaflet') | null = null;
-	let tileConfigs: typeof import('./map/tiles.js').TILE_CONFIGS | null = null;
+	let tilesModule: typeof import('./map/tiles.js') | null = null;
 	let stationIcons: typeof import('./map/station-icons.js') | null = null;
 	let userMarkerModule: typeof import('./map/user-marker.js') | null = null;
 
@@ -85,6 +91,9 @@
 		loadMap();
 		return () => {
 			if (debounceTimer) clearTimeout(debounceTimer);
+			if (tileRetryTimer) clearTimeout(tileRetryTimer);
+			tileActivation++;
+			tileProbe?.abort();
 			removeRouteOverlay();
 			markerCache.clear();
 			map?.remove();
@@ -102,7 +111,7 @@
 		await import('leaflet/dist/leaflet.css');
 
 		L = leaflet.default ?? leaflet;
-		tileConfigs = tiles.TILE_CONFIGS;
+		tilesModule = tiles;
 		stationIcons = icons;
 		userMarkerModule = userMod;
 
@@ -124,12 +133,6 @@
 			zooming = false;
 			applyPendingRecenter();
 		});
-
-		const config = tileConfigs[theme];
-		tileLayer = L.tileLayer(config.url, {
-			attribution: config.attribution,
-			maxZoom: config.maxZoom
-		}).addTo(map);
 
 		// Debounced handler for pan/zoom
 		map.on('moveend', () => {
@@ -496,12 +499,79 @@
 		applyPendingRecenter();
 	});
 
-	// React to theme changes — read theme BEFORE guard to ensure tracking
+	async function setTileLayer(tileTheme: 'light' | 'dark' | 'satellite') {
+		if (!map || !L || !tilesModule) return;
+		const activation = ++tileActivation;
+		tileProbe?.abort();
+		tileProbe = null;
+		// Leaflet removes attribution via its own remove listener; retain it until removal.
+		tileLayer?.remove();
+		tileLayer?.off();
+		tileLayer = null;
+		const config = tilesModule.getTileConfig(tileTheme);
+		if (!config.url) {
+			tileStatus = 'missing-key';
+			return;
+		}
+		tileStatus = 'loading';
+		// The SW validates every controlled CARTO response. On a fresh visit, verify
+		// one visible tile first so an invalid key cannot fill the map with placeholders.
+		// Offline, let individual cached tiles load even if the center tile is absent.
+		if (tileTheme !== 'satellite' && navigator.onLine && !navigator.serviceWorker?.controller) {
+			const controller = new AbortController();
+			tileProbe = controller;
+			const timeout = setTimeout(() => controller.abort(), 10_000);
+			const center = map.getCenter();
+			let valid = false;
+			try {
+				valid = await tilesModule.verifyCartoTile(
+					tilesModule.centerTileUrl(config.url, center.lat, center.lng, map.getZoom()), controller.signal
+				);
+			} catch {
+				// A failed canary needs explicit user retry; never start a request loop.
+			} finally {
+				clearTimeout(timeout);
+			}
+			if (activation !== tileActivation || !map) return;
+			tileProbe = null;
+			if (!valid) {
+				tileStatus = 'unavailable';
+				return;
+			}
+		}
+		const health = tilesModule.createTileHealthTracker();
+		const layer = L.tileLayer(config.url, {
+			attribution: config.attribution,
+			maxZoom: config.maxZoom,
+			crossOrigin: config.crossOrigin
+		});
+		tileLayer = layer;
+		layer.on('tileerror', (event: L.TileErrorEvent) => {
+			health.failed(event.tile);
+			tileStatus = 'unavailable';
+		});
+		layer.on('tileload', (event: L.TileEvent) => health.loaded(event.tile));
+		layer.on('tileunload', (event: L.TileEvent) => health.unloaded(event.tile));
+		layer.on('load', () => {
+			tileStatus = health.isHealthy() ? 'ready' : 'unavailable';
+		});
+		layer.addTo(map);
+	}
+
+	function retryTiles() {
+		if (tileRetryCoolingDown || !tilesModule) return;
+		tileRetryCoolingDown = true;
+		tileRetryTimer = setTimeout(() => {
+			tileRetryCoolingDown = false;
+			tileRetryTimer = null;
+		}, tilesModule.TILE_RETRY_COOLDOWN_MS);
+		setTileLayer(satellite ? 'satellite' : theme);
+	}
+
+	// Replace the layer so Leaflet also removes/adds the provider attribution.
 	$effect(() => {
-		const t = theme;
-		if (!map || !tileLayer || !tileConfigs) return;
-		const config = tileConfigs[t];
-		tileLayer.setUrl(config.url);
+		const tileTheme = satellite ? 'satellite' : theme;
+		if (loaded) setTileLayer(tileTheme);
 	});
 
 	// Route geometry and positions update independently from station markers.
@@ -534,6 +604,27 @@
 		{/if}
 	</div>
 	{#if loaded}
+		{#if tileStatus !== 'ready' || satellite}
+			<div class="tile-status" data-testid="tile-status">
+				{#if tileStatus === 'loading'}
+					<p role="status">{strings.mapBackgroundLoading}</p>
+				{:else if tileStatus === 'missing-key' || tileStatus === 'unavailable'}
+					<p role="status">{tileStatus === 'missing-key' ? strings.mapNotConfigured : strings.mapUnavailable}</p>
+				{/if}
+				<div class="tile-actions">
+					{#if satellite}
+						<button onclick={() => { satellite = false; }}>{strings.mapStreet}</button>
+					{:else}
+						<button onclick={() => { satellite = true; }}>{strings.mapSatellite}</button>
+					{/if}
+					{#if tileStatus === 'unavailable'}
+						<button onclick={retryTiles} disabled={tileRetryCoolingDown}>
+							{tileRetryCoolingDown ? strings.mapRetryWait : strings.mapRetry}
+						</button>
+					{/if}
+				</div>
+			</div>
+		{/if}
 		<button 
 			class="recenter-btn" 
 			onclick={recenter} 
@@ -639,6 +730,34 @@
 		font-size: 0.8rem;
 		pointer-events: none;
 	}
+
+	.tile-status {
+		position: absolute;
+		bottom: 2rem;
+		left: 10px;
+		max-width: min(28rem, calc(100% - 80px));
+		z-index: 1000;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.5rem;
+		background: var(--color-surface);
+		color: var(--color-text);
+		font-size: 0.8rem;
+	}
+
+	.tile-status p { margin: 0 0 0.25rem; }
+	.tile-actions { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; }
+	.tile-actions button {
+		min-height: 44px;
+		padding: 0.25rem 0.5rem;
+		border: 1px solid var(--color-accent);
+		border-radius: 0.375rem;
+		background: var(--color-surface);
+		color: var(--color-text);
+		cursor: pointer;
+		font: inherit;
+	}
+	.tile-actions button:disabled { opacity: 0.6; cursor: wait; }
+	.tile-actions button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
 	/* Override Leaflet default styles */
 	:global(.leaflet-container) {

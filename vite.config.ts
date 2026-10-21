@@ -63,6 +63,11 @@ export default defineConfig(({ mode }) => {
 			sveltekit(),
 			SvelteKitPWA({
 				registerType: 'autoUpdate',
+				strategies: 'injectManifest',
+				srcDir: 'src',
+				filename: 'service-worker.ts',
+				injectRegister: null,
+				injectManifest: { globPatterns: [] },
 				manifest: {
 					name: 'Alt InfoTB',
 					short_name: 'AltInfoTB',
@@ -96,35 +101,6 @@ export default defineConfig(({ mode }) => {
 							sizes: '512x512',
 							type: 'image/png',
 							purpose: 'maskable'
-						}
-					]
-				},
-				workbox: {
-					globPatterns: [],
-					runtimeCaching: [
-						{
-							urlPattern: /^https:\/\/info\.stb\.ro\/.*/i,
-							handler: 'NetworkOnly'
-						},
-						{
-							urlPattern: /\/stb-api\/.*/i,
-							handler: 'NetworkOnly'
-						},
-						{
-							urlPattern: /\.(?:js|css|html|svg|png|woff|woff2|json)$/i,
-							handler: 'StaleWhileRevalidate',
-							options: {
-								cacheName: 'static-assets',
-								expiration: { maxEntries: 100, maxAgeSeconds: 3 * 60 }
-							}
-						},
-						{
-							urlPattern: /^https:\/\/[a-z]\.basemaps\.cartocdn\.com\/.*/i,
-							handler: 'StaleWhileRevalidate',
-							options: {
-								cacheName: 'map-tiles',
-								expiration: { maxEntries: 500, maxAgeSeconds: 7 * 24 * 60 * 60 }
-							}
 						}
 					]
 				}

@@ -6,6 +6,10 @@ test.beforeEach(async ({ page, baseURL }) => {
 	const origin = new URL(baseURL!).origin;
 	await page.route('**/*', (route) => new URL(route.request().url()).origin === origin
 		? route.continue() : route.abort());
+	await page.route('**/*.png**', (route) => route.fulfill({
+		contentType: 'image/png', headers: { 'access-control-allow-origin': '*' },
+		body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aDTsAAAAASUVORK5CYII=', 'base64')
+	}));
 });
 
 async function mapViewportSignature(page: Page): Promise<string | null> {

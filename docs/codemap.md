@@ -32,7 +32,7 @@ src/
 │   │   ├── StationHeader.svelte    Burger menu + station name + favorite button
 │   │   └── map/
 │   │       ├── station-icons.ts    Station marker icons by transport type
-│   │       ├── tiles.ts            Tile URL configs (light + dark)
+│   │       ├── tiles.ts            Authorized tile URLs, first-visit probe and layer health
 │   │       └── user-marker.ts      Blue dot for user GPS location
 │   ├── i18n/
 │   │   ├── translations.ts        RO + EN translation strings
@@ -209,3 +209,12 @@ Catalog collection configuration is separate in `scripts/catalog-cli.ts`: proxy 
 The browser continues to consume only the versioned station catalog. History and
 discovered topology are diagnostic artifacts until explicitly admitted by a
 future catalog/publication policy.
+
+## Basemap/PWA boundary (2026-10-21)
+
+- `src/lib/map/tile-policy.ts`: provider URL matching, known placeholder signatures, readable-response validation and bounded freshness.
+- `src/service-worker.ts`: precache/navigation, validated tile CacheFirst and targeted cache migration.
+- `src/routes/+layout.svelte`: explicit production registration and manifest link.
+- `scripts/check-map-tiles.ts`: four-request live publication canary, no key logging.
+- `e2e/map-cache.spec.ts`, `e2e/map-no-key.spec.ts`, `playwright.pwa.config.ts`: production worker/cache and missing-key checks.
+- `tsconfig.service-worker.json`: worker typechecking independently of Svelte's excluded worker sources.

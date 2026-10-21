@@ -43,6 +43,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Code Patterns & Pitfalls
 
+**[2026-10-21]** Remove Leaflet layers before clearing their listeners — Calling `TileLayer.off()` before `remove()` deletes Leaflet's own removal callback and leaves stale attribution behind. A production fallback→street roundtrip exposed this; remove the layer first, then clear custom listeners.
+
+**[2026-10-21]** Normalize the generated PWA home entry to the actual registration scope — SvelteKitPWA's injected manifest emitted `/` despite the app being served under `/alt-infotb/`. A navigation handler bound to the application base then threw `non-precached-url` during worker evaluation. Resolve the home entry to `registration.scope` before precaching and verify registration plus offline reload against the built artifact.
+
 **[2026-09-26]** A raw STB HTTP 412 is distinct from Cloudflare OAuth failure — After a successful Worker rollout, a full scan stopped at stop6935 on raw412; immediate later probes of6935/6936/6084 all returned200. Retry raw upstream412 with bounded backoff before declaring persistent auth failure; keep401/403 and proxy-classified auth errors immediately fatal. Preserve checkpoints and source coverage; a restarted request is not proof that the original full scan completed.
 
 **[2026-09-25]** A registry consistency recheck can overwrite response evidence — `collectTopology` retains the initial registry rows but the evidence map keeps the final `/lines?lang=ro` response. On `registry-changed`, do not bind those initial labels to the final response hash/timestamp. The historical inventory omits these uncertain registry positives while retaining independently proven stop observations.
@@ -100,11 +104,15 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Testing & Quality
 
+**[2026-10-21]** A generated sw.js does not prove PWA caching is active — Fresh production-browser inspection found zero service-worker registrations, no controller and empty Cache Storage despite a published sw.js containing map caching rules. Verify registration, scope, control after reload and actual cache entries on the production build; dev-server tests and configuration inspection alone cannot establish offline behavior.
+
 **[2026-09-25]** Do not run Vitest alongside browser tests either — Root `npm test` / `test:catalog` load the Vite/Svelte plugin and can regenerate `.svelte-kit/generated/*`, even without an explicit `svelte-kit sync` or build. A reproduced full-page reload cleared the selected route mid-E2E at the exact Vitest startup timestamp. Run browser verification after unit/type/build checks finish; this was verification interference, not a route-selection bug.
 
 **[2026-09-15]** Separate visual occlusion from hit interception on Leaflet maps — A touch-opened station tooltip can cover another stop while its `pointer-events:none` still allows A→B→A taps. Verify `elementFromPoint` at real visible targets before changing z-index or hit areas. Station labels now follow input capabilities (hidden on coarse/no-hover input), while explicit `aria-label` and Enter/Space activation keep DivIcon buttons usable after `setIcon` replaces their DOM nodes.
 
 **[2026-09-15]** Observe a settled map viewport relative to its container — Leaflet pans parent panes, so marker-local style strings can remain unchanged during real movement. Wait for pan/zoom animation completion, then compare marker bounding coordinates minus map-container coordinates; a route-status panel layout shift is not a map pan. Do not rebuild `.svelte-kit` concurrently with browser tests, because HMR can invalidate an otherwise valid interaction.
+
+**[2026-10-21]** An absent zoom class can mean animation has not started yet — A traced mobile test clicked zoom during keyboard pan, observed zero zoom classes four milliseconds later, then tapped moving station targets after zoom started. For tests expecting a settled viewport, finish pan first and observe zoom start followed by completion; assert each selection before the next tap. Keep dedicated active-animation interaction tests separate.
 
 **[2026-02-14]** Protobuf tests need encoding helpers — Tests for the protobuf decoder require building valid binary messages. Use `encodeVarint`, `encodeStringField`, `encodeVarintField`, and `encodeMessageField` helpers (defined in `proto.test.ts`) to construct test fixtures.
 
@@ -121,6 +129,8 @@ move it to the Archive section at the bottom with a date and reason.
 **[2026-02-14]** CI runs type-check, tests, then build — The GitHub Actions workflow (`deploy.yml`) runs `npm run check`, `npm test`, and `npm run build` in sequence. It also runs on PRs (not just main branch pushes), with deploy only on main/master.
 
 ## Dependencies & External Services
+
+**[2026-10-21]** HTTP 200 does not prove a working basemap — Live CARTO requests without a key returned identical API-key placeholder PNGs across different coordinates/resolutions, with 30-day immutable HTTP caching. The user confirmed the same symptom across devices. Leaflet tileerror cannot detect a valid error image; Workbox SWR may cache it (including opaque no-cors responses). Repair provider authorization before switching to CacheFirst, migrate only map caches, and verify actual map content separately from mocked map-interaction tests. Workbox's extension-only static regex does not shadow the CARTO route: cross-origin RegExpRoute requires a match at URL index0.
 
 **[2026-09-25]** A recent GTFS feed timestamp does not guarantee current line membership — TPBI feed 6.39 (2026-09-09) omits N109 at Isovolta 6084, while the production STB stop response explicitly includes it and STB announced that extension in May 2024. A generated-catalog-versus-feed check only proves internal consistency. For missing line stops, cross-check an actual reported stop against live STB data before claiming complete coverage; misclassified route stops are hidden by the background-marker density filter.
 
