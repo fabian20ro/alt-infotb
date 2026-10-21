@@ -504,8 +504,9 @@
 		const activation = ++tileActivation;
 		tileProbe?.abort();
 		tileProbe = null;
-		tileLayer?.off();
+		// Leaflet removes attribution via its own remove listener; retain it until removal.
 		tileLayer?.remove();
+		tileLayer?.off();
 		tileLayer = null;
 		const config = tilesModule.getTileConfig(tileTheme);
 		if (!config.url) {

@@ -1,8 +1,11 @@
 import { readFileSync } from 'node:fs';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { centerTileUrl, createTileHealthTracker, getTileConfig, verifyCartoTile } from './tiles.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { centerTileUrl, createTileHealthTracker, getTileConfig } from './tiles.js';
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+	vi.unstubAllGlobals();
+	vi.useRealTimers();
+});
 
 describe('basemap provider configuration', () => {
 	it.each(['light', 'dark'])('never requests %s CARTO without a usable key', (theme) => {
@@ -63,6 +66,31 @@ describe('Leaflet tile batch health', () => {
 });
 
 describe('uncontrolled-page tile preflight', () => {
+	let verifyCartoTile: typeof import('./tiles.js').verifyCartoTile;
+	beforeEach(async () => {
+		// Each test represents a fresh page with an independent provider cooldown.
+		vi.resetModules();
+		({ verifyCartoTile } = await import('./tiles.js'));
+	});
+
+	it('honors Retry-After across theme changes and retries until the deadline', async () => {
+		vi.useFakeTimers();
+		const fetchMock = vi.fn()
+			.mockResolvedValueOnce(new Response('', { status: 429, headers: { 'retry-after': '120' } }))
+			.mockResolvedValueOnce(new Response('', { status: 503 }));
+		vi.stubGlobal('fetch', fetchMock);
+		const signal = new AbortController().signal;
+		expect(await verifyCartoTile('https://example.com/dark.png', signal)).toBe(false);
+		expect(await verifyCartoTile('https://example.com/light.png', signal)).toBe(false);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		vi.advanceTimersByTime(119_999);
+		expect(await verifyCartoTile('https://example.com/dark.png', signal)).toBe(false);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		vi.advanceTimersByTime(1);
+		expect(await verifyCartoTile('https://example.com/dark.png', signal)).toBe(false);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
 	it.each([401, 403, 429, 500])('rejects HTTP %s before creating the layer', async (status) => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status })));
 		expect(await verifyCartoTile('https://example.com/tile', new AbortController().signal)).toBe(false);

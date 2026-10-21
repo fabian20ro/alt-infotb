@@ -52,6 +52,17 @@ export function isFreshTile(response: Response, now = Date.now()): boolean {
 	return response.status === 200 && expiry > now;
 }
 
+/** Back off at provider level: a new tile coordinate must not bypass rate limits. */
+export function tileCooldownUntil(response: Response, now = Date.now()): number {
+	if (response.status !== 429 && response.status !== 503) return 0;
+	const retryAfter = response.headers.get('retry-after')?.trim();
+	if (retryAfter) {
+		const deadline = /^\d+$/.test(retryAfter) ? now + Number(retryAfter) * 1000 : Date.parse(retryAfter);
+		if (Number.isFinite(deadline)) return Math.max(now, deadline);
+	}
+	return now + 15000;
+}
+
 /** Validate before either display or storage; never turn an error image into a successful tile. */
 export async function validateTileResponse(response: Response, provider: TileProvider): Promise<Response> {
 	if (response.status >= 400) {
@@ -63,7 +74,10 @@ export async function validateTileResponse(response: Response, provider: TilePro
 	if (response.status !== 200 || response.type === 'opaque' || !/^image\//i.test(response.headers.get('content-type') ?? '')) {
 		return new Response('Map tile unavailable', { status: 502, headers: { 'cache-control': 'no-store' } });
 	}
-	if (provider === 'carto' && await isKnownCartoPlaceholder(await response.clone().arrayBuffer())) {
+	// Read both providers fully while the caller's abort deadline is still active.
+	// Receiving headers does not mean that a stalled image body is usable.
+	const bytes = await response.clone().arrayBuffer();
+	if (provider === 'carto' && await isKnownCartoPlaceholder(bytes)) {
 		return new Response('Map provider authorization required', { status: 503, headers: { 'cache-control': 'no-store' } });
 	}
 	return response;

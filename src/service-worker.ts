@@ -6,7 +6,7 @@ import { CacheFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategie
 import { ExpirationPlugin } from 'workbox-expiration';
 import {
 	getTileProvider, isFreshTile, prepareTileForCache, validateTileResponse,
-	tileCacheName, tileCachePrefix, TILE_MAX_AGE_SECONDS, TILE_MAX_ENTRIES
+	tileCacheName, tileCachePrefix, tileCooldownUntil, TILE_MAX_AGE_SECONDS, TILE_MAX_ENTRIES
 } from './lib/map/tile-policy';
 
 declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<{ url: string; revision?: string | null }> };
@@ -32,16 +32,22 @@ registerRoute(new NavigationRoute(createHandlerBoundToURL(base), {
 registerRoute(({ url }) => url.hostname === 'info.stb.ro' || url.pathname.includes('/stb-api/'), new NetworkOnly());
 
 for (const provider of ['carto', 'esri'] as const) {
+	let cooldownUntil = 0;
 	const strategy = new CacheFirst({
 		cacheName: tileCacheName(scope, provider),
 		plugins: [{
 			requestWillFetch: async ({ request, state }) => {
+				// CacheFirst checks cache before reaching this hook, so saved tiles stay usable.
+				if (Date.now() < cooldownUntil) throw new Error('Map provider retry cooldown');
 				const controller = new AbortController();
 				if (state) state.timer = setTimeout(() => controller.abort(), 10000);
 				return new Request(request, { signal: controller.signal });
 			},
 			fetchDidSucceed: async ({ response, state }) => {
-				try { return await validateTileResponse(response, provider); }
+				try {
+					cooldownUntil = Math.max(cooldownUntil, tileCooldownUntil(response));
+					return await validateTileResponse(response, provider);
+				}
 				finally { clearTimeout(state?.timer); }
 			},
 			fetchDidFail: async ({ state }) => { clearTimeout(state?.timer); },

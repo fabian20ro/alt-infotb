@@ -8,18 +8,18 @@ const validTile = syntheticMapTile();
 const placeholder = await readFile(new URL('./fixtures/carto-api-key-required.png', import.meta.url));
 const headers = {
 	'access-control-allow-origin': '*',
-	'access-control-expose-headers': 'ETag',
+	'access-control-expose-headers': 'ETag, Retry-After',
 	'cache-control': 'public, max-age=604800'
 };
 
 function tileUrl(x: number, style = 'dark_all'): string {
-	return `https://basemaps.cartocdn.com/${style}/10/${x}/300.png?key=${TEST_KEY}`;
+	return `https://basemaps.cartocdn.com/${style}/15/${x}/300.png?key=${TEST_KEY}`;
 }
 
 async function tileNetwork(context: BrowserContext) {
 	const outgoing: string[] = [];
 	const workerOutgoing: string[] = [];
-	const responses = new Map<string, { status: number; body?: Buffer }>();
+	const responses = new Map<string, { status: number; body?: Buffer; headers?: Record<string, string> }>();
 	const state = { offline: false, placeholder: false };
 	await context.route('**/*', async (route) => {
 		const request = route.request();
@@ -33,7 +33,7 @@ async function tileNetwork(context: BrowserContext) {
 			return route.fulfill({
 				status: response?.status ?? 200,
 				contentType: 'image/png',
-				headers,
+				headers: { ...headers, ...response?.headers },
 				body: response?.body ?? (state.placeholder ? placeholder : validTile)
 			});
 		}
@@ -109,7 +109,7 @@ test('authorization, quota and server errors never enter the tile cache', async 
 	await openControlled(page);
 	for (const [index, status] of [401, 403, 429, 503].entries()) {
 		const url = tileUrl(810 + index);
-		network.responses.set(url, { status });
+		network.responses.set(url, { status, headers: { 'retry-after': '0' } });
 		expect((await fetchTile(page, url)).status).not.toBe(200);
 		expect(await cached(page, url)).toBe(false);
 		network.responses.set(url, { status: 200 });
@@ -157,6 +157,44 @@ test('expired cache entries refetch and a changed key keeps a separate cache ide
 	expect(await cached(page, url)).toBe(true);
 });
 
+test('provider Retry-After pauses uncached traffic while cached tiles remain usable', async ({ page, context }) => {
+	const network = await tileNetwork(context);
+	await openControlled(page);
+	const warm = tileUrl(830);
+	const unavailable = tileUrl(831);
+	const cold = tileUrl(832);
+	await fetchTile(page, warm);
+	await expect.poll(() => cached(page, warm)).toBe(true);
+	network.responses.set(unavailable, { status: 429, headers: { 'retry-after': '1' } });
+	expect((await fetchTile(page, unavailable)).status).not.toBe(200);
+	expect((await fetchTile(page, cold)).status).not.toBe(200);
+	expect((await fetchTile(page, warm)).status).toBe(200);
+	expect(network.workerOutgoing.filter((request) => request === cold)).toHaveLength(0);
+	expect(network.workerOutgoing.filter((request) => request === warm)).toHaveLength(1);
+	await page.waitForTimeout(1100); // The provider's real one-second cooldown, not a UI timing guess.
+	expect((await fetchTile(page, cold)).status).toBe(200);
+	expect(network.workerOutgoing.filter((request) => request === cold)).toHaveLength(1);
+});
+
+test('runtime tile cache evicts older entries at its 500-tile limit', async ({ page, context }) => {
+	await tileNetwork(context);
+	await openControlled(page);
+	const urls = Array.from({ length: 510 }, (_, index) => tileUrl(1000 + index));
+	// Every response still crosses the real worker and Workbox expiration plugin.
+	// Only provider bytes are synthetic; no live requests or bulk map downloads.
+	for (let offset = 0; offset < urls.length; offset += 10) {
+		const results = await Promise.all(urls.slice(offset, offset + 10).map((url) => fetchTile(page, url)));
+		expect(results.every((result) => result.status === 200)).toBe(true);
+	}
+	await expect.poll(() => cached(page, urls.at(-1)!)).toBe(true);
+	await expect.poll(() => page.evaluate(async () => {
+		const names = (await caches.keys()).filter((name) => name.startsWith('alt-infotb-map-') && name.endsWith('-carto'));
+		return (await Promise.all(names.map(async (name) => (await (await caches.open(name)).keys()).length)))
+			.reduce((sum, count) => sum + count, 0);
+	}), { timeout: 15_000 }).toBe(500);
+	expect(await cached(page, urls[0])).toBe(false);
+});
+
 test('activation migrates only legacy map cache and keeps favorites, settings and unrelated caches', async ({ page, context }) => {
 	await tileNetwork(context);
 	await context.route('**/alt-infotb/pwa-bootstrap', (route) => route.fulfill({ contentType: 'text/html', body: '<title>Cache migration setup</title>' }));
@@ -176,7 +214,7 @@ test('activation migrates only legacy map cache and keeps favorites, settings an
 	await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });
 
-test('placeholder on a fresh install retains stations and offers an attributed satellite fallback', async ({ page, context }) => {
+test('placeholder on a fresh install retains stations and offers an attributed satellite fallback', async ({ page, context }, testInfo) => {
 	const network = await tileNetwork(context);
 	network.state.placeholder = true;
 	await openControlled(page);
@@ -187,6 +225,7 @@ test('placeholder on a fresh install retains stations and offers an attributed s
 	await expect(page.locator('.leaflet-tile-loaded').first()).toBeVisible();
 	await expect(page.locator('.leaflet-control-attribution')).toContainText('Esri');
 	await expect(page.locator('.leaflet-control-attribution')).not.toContainText('CARTO');
+	await page.screenshot({ path: testInfo.outputPath('satellite-fallback.png') });
 	await page.getByRole('button', { name: 'Înapoi la harta stradală', exact: true }).click();
 	await expect(page.locator('.leaflet-control-attribution')).toContainText('CARTO');
 	await expect(page.locator('.leaflet-control-attribution')).not.toContainText('Esri');
@@ -199,7 +238,7 @@ test('theme change uses the corresponding keyed style and preserves map attribut
 	await expect(page.locator('.leaflet-tile-loaded').first()).toBeVisible();
 	await page.getByRole('button', { name: 'Meniu', exact: true }).click();
 	await page.getByRole('button', { name: 'Light theme', exact: true }).click();
-	await expect.poll(() => network.outgoing.some((url) => url.includes('/light_all/'))).toBe(true);
+	await expect.poll(() => network.outgoing.some((url) => url.includes('/rastertiles/voyager/'))).toBe(true);
 	await expect(page.locator('.leaflet-control-attribution')).toContainText('CARTO');
 	const carto = network.outgoing.filter((url) => new URL(url).hostname.endsWith('cartocdn.com'));
 	expect(carto.length).toBeGreaterThan(0);
@@ -207,4 +246,18 @@ test('theme change uses the corresponding keyed style and preserves map attribut
 		expect(new URL(url).hostname).toBe('basemaps.cartocdn.com');
 		expect(new URL(url).searchParams.get('key')).toBe(TEST_KEY);
 	}
+});
+
+test.describe('uncontrolled first visit', () => {
+	test.use({ serviceWorkers: 'block' });
+	test('one preflight rejects a key watermark before any Leaflet tile grid is requested', async ({ page, context }) => {
+		const network = await tileNetwork(context);
+		network.state.placeholder = true;
+		await page.goto(APP_PATH);
+		await expect(page.getByTestId('tile-status')).toContainText('Fundalul hărții nu este disponibil complet');
+		await expect(page.locator('.station-marker').first()).toBeVisible();
+		await expect(page.locator('.leaflet-tile')).toHaveCount(0);
+		expect(network.outgoing.filter((url) => new URL(url).hostname.endsWith('cartocdn.com'))).toHaveLength(1);
+		expect(network.workerOutgoing).toHaveLength(0);
+	});
 });

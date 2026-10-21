@@ -1,4 +1,4 @@
-import { CARTO_ORIGIN, ESRI_ORIGIN, isKnownCartoPlaceholder } from '../../map/tile-policy.js';
+import { CARTO_ORIGIN, ESRI_ORIGIN, tileCooldownUntil, validateTileResponse } from '../../map/tile-policy.js';
 
 export interface TileConfig {
 	/** A missing key disables the street layer; never request anonymous CARTO tiles. */
@@ -50,15 +50,18 @@ export function createTileHealthTracker() {
 	};
 }
 
+// Shared across street styles and manual retries until this page closes.
+let cartoCooldownUntil = 0;
+
 /** Probe one visible tile before the first uncontrolled page loads a whole layer.
  * A valid PNG can still be CARTO's API-key placeholder, hence content verification. */
 export async function verifyCartoTile(url: string, signal: AbortSignal): Promise<boolean> {
+	if (Date.now() < cartoCooldownUntil) return false;
 	const response = await fetch(url, { mode: 'cors', credentials: 'omit', signal });
-	if (response.status !== 200 || !response.headers.get('content-type')?.toLowerCase().startsWith('image/png')) {
-		await response.body?.cancel();
-		return false;
-	}
-	return !await isKnownCartoPlaceholder(await response.arrayBuffer());
+	cartoCooldownUntil = Math.max(cartoCooldownUntil, tileCooldownUntil(response));
+	const validated = await validateTileResponse(response, 'carto');
+	if (validated !== response) await response.body?.cancel();
+	return validated.status === 200;
 }
 
 export function centerTileUrl(template: string, lat: number, lon: number, zoom: number): string {

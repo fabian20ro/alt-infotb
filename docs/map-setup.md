@@ -47,7 +47,7 @@ The production layout registers the worker and links the manifest under `/alt-in
 
 Provider/style/URL including the key identify cached tiles. New map cache names are scoped to this application and versioned. Activation removes obsolete map entries; unrelated caches, settings and favorites remain. Cache Storage and browser HTTP cache are separate; changed authorized URLs also avoid reuse of the old unauthenticated placeholder URLs.
 
-Only viewed tiles are requested. Cached, unexpired areas can render offline; uncached areas and fresh arrivals need connectivity. Browser storage can be evicted. Failed tile loads keep a visible status, a manual retry with cooldown, and a satellite/street switch. There is no automatic retry loop. Switching providers updates attribution too.
+Only viewed tiles are requested. Cached, unexpired areas can render offline; uncached areas and fresh arrivals need connectivity. Browser storage can be evicted. Failed tile loads keep a visible status, a manual retry with cooldown, and a satellite/street switch. There is no automatic retry loop. Provider-level cooldown honors readable Retry-After on 429/503 (15 seconds when absent); valid cached tiles remain usable. This cooldown is held in the current worker/page session, not a durable quota ledger across browser restarts. Switching providers updates attribution too.
 
 ## Verification and remaining limits
 
@@ -63,6 +63,6 @@ PWA_TEST_NO_KEY=1 npm run test:e2e:pwa
 npm run test:e2e:map
 ```
 
-Run these sequentially: Vite/Svelte regeneration can invalidate an active browser test. The production suite checks actual worker control, cache hits without a second provider fetch, offline navigation/tiles, uncached failures, HTTP errors, placeholder200, theme switching and cache migration. The separate interaction suite covers desktop/mobile Chromium and mobile WebKit. Physical iOS installed-PWA lifecycle/storage eviction remains device-specific.
+Run these sequentially: Vite/Svelte regeneration can invalidate an active browser test. The production suite checks actual worker control, cache hits without a second provider fetch, offline navigation/tiles, uncached failures, HTTP errors, placeholder200, provider cooldown, the 500-entry eviction bound, theme switching and cache migration. The separate interaction suite covers desktop/mobile Chromium and mobile WebKit. Physical iOS installed-PWA lifecycle/storage eviction remains device-specific.
 
 The placeholder signatures are an incident regression detector, not an image classifier. A future provider change may require a new signature or a visual inspection. PMTiles hosting remains an optional separate migration; this repair keeps Leaflet and the existing providers.

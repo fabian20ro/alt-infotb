@@ -43,6 +43,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Code Patterns & Pitfalls
 
+**[2026-10-21]** Remove Leaflet layers before clearing their listeners — Calling `TileLayer.off()` before `remove()` deletes Leaflet's own removal callback and leaves stale attribution behind. A production fallback→street roundtrip exposed this; remove the layer first, then clear custom listeners.
+
+**[2026-10-21]** Normalize the generated PWA home entry to the actual registration scope — SvelteKitPWA's injected manifest emitted `/` despite the app being served under `/alt-infotb/`. A navigation handler bound to the application base then threw `non-precached-url` during worker evaluation. Resolve the home entry to `registration.scope` before precaching and verify registration plus offline reload against the built artifact.
+
 **[2026-09-26]** A raw STB HTTP 412 is distinct from Cloudflare OAuth failure — After a successful Worker rollout, a full scan stopped at stop6935 on raw412; immediate later probes of6935/6936/6084 all returned200. Retry raw upstream412 with bounded backoff before declaring persistent auth failure; keep401/403 and proxy-classified auth errors immediately fatal. Preserve checkpoints and source coverage; a restarted request is not proof that the original full scan completed.
 
 **[2026-09-25]** A registry consistency recheck can overwrite response evidence — `collectTopology` retains the initial registry rows but the evidence map keeps the final `/lines?lang=ro` response. On `registry-changed`, do not bind those initial labels to the final response hash/timestamp. The historical inventory omits these uncertain registry positives while retaining independently proven stop observations.
