@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { syntheticMapTile } from './fixtures/map-tile';
 
-test('missing build key keeps stations visible without CARTO requests and offers satellite', async ({ page, context }) => {
+test('missing build key keeps stations visible without CARTO requests and offers satellite', async ({ page, context }, testInfo) => {
 	const cartoRequests: string[] = [];
 	const tile = syntheticMapTile();
 	await context.route('**/*', async (route) => {
@@ -23,6 +23,7 @@ test('missing build key keeps stations visible without CARTO requests and offers
 	await expect(page.locator('.station-marker').first()).toBeVisible();
 	await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
 	expect(cartoRequests).toEqual([]);
+	await page.screenshot({ path: testInfo.outputPath('missing-key.png') });
 	await page.getByRole('button', { name: 'Vezi satelit', exact: true }).click();
 	await expect(page.locator('.leaflet-tile-loaded').first()).toBeVisible();
 	await expect(page.locator('.leaflet-control-attribution')).toContainText('Esri');

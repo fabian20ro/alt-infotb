@@ -112,6 +112,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-09-15]** Observe a settled map viewport relative to its container — Leaflet pans parent panes, so marker-local style strings can remain unchanged during real movement. Wait for pan/zoom animation completion, then compare marker bounding coordinates minus map-container coordinates; a route-status panel layout shift is not a map pan. Do not rebuild `.svelte-kit` concurrently with browser tests, because HMR can invalidate an otherwise valid interaction.
 
+**[2026-10-21]** An absent zoom class can mean animation has not started yet — A traced mobile test clicked zoom during keyboard pan, observed zero zoom classes four milliseconds later, then tapped moving station targets after zoom started. For tests expecting a settled viewport, finish pan first and observe zoom start followed by completion; assert each selection before the next tap. Keep dedicated active-animation interaction tests separate.
+
 **[2026-02-14]** Protobuf tests need encoding helpers — Tests for the protobuf decoder require building valid binary messages. Use `encodeVarint`, `encodeStringField`, `encodeVarintField`, and `encodeMessageField` helpers (defined in `proto.test.ts`) to construct test fixtures.
 
 **[2026-02-15]** E2E tests must run serially (1 worker) — Playwright tests hit the Vite dev proxy which makes real API calls. Running multiple workers in parallel causes auth token race conditions and 15s timeouts. Set `workers: 1` in `playwright.config.ts`.

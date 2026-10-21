@@ -166,9 +166,14 @@ test('touch station selection never leaves a floating name covering nearby stati
 	await page.locator('.map-container').focus();
 	await page.locator('.map-container').press('ArrowRight');
 	await expect.poll(async () => (await a.boundingBox())!.x).not.toBe(oldX);
+	await expect(page.locator('.leaflet-pan-anim')).toHaveCount(0);
 	await page.getByRole('button', { name: 'Zoom in' }).click();
+	// Leaflet starts zoom on a later animation frame: zero immediately after
+	// clicking can mean "not started", leaving coordinate-based taps in motion.
+	await expect(page.locator('.leaflet-zoom-anim')).toHaveCount(1);
 	await expect(page.locator('.leaflet-zoom-anim')).toHaveCount(0);
 	await tapVisibleCenter(page, b);
+	await expect(page.getByLabel('Selected station IDs')).toHaveText('1,2,1,2');
 	await tapVisibleCenter(page, a);
 	await expect(page.getByLabel('Selected station IDs')).toHaveText('1,2,1,2,1');
 	await expect(page.locator('.leaflet-tooltip:visible')).toHaveCount(0);
