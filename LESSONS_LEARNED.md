@@ -100,6 +100,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Testing & Quality
 
+**[2026-10-21]** A generated sw.js does not prove PWA caching is active — Fresh production-browser inspection found zero service-worker registrations, no controller and empty Cache Storage despite a published sw.js containing map caching rules. Verify registration, scope, control after reload and actual cache entries on the production build; dev-server tests and configuration inspection alone cannot establish offline behavior.
+
 **[2026-09-25]** Do not run Vitest alongside browser tests either — Root `npm test` / `test:catalog` load the Vite/Svelte plugin and can regenerate `.svelte-kit/generated/*`, even without an explicit `svelte-kit sync` or build. A reproduced full-page reload cleared the selected route mid-E2E at the exact Vitest startup timestamp. Run browser verification after unit/type/build checks finish; this was verification interference, not a route-selection bug.
 
 **[2026-09-15]** Separate visual occlusion from hit interception on Leaflet maps — A touch-opened station tooltip can cover another stop while its `pointer-events:none` still allows A→B→A taps. Verify `elementFromPoint` at real visible targets before changing z-index or hit areas. Station labels now follow input capabilities (hidden on coarse/no-hover input), while explicit `aria-label` and Enter/Space activation keep DivIcon buttons usable after `setIcon` replaces their DOM nodes.
@@ -121,6 +123,8 @@ move it to the Archive section at the bottom with a date and reason.
 **[2026-02-14]** CI runs type-check, tests, then build — The GitHub Actions workflow (`deploy.yml`) runs `npm run check`, `npm test`, and `npm run build` in sequence. It also runs on PRs (not just main branch pushes), with deploy only on main/master.
 
 ## Dependencies & External Services
+
+**[2026-10-21]** HTTP 200 does not prove a working basemap — Live CARTO requests without a key returned identical API-key placeholder PNGs across different coordinates/resolutions, with 30-day immutable HTTP caching. The user confirmed the same symptom across devices. Leaflet tileerror cannot detect a valid error image; Workbox SWR may cache it (including opaque no-cors responses). Repair provider authorization before switching to CacheFirst, migrate only map caches, and verify actual map content separately from mocked map-interaction tests. Workbox's extension-only static regex does not shadow the CARTO route: cross-origin RegExpRoute requires a match at URL index0.
 
 **[2026-09-25]** A recent GTFS feed timestamp does not guarantee current line membership — TPBI feed 6.39 (2026-09-09) omits N109 at Isovolta 6084, while the production STB stop response explicitly includes it and STB announced that extension in May 2024. A generated-catalog-versus-feed check only proves internal consistency. For missing line stops, cross-check an actual reported stop against live STB data before claiming complete coverage; misclassified route stops are hidden by the background-marker density filter.
 

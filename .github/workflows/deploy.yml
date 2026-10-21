@@ -39,12 +39,17 @@ jobs:
       - name: Check catalog tooling and shared proxy types
         run: |
           npm run check:catalog
+          npm run check:service-worker
           npm --prefix shared-api run check
 
       - name: Test
         run: npm test
 
-      - name: Build
+      # A fake key plus intercepted provider responses exercises the real PWA
+      # without spending quota or exposing the production key in test artifacts.
+      - name: Build PWA test artifact
+        env:
+          VITE_CARTO_API_KEY: pwa-regression-test-key
         run: npm run build
 
       - name: Install map-test browsers
@@ -56,15 +61,46 @@ jobs:
         timeout-minutes: 10
         run: npm run test:e2e:map
 
+      - name: Verify production PWA and tile cache
+        id: map_cache
+        timeout-minutes: 10
+        run: npm run test:e2e:pwa
+
+      - name: Build missing-key PWA test artifact
+        env:
+          VITE_CARTO_API_KEY: ''
+        run: npm run build
+
+      - name: Verify missing-key fallback
+        id: map_no_key
+        timeout-minutes: 5
+        env:
+          PWA_TEST_NO_KEY: '1'
+        run: npm run test:e2e:pwa
+
       - name: Retain failing map evidence
-        if: failure() && steps.map_browser.outcome == 'failure'
+        if: failure() && (steps.map_browser.outcome == 'failure' || steps.map_cache.outcome == 'failure' || steps.map_no_key.outcome == 'failure')
         uses: actions/upload-artifact@v4
         with:
           name: map-browser-failure
           path: |
             playwright-report/
             test-results/
+            playwright-report-pwa/
+            test-results-pwa/
           retention-days: 3
+
+      - name: Verify configured live basemap before publication
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        env:
+          VITE_CARTO_API_KEY: ${{ vars.VITE_CARTO_API_KEY }}
+        run: npm run maps:check
+
+      # Always rebuild after fixture tests: the test key must never reach Pages.
+      - name: Build deployment artifact
+        env:
+          VITE_CARTO_API_KEY: ${{ vars.VITE_CARTO_API_KEY }}
+        run: npm run build
 
       - name: Upload artifact
         if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')

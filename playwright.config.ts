@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
 	testDir: './e2e',
+	testIgnore: /map-(?:cache|no-key)\.spec\.ts/,
 	fullyParallel: false,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
@@ -28,6 +29,7 @@ export default defineConfig({
 	],
 	webServer: {
 		command: 'npm run dev -- --mode test',
+		env: { VITE_CARTO_API_KEY: 'map-interaction-test-key' },
 		url: 'http://localhost:5173',
 		reuseExistingServer: !process.env.CI
 	}

@@ -111,6 +111,7 @@ jobs:
           cp data/catalog-audit/candidate.json src/lib/stations/stations.json
           npm run check
           npm run check:catalog
+          npm run check:service-worker
           npm --prefix shared-api run check
           npm test
           npm run build
