@@ -1,5 +1,7 @@
 # Deployment and catalog operations
 
+For the temporary SvelteKit compatibility exception and the preinstalled CI browser image, see [October 2026 deployment recovery](dependency-recovery-2026-10-27.md).
+
 The static app is deployed to `https://fabian20ro.github.io/alt-infotb/` by
 `.github/workflows/deploy.yml` on main/master pushes or manual dispatch. PRs run
 the same deterministic checks without deploying. The tested build artifact is

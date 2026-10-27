@@ -18,6 +18,13 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Keep this image aligned with the installed @playwright/test version.
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
     outputs:
       should_deploy: 'true'
     steps:
@@ -32,6 +39,19 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify preinstalled test browsers
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const version = require('@playwright/test/package.json').version;
+          assert.equal(version, '1.58.2', 'Update the Playwright container and version check together with @playwright/test.');
+          for (const browser of ['chromium', 'webkit']) {
+            fs.accessSync(require('playwright')[browser].executablePath(), fs.constants.X_OK);
+          }
+          console.log(`Playwright ${version}: preinstalled Chromium and WebKit available.`);
+          NODE
 
       - name: Type check
         run: npm run check
@@ -51,10 +71,6 @@ jobs:
         env:
           VITE_CARTO_API_KEY: pwa-regression-test-key
         run: npm run build
-
-      - name: Install map-test browsers
-        timeout-minutes: 10
-        run: npx playwright install --with-deps chromium webkit
 
       - name: Verify map interactions
         id: map_browser
