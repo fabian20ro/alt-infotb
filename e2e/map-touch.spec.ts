@@ -31,8 +31,9 @@ test.beforeEach(async ({ page, baseURL }) => {
 	await page.route('**/e2e/fixtures/map-touch.html*', async (route) => route.fulfill({
 		contentType: 'text/html', body: await readFile(new URL('./fixtures/map-touch.html', import.meta.url), 'utf8')
 	}));
-	await page.route('**/*.png', (route) => route.fulfill({
-		contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>'
+	await page.route('**/*.png**', (route) => route.fulfill({
+		contentType: 'image/png', headers: { 'access-control-allow-origin': '*' },
+		body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aDTsAAAAASUVORK5CYII=', 'base64')
 	}));
 	await page.goto('/e2e/fixtures/map-touch.html');
 	await expect(page.locator('.station-marker').first()).toBeVisible();
@@ -53,10 +54,10 @@ test('recenter survives a tap during an active zoom', async ({ page }) => {
 test('recenter waits for the first GPS fix once, then leaves manual panning alone', async ({ page }) => {
 	await page.goto('/e2e/fixtures/map-touch.html?no-position');
 	await page.getByRole('button', { name: 'Recentrare', exact: true }).click();
-	await expect(page.locator('.map-wrapper').getByRole('status')).toContainText('Se așteaptă locația');
+	await expect(page.locator('.location-status')).toContainText('Se așteaptă locația');
 	await page.getByRole('button', { name: 'Deliver GPS' }).click();
 	await expect.poll(() => userDistanceFromMapCenter(page)).toBeLessThan(2);
-	await expect(page.locator('.map-wrapper').getByRole('status')).not.toBeVisible();
+	await expect(page.locator('.location-status')).not.toBeVisible();
 	await page.locator('.map-container').press('ArrowRight');
 	await expect(page.locator('.leaflet-pan-anim')).toHaveCount(0);
 	await page.getByRole('button', { name: 'Move GPS' }).click();
@@ -64,7 +65,7 @@ test('recenter waits for the first GPS fix once, then leaves manual panning alon
 });
 
 test('recenter moves immediately during a pan without waiting for tiles', async ({ page }) => {
-	await page.route('**/*.png', () => {});
+	await page.route('**/*.png**', () => {});
 	await page.locator('.map-container').press('ArrowRight');
 	await expect(page.locator('.leaflet-pan-anim')).toHaveCount(1);
 	await page.getByRole('button', { name: 'Recentrare', exact: true }).evaluate((button: HTMLElement) => button.click());
@@ -75,7 +76,7 @@ test('recenter moves immediately during a pan without waiting for tiles', async 
 test('pending recenter reports GPS failure and denied permission in the selected language', async ({ page }) => {
 	await page.goto('/e2e/fixtures/map-touch.html?no-position');
 	const recenter = page.getByRole('button', { name: 'Recentrare', exact: true });
-	const status = page.locator('.map-wrapper').getByRole('status');
+	const status = page.locator('.location-status');
 	await recenter.click();
 	await expect(recenter).toHaveAttribute('aria-busy', 'true');
 	await page.getByRole('button', { name: 'Fail GPS' }).click();
@@ -165,9 +166,14 @@ test('touch station selection never leaves a floating name covering nearby stati
 	await page.locator('.map-container').focus();
 	await page.locator('.map-container').press('ArrowRight');
 	await expect.poll(async () => (await a.boundingBox())!.x).not.toBe(oldX);
+	await expect(page.locator('.leaflet-pan-anim')).toHaveCount(0);
 	await page.getByRole('button', { name: 'Zoom in' }).click();
+	// Leaflet starts zoom on a later animation frame: zero immediately after
+	// clicking can mean "not started", leaving coordinate-based taps in motion.
+	await expect(page.locator('.leaflet-zoom-anim')).toHaveCount(1);
 	await expect(page.locator('.leaflet-zoom-anim')).toHaveCount(0);
 	await tapVisibleCenter(page, b);
+	await expect(page.getByLabel('Selected station IDs')).toHaveText('1,2,1,2');
 	await tapVisibleCenter(page, a);
 	await expect(page.getByLabel('Selected station IDs')).toHaveText('1,2,1,2,1');
 	await expect(page.locator('.leaflet-tooltip:visible')).toHaveCount(0);

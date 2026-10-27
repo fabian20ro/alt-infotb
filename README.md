@@ -51,6 +51,14 @@ npm install
 # Run development server
 npm run dev
 ```
+## Map configuration
+
+Get a [CARTO Basemaps key](https://www.carto.com/basemaps/apikey/) and set
+`VITE_CARTO_API_KEY` in `.env.local` for development, or in the repository's
+**Actions Variables** for GitHub Pages. Rebuild after changes. See the
+[setup and verification guide](docs/map-setup.md) for website restrictions,
+cache behavior, the production canary and missing-key fallback.
+
 ## Test
 
 ```bash
@@ -66,7 +74,7 @@ Playwright starts Vite in `--mode test`, which permits the isolated component fi
 stop a normal dev server already using port 5173 before running them, or start it in test mode.
 Do not run a production build concurrently with browser tests: rebuilding `.svelte-kit` can
 reload the development page during an interaction. CI runs these steps sequentially and
-retains browser failure evidence for three days. Installed-device/PWA update checks remain manual.
+retains browser failure evidence for three days. The production PWA/cache suite is documented in [map setup](docs/map-setup.md); physical-device installed-PWA lifecycle checks remain manual.
 
 ## Build
 

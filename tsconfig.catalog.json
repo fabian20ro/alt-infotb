@@ -5,6 +5,7 @@
   },
   "include": [
     "scripts/catalog*.ts",
+    "scripts/check-map-tiles*.ts",
     "scripts/*stb-catalog*.ts",
     "scripts/station-membership*.ts",
     "scripts/audit-station-membership.ts",

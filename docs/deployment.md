@@ -24,6 +24,14 @@ plane; merging this public repository does not itself promote its pinned module.
   [full audit](station-membership-full-audit-2026-09-25.md). A successful static
   build is not a claim that the live network audit is conform.
 
+## Basemap configuration
+
+Set repository Actions variable `VITE_CARTO_API_KEY` before a Pages deployment.
+The final build embeds this browser key; it is not a Worker secret. Deterministic
+PWA tests build with a fake key; publication uses a fresh build with the configured
+key after a small live provider check. Missing/invalid configuration blocks the
+new Pages artifact, preserving the previous deployment. See [map setup](map-setup.md).
+
 ## Local verification
 
 Use Node 24+ and the committed lockfile:

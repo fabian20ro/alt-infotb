@@ -1,9 +1,12 @@
+/// <reference types="vite-plugin-pwa/client" />
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
 	namespace App {}
 
 	interface ImportMetaEnv {
+		/** Public, origin-restricted CARTO basemap key, embedded at build time. */
+		readonly VITE_CARTO_API_KEY?: string;
 		/**
 		 * Base URL for the STB API.
 		 * Must be non-empty, without trailing slash (e.g. "https://info.stb.ro/api/web/v2-6").
