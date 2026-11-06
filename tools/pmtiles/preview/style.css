@@ -1,0 +1,13 @@
+@import 'maplibre-gl/dist/maplibre-gl.css';
+:root { font-family: system-ui, sans-serif; color: #132f3b; background: #f5f7fa; }
+body { margin: 0; }
+header, section, details { padding: .6rem 1rem; }
+h1 { font-size: 1.15rem; margin: .3rem 0; }
+p { margin: .4rem 0; font-size: .9rem; }
+button, select { font: inherit; padding: .65rem; border: 1px solid #4f7181; border-radius: .3rem; background: white; color: inherit; }
+button { margin-right: .5rem; }
+button:disabled, select:disabled { opacity: .6; }
+button:focus-visible, select:focus-visible { outline: 3px solid #237db0; }
+progress { width: 100%; }
+#map { height: min(65vh, 620px); min-height: 320px; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .75rem; }

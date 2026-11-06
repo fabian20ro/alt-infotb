@@ -1009,3 +1009,24 @@ Each entry should follow this structure:
 - Physical Pixel6a Chrome156: replayed newly captured public line66 geometry for both directions, all36 stops visible at overview, native touch pan99.99px, initialmarker500ms/routes127ms, no JS errors. No live vehicles in capture; synthetic E2E covers both vehicle sets. Captured public protobuf/provenance in map fixtures, no credentials.
 - Local CARTO probe403/noCORS contrasted with200PNG/CORS for approved production origin using same tile/key; restrictions intact, no renderer failure. Offline PMTiles at BucurObor z15/z18 renders535/36features with21/14symbols and0errors; persistence remains true. All3911 catalog markers and both66paths lie within package bounds. Full cartographic comparison on an authorized origin remains step4 gate.
 - Existing locked dependency audit now reports5low/5moderate (no high/critical), mostly build-tool chains; documented separately without dependency churn. Updated accepted plan, contracts, codemap, architecture and baseline report.
+
+
+## 2026-11-07 — PMTiles step 2 package pipeline; artifact-only distribution
+
+- Started from merged step1 on isolated codex/pmtiles-package-pipeline; preserved original prototype worktree and app dependency/security changes.
+- Added pinned source/CLI/assets, bounded ZIP alias expansion, deterministic complete package, licenses, descriptor/hash/content validation of all6807tiles and806282feature instances.47,176,137bytes,1039assets; fresh planet extraction reproduced pinnedSHA256.
+- Built isolated MapLibre viewer and84 offline scenarios; real Pixel6a Chrome156 passed42 scenarios atDPR2.625 with0HTTPattempts/renderer errors. USBdownload+firstmap2515ms; worstscenarioidle217ms; visual screenshot inspected. Viewer is in-memory only, not persistent app storage.
+- Provider-independent publisher uses immutable conditional writes, verified public bytes/ranges/CORS before latest-last CAS, bounded responses and same-date ordered revision guards. Local HTTP fault tests cover races, corrupt/truncated bytes, badranges/CORS and immutable conflicts.
+- Review found/fixed same-date rollback, partial source-cache copying, and ZIP canonical-path aliases. Added regressions; app tests1195pass, typechecks/build pass; isolated dependency audit0; existing app audit5low+5moderate unchanged.
+- Cloudflare OAuth renewed via Brave at user request; authenticated R2 list returned service-not-enabled. User explicitly refused R2 activation due billing risk. Removed R2 adapter/config/secrets/publication job; manual workflow now exports verified90-day GitHub artifact only. No production deployment or cloud service activation.
+- Surprises: published townhall sprite absent (explicitbuildingfallback); Devanagari files intentionally alias two legitimate stack names; optional MVTuint64 IDs exceed STB safe-number decoder, bounded local ID stripping avoids changing appdecoder. Documented these limits and revised plan: independent journaled offline manager next; durable hosting without billing exposure remains open.
+
+- Final root-suite rerun caught isolated Playwright `*.spec.ts` being discovered by root Vitest. Renamed to explicit `*.browser.ts` matching the isolated Playwright config; no app test exclusions or dependency edits required. Added coverage verification for actual text glyph IDs after review reproduced acceptance of all-ASCII-stripped fonts.
+
+- Cost constraint follow-up: artifact upload made explicit opt-in/defaultfalse with7-day retention; normal manual runs only validate. No billing limits changed. User can retain generated package locally without Actions artifact usage.
+
+- Glyph review correction: audit actual formatted/transformed/shaped label text with pinned MapLibre pure helpers. Real package passes3032412sections/13078142packaged-glyph checks;6local font dependencies explicitly match renderer policy. Reject missing required glyphs, unsupported combined-font URLs and external font-faces. No package/source hash changes.
+
+- Final verification:60 isolated Node tests; tool/root/catalog/SW/shared-API typechecks;1195 root tests/32suites after browser-test isolation fix; root static build;84 offline browser scenarios;42 physical Pixel Chrome scenarios. Glyph-corrupted real copies with rehashed B/ș removal fail correctly. Canonical manifest SHA remainsc64430f1d1acb5f05ba9578bf8874c451566ebd09228f34fb54a58eea4368643. Workflow lint passes with artifact upload opt-in/defaultoff.
+
+- Manual Linux CI independently reproduced fullpackage/manifest hashes, then caught preview Vite discovering root tsconfig whose .svelte-kit parent was absent in cleancheckout. Pinned Vite to tools tsconfig; cleanfixture without appdependencies/generatedSvelte files nowbuilds. Added previewbuild to every tool PRcheck. No rootapp install workaround.

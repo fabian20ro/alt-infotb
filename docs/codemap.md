@@ -227,3 +227,12 @@ future catalog/publication policy.
 - `src/lib/map/leaflet-renderer.ts` + `.css`: existing Leaflet rendering, tile health/canary/retry and lazy renderer-owned styles.
 - `src/lib/offline-maps/manifest.ts`: pure versioned package descriptor validator; not imported by the running app. No downloads, storage or service-worker changes.
 - `docs/pmtiles-contracts.md`: consumer guarantees, deferred content validation and verification record.
+
+## PMTiles package tools (2026-11-07)
+
+- `tools/pmtiles/src/generate.ts` + `source.json`: pinned, reproducible regional package and licenses; isolated dependencies.
+- `tools/pmtiles/src/content.ts`: file/hash/content validation, complete archive traversal and style resource closure.
+- `tools/pmtiles/src/publish.ts` + `httpverify.ts`: provider-independent protocol, fault-tested Range/CORS checks and latest-last conditional promotion; no cloud adapter.
+- `tools/pmtiles/preview/` + `browser/`: downloaded-byte renderer, 84 offline visual scenarios and commit/digest-bound receipt.
+- `.github/workflows/pmtiles-package.yml`: tooling PR checks and manual generation of downloadable verified artifacts; independent of app deployment.
+- `docs/plans/2026-11-07-pmtiles-package-pipeline.md`: measurements, limitations and recommended storage-manager follow-up.

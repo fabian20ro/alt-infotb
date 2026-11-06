@@ -120,6 +120,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-15]** E2E tests must run serially (1 worker) — Playwright tests hit the Vite dev proxy which makes real API calls. Running multiple workers in parallel causes auth token race conditions and 15s timeouts. Set `workers: 1` in `playwright.config.ts`.
 
+**[2026-11-07]** Isolated Vite builds must pin their tsconfig when importing shared app contracts — Vite8 discovers the nearest tsconfig for a shared src/ file; the application's config extends generated .svelte-kit/tsconfig.json. A local app build masks this dependency. Set the tool's explicit Vite tsconfig and verify a clean checkout with only tool dependencies installed; keep that preview build in PR CI.
+
+**[2026-11-07]** Isolated tooling tests still live under root discovery — Use explicit `*.node-test.ts` and `*.browser.ts` patterns in isolated Node/Playwright runners; root Vitest collects both `*.test.ts` and `*.spec.ts` recursively even when a nested package has its own dependencies. Rerun the root suite after adding browser test files, not only before them.
+
 **[2026-02-15]** Exclude integration and E2E tests from `npm test` — Vitest picks up `*.integration.test.ts` and Playwright's `e2e/` files unless explicitly excluded. Use `--exclude` flags in the test script. Integration tests use a separate vitest config (`vitest.integration.config.ts`).
 
 **[2026-05-15]** Verify actual Vitest output before syncing test-count docs — `docs/codemap.md` test totals can drift as new unit tests are added. Use the live `npm test` summary as the source of truth before updating the documented suite count.
@@ -129,6 +133,10 @@ move it to the Archive section at the bottom with a date and reason.
 ## Performance & Infrastructure
 
 **[2026-02-14]** CI runs type-check, tests, then build — The GitHub Actions workflow (`deploy.yml`) runs `npm run check`, `npm test`, and `npm run build` in sequence. It also runs on PRs (not just main branch pushes), with deploy only on main/master.
+
+**[2026-11-07]** PMTiles archive validity does not prove offline asset completeness — CLI verify checks archive structure. Validate actual MVT content and style-dependent resource references, sprite atlases/PNG data and full glyph ranges; complement with both themes/DPRs and zero-network browser renders. Pinned Protomaps assets include intentional font symlink aliases and a missing townhall icon; expand verified aliases and use an explicit supplied fallback, not silent resource omissions.
+
+**[2026-11-07]** Immutable package publication also needs ordered same-date revisions — dataDate-only downgrade prevention lets a retry of v1 replace corrected v2 from the same source day. Require a canonical YYYYMMDD-vN pipeline version, compare revisions on equal dates, and preserve latest-last atomic ETag preconditions. Keep this policy in the publisher rather than restricting the generic manifest parser.
 
 ## Dependencies & External Services
 
