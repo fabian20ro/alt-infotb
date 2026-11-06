@@ -1,0 +1,26 @@
+{
+  "source": "https://info.stb.ro/api/web/v2-6",
+  "via": "https://alt-stb-proxy.fabian20ro.workers.dev",
+  "fixtures": [
+    {
+      "file": "line66-forward.pb",
+      "stopId": 3684,
+      "lineId": 72,
+      "direction": 0,
+      "requestPath": "/lines/stop?stop_id=3684&selected_line_id=72&direction=0",
+      "sha256": "35324cfda54faab364b7176be5d6842d7c239bae476bddb7cb612d1aad46b981",
+      "bytes": 1539,
+      "capturedAt": "2026-11-06T23:02:28.518Z"
+    },
+    {
+      "file": "line66-return.pb",
+      "stopId": 3675,
+      "lineId": 72,
+      "direction": 1,
+      "requestPath": "/lines/stop?stop_id=3675&selected_line_id=72&direction=1",
+      "sha256": "80103e1732d0f8520ba18be611f2341218fc8a3173fa9959df8bc81676816d57",
+      "bytes": 1039,
+      "capturedAt": "2026-11-06T23:03:31.158Z"
+    }
+  ]
+}

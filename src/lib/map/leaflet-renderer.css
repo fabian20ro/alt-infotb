@@ -1,0 +1,63 @@
+/* Override Leaflet default styles */
+.leaflet-container {
+	font-family: inherit;
+}
+
+.station-marker,
+.station-marker-selected,
+.user-location-marker {
+	background: transparent !important;
+	border: none !important;
+}
+
+.user-location-marker {
+	pointer-events: none !important;
+}
+
+.station-name-tooltip {
+	pointer-events: none;
+}
+
+/* Touch has no hover exit: Leaflet opens labels on tap and leaves them over nearby stops.
+ * The selected name remains in the station header; desktop hover/focus keeps its label.
+ * CSS also follows input-capability changes without rebinding Leaflet event handlers. */
+@media (hover: none), (pointer: coarse) {
+	.station-name-tooltip {
+		display: none;
+	}
+}
+
+.route-mode .station-marker {
+	opacity: 0.32;
+}
+
+.route-mode .station-marker.station-marker-on-route {
+	opacity: 0.72;
+}
+
+.vehicle-marker-shell {
+	background: transparent !important;
+	border: none !important;
+}
+
+.vehicle-marker {
+	display: grid;
+	place-items: center;
+	width: 2rem;
+	height: 2rem;
+	margin: 0.375rem;
+	border: 3px solid #fff;
+	border-radius: 50%;
+	background: var(--vehicle-color);
+	color: #fff;
+	box-shadow: 0 2px 7px rgb(0 0 0 / 0.45);
+	font-size: 0.65rem;
+	font-weight: 800;
+	line-height: 1;
+}
+
+.vehicle-marker.opposite {
+	border-color: var(--color-warning);
+	background: var(--color-surface);
+	color: var(--color-text);
+}

@@ -104,6 +104,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Testing & Quality
 
+**[2026-11-07]** Reserve all one-shot camera guards before calling an engine — A renderer can synchronously emit camera-idle from `setCamera`. Clearing only pending recentre is insufficient when initial framing is still eligible: a newly arrived catalog/GPS can trigger nested GPS+selection framing and override recentre. Reserve the initial-view flag before the call, restore it if rejected, and test with selected station + GPS + synchronous idle together.
+
 **[2026-10-21]** A generated sw.js does not prove PWA caching is active — Fresh production-browser inspection found zero service-worker registrations, no controller and empty Cache Storage despite a published sw.js containing map caching rules. Verify registration, scope, control after reload and actual cache entries on the production build; dev-server tests and configuration inspection alone cannot establish offline behavior.
 
 **[2026-09-25]** Do not run Vitest alongside browser tests either — Root `npm test` / `test:catalog` load the Vite/Svelte plugin and can regenerate `.svelte-kit/generated/*`, even without an explicit `svelte-kit sync` or build. A reproduced full-page reload cleared the selected route mid-E2E at the exact Vitest startup timestamp. Run browser verification after unit/type/build checks finish; this was verification interference, not a route-selection bug.
