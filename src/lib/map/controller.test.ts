@@ -58,6 +58,17 @@ describe('map camera intents', () => {
 		expect(h.cameraMoves).toEqual([{ lat: 44.437, lon: 26.12, zoom: 15 }]);
 	});
 
+	it('keeps an explicit recenter ahead of initial GPS/selection framing during synchronous callbacks', () => {
+		const h = harness(); h.synchronousIdle();
+		h.controller.update(scene()); h.controller.recenter();
+		h.controller.update({ ...scene(),
+			allStations: [{ id: 1, name: 'Selected', description: '', lat: 44.4, lon: 26.1 }],
+			selectedStationId: 1, userPosition: { lat: 44.437, lon: 26.12, accuracy: 20 }
+		});
+		expect(h.cameraMoves).toEqual([{ lat: 44.437, lon: 26.12, zoom: 15 }]);
+		expect(h.frames).toEqual([]);
+	});
+
 	it.each([
 		{ locationPermission: 'denied' as const, locationError: null, error: 'locationDenied' },
 		{ locationPermission: 'granted' as const, locationError: 'GPS unavailable', error: 'locationUnavailable' }

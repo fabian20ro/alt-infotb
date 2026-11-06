@@ -137,7 +137,7 @@ Fiecare etapă produce un PR separat; producția se activează abia după gate-u
 
 | Etapă | Livrabil și zone principale | Criteriu de închidere |
 |---|---|---|
-| 1. Contract și risc de integrare | `src/lib/map/model.ts`, contract renderer, fixtures de scenă; manifest pachet într-un modul separat | Baseline pe Pixel cu stații/trasee reale; acoperire/zoom comparate; contract stabil și teste independente de Leaflet |
+| 1. Contract și risc de integrare | `src/lib/map/model.ts`, contract renderer, fixtures de scenă; manifest pachet într-un modul separat | Baseline pe Pixel cu stații/trasee reale; acoperire/zoom comparate ([rezultate și limite](2026-11-07-pmtiles-baseline.md)); contract stabil și teste independente de Leaflet |
 | 2. Pipeline pachet | Generator, validator și workflow manual dedicat; artefacte imutabile | Extract repetabil, hashuri/licențe/simboluri validate; HTTP Range/CORS verificate într-un mediu separat; nimic publicat în producție implicit |
 | 3. Manager offline | `src/lib/offline-maps/`: manifest, repository, manager și testele lor | Install/update/delete/recuperare funcționează independent de UI; fault injection în fiecare etapă; două taburi și cote insuficiente |
 | 4. Adaptor MapLibre | Renderer lazy + integrarea din `MapView.svelte`; Leaflet disponibil pentru revenire | Paritate cu testele existente de hartă, ambele teme, tastatură/touch, raster și PMTiles; un singur motor activ |

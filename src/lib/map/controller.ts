@@ -26,8 +26,12 @@ export function createMapController(renderer: MapRenderer, onStatus: (status: Lo
 		// Clear before setCamera: engines may emit camera-idle synchronously.
 		pending = false;
 		const { lat, lon } = scene.userPosition;
-		if (renderer.setCamera({ lat, lon, zoom: 15 }, true)) initialViewSet = true;
-		else pending = true;
+		const previousInitialView = initialViewSet;
+		initialViewSet = true;
+		if (!renderer.setCamera({ lat, lon, zoom: 15 }, true)) {
+			initialViewSet = previousInitialView;
+			pending = true;
+		}
 	}
 
 	function setInitialView() {
