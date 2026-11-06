@@ -1,6 +1,6 @@
 # Plan: integrare PMTiles și hărți offline
 
-**Stare: plan acceptat, 2026-11-07.** Pasul 1 este integrat; pasul 2 este implementat izolat în `tools/pmtiles`, cu export ca artifact GitHub Actions. Utilizatorul a refuzat activarea R2 din cauza riscului de facturare; distribuția cloud este amânată. Pașii 3–6 rămân planificați. Vezi [raportul pasului 2](2026-11-07-pmtiles-package-pipeline.md). Nicio activare sau publicare în producție. Detalii: [contractele pasului 1](../pmtiles-contracts.md).
+**Stare: plan acceptat, 2026-11-07.** Pasul 1 este integrat; pasul 2 este implementat izolat în `tools/pmtiles`, cu export local și artifact GitHub Actions opțional, dezactivat implicit. Utilizatorul a refuzat activarea R2 din cauza riscului de facturare; distribuția cloud este amânată. Pașii 3–6 rămân planificați. Vezi [raportul pasului 2](2026-11-07-pmtiles-package-pipeline.md). Nicio activare sau publicare în producție. Detalii: [contractele pasului 1](../pmtiles-contracts.md).
 
 ## Recomandare
 
@@ -55,7 +55,7 @@ Pipeline separat: extragere din sursă Protomaps fixată → verificare PMTiles 
 
 Obiecte versionate: cache HTTP lung, immutable; manifestul `latest`: prospețime scurtă/revalidare. Păstrăm cel puțin ultimele trei versiuni / 90 zile pentru reinstalare și revenire; politica exactă se confirmă înainte de lansare. Pachetele deja instalate continuă să funcționeze și după retragerea versiunii lor de pe server.
 
-**Actualizare 2026-11-07:** R2 nu se activează. Pasul 2 exportă un pachet verificat ca artifact GitHub Actions, fără job de publicare sau credentiale cloud. Alegerea unei găzduiri fără risc de facturare și verificarea ei reală rămân deschise.
+**Actualizare 2026-11-07:** R2 nu se activează. Pasul 2 exportă local un pachet verificat, cu artifact GitHub Actions opțional (7 zile, dezactivat implicit), fără job de publicare sau credentiale cloud. Alegerea unei găzduiri fără risc de facturare și verificarea ei reală rămân deschise.
 
 Inițial publicare manuală; ulterior candidat lunar și la cerere, activat numai după verificări. Publicarea unui pachet nou nu obligă dispozitivele să îl descarce.
 

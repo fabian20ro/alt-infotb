@@ -120,6 +120,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-15]** E2E tests must run serially (1 worker) — Playwright tests hit the Vite dev proxy which makes real API calls. Running multiple workers in parallel causes auth token race conditions and 15s timeouts. Set `workers: 1` in `playwright.config.ts`.
 
+**[2026-11-07]** Isolated tooling tests still live under root discovery — Use explicit `*.node-test.ts` and `*.browser.ts` patterns in isolated Node/Playwright runners; root Vitest collects both `*.test.ts` and `*.spec.ts` recursively even when a nested package has its own dependencies. Rerun the root suite after adding browser test files, not only before them.
+
 **[2026-02-15]** Exclude integration and E2E tests from `npm test` — Vitest picks up `*.integration.test.ts` and Playwright's `e2e/` files unless explicitly excluded. Use `--exclude` flags in the test script. Integration tests use a separate vitest config (`vitest.integration.config.ts`).
 
 **[2026-05-15]** Verify actual Vitest output before syncing test-count docs — `docs/codemap.md` test totals can drift as new unit tests are added. Use the live `npm test` summary as the source of truth before updating the documented suite count.

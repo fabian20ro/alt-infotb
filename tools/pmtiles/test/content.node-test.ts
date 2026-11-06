@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { validateGlyph, validatePng, validateStyleAssets, validateVectorTile, validatePackage } from '../src/content.ts';
+import { validateGlyph, validatePng, validateStyleAssets, validateVectorTile, validatePackage, createTextCoverageValidator } from '../src/content.ts';
 import { FONT_STACKS, PROFILE, readerFor } from '../src/profile.ts';
 import type { OfflineMapManifest, PackageAsset } from '../../../src/lib/offline-maps/manifest.ts';
 
@@ -70,6 +70,8 @@ for (const [name, mutate, pattern] of [
 	['remote vector source', (f: ReturnType<typeof fixture>) => editJson(f.data, 'light.json', s => s.sources.basemap.url = 'https://example.com/map'), /basemap URL/],
 	['invalid style property', (f: ReturnType<typeof fixture>) => editJson(f.data, 'light.json', s => s.layers[0].layout['symbol-placement'] = 'garbage'), /symbol-placement/],
 	['unknown font', (f: ReturnType<typeof fixture>) => editJson(f.data, 'light.json', s => s.layers[0].layout['text-font'] = ['Unbundled Font']), /text-font/],
+	['remote font faces', (f: ReturnType<typeof fixture>) => editJson(f.data, 'light.json', s => s['font-faces'] = { 'Noto Sans Regular': [{ url: 'https://example.com/font.woff2' }] }), /top-level style resource/],
+	['unpackaged combined font stack', (f: ReturnType<typeof fixture>) => editJson(f.data, 'light.json', s => s.layers[0].layout['text-font'] = ['Noto Sans Regular', 'Noto Sans Medium']), /Combined font stacks/],
 	['missing static sprite', (f: ReturnType<typeof fixture>) => editJson(f.data, 'light.json', s => s.layers[0].layout['icon-image'] = 'absent'), /Missing sprite/],
 	['missing BMP range', (f: ReturnType<typeof fixture>) => { f.manifest.assets = f.manifest.assets.filter(a => a.path !== 'fonts/Noto%20Sans%20Regular/256-511.pbf'); }, /Missing BMP glyph range/],
 	['sprite overflow', (f: ReturnType<typeof fixture>) => editJson(f.data, 'sprites/light.json', s => s.townspot.x = 1), /outside atlas/],
@@ -85,13 +87,13 @@ test('PNG validation rejects truncation, CRC damage, and bytes after IEND', () =
 	assert.throws(() => validatePng(concat(png(), Buffer.from([0]))), /trailing bytes/);
 });
 test('glyph validation checks stack/range and SDF dimensions, allowing an empty Unicode range', () => {
-	assert.equal(validateGlyph(glyph('Noto Sans Regular'), 'Noto Sans Regular', 0), 0);
+	assert.equal(validateGlyph(glyph('Noto Sans Regular'), 'Noto Sans Regular', 0).size, 0);
 	assert.throws(() => validateGlyph(glyph('Noto Sans Regular'), 'Noto Sans Italic', 0), /stack mismatch/);
 	assert.throws(() => validateGlyph(glyph('Noto Sans Regular'), 'Noto Sans Regular', 256), /range mismatch/);
 	const metrics = concat(numberField(1, 65), numberField(3, 1), numberField(4, 1), numberField(5, 0), numberField(6, 0), numberField(7, 1));
 	assert.throws(() => validateGlyph(glyph('Noto Sans Regular', 0, byteField(3, metrics)), 'Noto Sans Regular', 0), /bitmap length/);
 	const complete = byteField(3, concat(metrics, byteField(2, Buffer.alloc(49))));
-	assert.equal(validateGlyph(glyph('Noto Sans Regular', 0, complete), 'Noto Sans Regular', 0), 1);
+	assert.equal(validateGlyph(glyph('Noto Sans Regular', 0, complete), 'Noto Sans Regular', 0).size, 1);
 	assert.throws(() => validateGlyph(glyph('Noto Sans Regular', 0, concat(complete, complete)), 'Noto Sans Regular', 0), /duplicate glyph/);
 });
 function tile(tags = [0, 0], geometry = [9, 2, 2], id = Buffer.alloc(0)) {
@@ -120,4 +122,76 @@ for (const fault of ['extra-file', 'symlink', 'size', 'hash'] as const) test(`pa
 		if (fault === 'hash') await writeFile(join(directory, 'basemap.pmtiles'), Buffer.from([2]));
 		await assert.rejects(validatePackage(directory, readerFor('https://maps.example.test'), { pmtilesCli: '/must-not-run' }), fault === 'extra-file' ? /undeclared/ : fault === 'symlink' ? /Symlink/ : fault === 'size' ? /Size mismatch/ : /SHA256 mismatch/);
 	} finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+
+function installGlyphCoverage(f: ReturnType<typeof fixture>, stack: string, characters: string) {
+	const ids = new Set([...characters].map(character => character.codePointAt(0)!));
+	for (let start = 0; start < 65536; start += 256) {
+		const glyphs = [...ids].filter(id => id >= start && id < start + 256).map(id => byteField(3, concat(
+			numberField(1, id), numberField(3, 1), numberField(4, 1), numberField(5, 0), numberField(6, 0), numberField(7, 1), byteField(2, Buffer.alloc(49))
+		)));
+		const path = `fonts/${encodeURIComponent(stack)}/${start}-${start + 255}.pbf`;
+		const bytes = glyph(stack, start, concat(...glyphs));
+		const asset = f.manifest.assets.find(asset => asset.path === path)!;
+		f.manifest.totalBytes += bytes.length - asset.bytes;
+		asset.bytes = bytes.length; asset.sha256 = createHash('sha256').update(bytes).digest('hex');
+		f.data.set(path, bytes);
+	}
+}
+
+test('actual label text requires its ASCII and Romanian glyphs even after descriptor hashes are updated', async () => {
+	const f = fixture();
+	installGlyphCoverage(f, 'Noto Sans Regular', 'București');
+	const valid = await validateStyleAssets(f.manifest, f.read);
+	assert.equal(createTextCoverageValidator(valid)(validateVectorTile(tile()), 15).packagedGlyphs, 18);
+	// All unused Unicode ranges remain empty and valid.
+	assert.equal(valid.glyphs.get('Noto Sans Regular')!.size, 8);
+	for (const missing of ['B', 'ș']) {
+		installGlyphCoverage(f, 'Noto Sans Regular', 'București'.replaceAll(missing, ''));
+		const assets = await validateStyleAssets(f.manifest, f.read);
+		assert.throws(() => createTextCoverageValidator(assets)(validateVectorTile(tile()), 15), new RegExp(`Missing glyph U\\+${missing.codePointAt(0)!.toString(16).toUpperCase()}`));
+	}
+});
+
+test('formatted font overrides, text transform and feature filters control glyph requirements', async () => {
+	const f = fixture();
+	for (const theme of ['light', 'dark']) editJson(f.data, `${theme}.json`, style => {
+		style.layers[0].layout['text-field'] = ['format', ['get', 'name'], { 'text-font': ['literal', ['Noto Sans Italic']] }];
+		style.layers[0].layout['text-transform'] = 'uppercase';
+	});
+	installGlyphCoverage(f, 'Noto Sans Regular', 'BUCUREȘTI');
+	installGlyphCoverage(f, 'Noto Sans Italic', 'București');
+	let assets = await validateStyleAssets(f.manifest, f.read);
+	assert.throws(() => createTextCoverageValidator(assets)(validateVectorTile(tile()), 15), /Missing glyph U\+55.*Noto Sans Italic/);
+	installGlyphCoverage(f, 'Noto Sans Italic', 'BUCUREȘTI');
+	assets = await validateStyleAssets(f.manifest, f.read);
+	assert.equal(createTextCoverageValidator(assets)(validateVectorTile(tile()), 15).labels, 2);
+	for (const theme of ['light', 'dark']) editJson(f.data, `${theme}.json`, style => style.layers[0].filter = ['==', ['get', 'name'], 'another place']);
+	installGlyphCoverage(f, 'Noto Sans Italic', '');
+	assets = await validateStyleAssets(f.manifest, f.read);
+	assert.equal(createTextCoverageValidator(assets)(validateVectorTile(tile()), 15).labels, 0);
+});
+
+test('renderer-local CJK is explicit while unsupported non-BMP text fails', async () => {
+	const f = fixture(); const assets = await validateStyleAssets(f.manifest, f.read);
+	const check = createTextCoverageValidator(assets);
+	const local = validateVectorTile(tile()); local.get('places')![0].properties.name = '成';
+	assert.deepEqual(check(local, 15), { labels: 2, localGlyphs: 2, packagedGlyphs: 0 });
+	local.get('places')![0].properties.name = '😀';
+	assert.throws(() => check(local, 15), /Non-BMP text unsupported/);
+});
+
+
+test('cross-section clusters use the first font but still require individually requested glyphs', async () => {
+	const f = fixture();
+	for (const theme of ['light', 'dark']) editJson(f.data, `${theme}.json`, style => {
+		style.layers[0].layout['text-field'] = ['format', 'A', {}, '\u0301', { 'text-font': ['literal', ['Noto Sans Italic']] }];
+	});
+	installGlyphCoverage(f, 'Noto Sans Regular', 'A\u0301');
+	let assets = await validateStyleAssets(f.manifest, f.read);
+	assert.equal(createTextCoverageValidator(assets)(validateVectorTile(tile()), 15).packagedGlyphs, 4);
+	installGlyphCoverage(f, 'Noto Sans Regular', '\u0301');
+	assets = await validateStyleAssets(f.manifest, f.read);
+	assert.throws(() => createTextCoverageValidator(assets)(validateVectorTile(tile()), 15), /Missing glyph U\+41/);
 });

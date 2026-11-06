@@ -9,6 +9,10 @@ on:
       - '.github/workflows/pmtiles-package.yml'
   workflow_dispatch:
     inputs:
+      retain_artifact:
+        description: Optional 7-day artifact upload; uses existing GitHub storage allowance
+        type: boolean
+        default: false
       archive_url:
         description: Optional retained regional archive HTTPS URL; source.json SHA256/size still required
         type: string
@@ -106,14 +110,14 @@ jobs:
         run: npm run build:preview
       - name: Verify 84 render scenarios and offline assets
         run: npm run test:browser
-      # Retain the extracted archive even if a later browser check fails. A failed
-      # job has no distribution step; the receipt exists only after all scenarios pass.
+      # Opt-in only: no artifact storage is allocated by default. A failed browser
+      # run can retain its extract, but cannot produce a successful receipt.
       - name: Retain regional package and verification evidence
-        if: always() && steps.generate.outcome == 'success'
+        if: always() && inputs.retain_artifact && steps.generate.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: pmtiles-package-${{ github.sha }}
           path: tools/pmtiles/out/
-          retention-days: 90
+          retention-days: 7
           if-no-files-found: error
           compression-level: 0

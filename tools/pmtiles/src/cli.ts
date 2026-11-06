@@ -20,12 +20,14 @@ try {
 		const result = await generatePackage({ publicRoot, outputRoot: values.output, cacheDirectory: values.cache,
 			pmtilesCli: values['pmtiles-cli'], archiveFile: values['archive-file'], archiveUrl: values['archive-url'] });
 		console.log(JSON.stringify({ directory: result.directory, manifestSha256: result.manifestSha256,
-			totalBytes: result.manifest.totalBytes, fileCount: result.fileCount, validatedTiles: result.validatedTiles, validatedFeatures: result.validatedFeatures }, null, 2));
+			totalBytes: result.manifest.totalBytes, fileCount: result.fileCount, validatedTiles: result.validatedTiles, validatedFeatures: result.validatedFeatures, validatedTextSections: result.validatedTextSections,
+			packagedGlyphDependencies: result.packagedGlyphDependencies, localGlyphDependencies: result.localGlyphDependencies }, null, 2));
 	} else {
 		const directory = required(values.directory, '--directory');
 		const validated = await validatePackage(directory, reader, { pmtilesCli: values['pmtiles-cli'] });
 		console.log(JSON.stringify({ manifestSha256: validated.manifestSha256, fileCount: validated.fileCount,
-			totalBytes: validated.manifest.totalBytes, validatedTiles: validated.validatedTiles, validatedFeatures: validated.validatedFeatures }, null, 2));
+			totalBytes: validated.manifest.totalBytes, validatedTiles: validated.validatedTiles, validatedFeatures: validated.validatedFeatures, validatedTextSections: validated.validatedTextSections,
+			packagedGlyphDependencies: validated.packagedGlyphDependencies, localGlyphDependencies: validated.localGlyphDependencies }, null, 2));
 	}
 } catch (error) {
 	// Never stringify requests/credential-bearing objects from providers.

@@ -1,15 +1,33 @@
 import { createHash } from 'node:crypto';
-import { createReadStream } from 'node:fs';
+import { createReadStream, readFileSync } from 'node:fs';
+import ts from 'typescript';
 import { lstat, readdir, readFile, open } from 'node:fs/promises';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { gunzipSync, inflateSync } from 'node:zlib';
 import { PMTiles, Compression, TileType } from 'pmtiles';
-import { validateStyleMin, createExpression, featureFilter, type StyleSpecification, type LayerSpecification } from '@maplibre/maplibre-gl-style-spec';
+import { validateStyleMin, createExpression, featureFilter, Formatted, latest, type StylePropertySpecification, type StyleSpecification, type LayerSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { ProtoReader, getMessages, getString, getVarint } from '../../../src/lib/api/proto.ts';
 import { parseOfflineMapManifest, MAX_MANIFEST_BYTES, type ManifestReader, type OfflineMapManifest } from '../../../src/lib/offline-maps/manifest.ts';
 import { FONT_STACKS } from './profile.ts';
+
+// These pure renderer helpers are private APIs: pin their package version, fail closed on
+// unsupported module shape, and reuse them so Unicode/shaping rules cannot silently diverge.
+const rendererPackageUrl = import.meta.resolve('maplibre-gl/package.json');
+const rendererPackage = JSON.parse(readFileSync(new URL(rendererPackageUrl), 'utf8')) as { version: string };
+if (rendererPackage.version !== '6.16.0') throw new Error('Glyph audit requires the pinned MapLibre 6.16.0 renderer');
+function rendererHelper(relative: string, unicodeModule?: string): string {
+	let source = readFileSync(new URL(relative, rendererPackageUrl), 'utf8');
+	if (unicodeModule) source = source.replace(/(['"])(?:\.\.\/util\/|\.\/)unicode_properties\.g\.ts\1/g, JSON.stringify(unicodeModule));
+	const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+	if (/from ['"]\./.test(compiled)) throw new Error('Unsupported dependency in pinned renderer glyph helper');
+	return `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`;
+}
+const unicodeModule = rendererHelper('./src/util/unicode_properties.g.ts');
+const unicode = await import(unicodeModule) as { codePointUsesLocalIdeographFontFamily: (value: number) => boolean; codePointIsInComplexShapingScript: (value: number) => boolean };
+const shaping = await import(rendererHelper('./src/symbol/arabic_shaping.ts', unicodeModule)) as { applyArabicShaping: (value: string) => string };
+const graphemes = await import(rendererHelper('./src/util/graphemes.ts', unicodeModule)) as { toGraphemes: (value: string) => string[] };
 
 const run = promisify(execFile);
 const MAX_EXPANDED = 32 * 1024 * 1024;
@@ -84,7 +102,7 @@ const STACK_NAMES: Record<string, string> = {
 	'Noto Sans Regular': 'Sans Regular', 'Noto Sans Medium': 'Sans Medium',
 	'Noto Sans Italic': 'Sans Italic', 'Noto Sans Devanagari Regular v1': 'Sans Regular'
 };
-export function validateGlyph(bytes: Uint8Array, stack: string, rangeStart: number): number {
+export function validateGlyph(bytes: Uint8Array, stack: string, rangeStart: number): ReadonlySet<number> {
 	const stacks = getMessages(fields(bytes, { 1: 2 }), 1);
 	requireThat(stacks.length === 1, 'Glyph PBF must contain exactly one font stack');
 	const stackFields = fields(stacks[0], { 1: 2, 2: 2, 3: 2 });
@@ -102,11 +120,14 @@ export function validateGlyph(bytes: Uint8Array, stack: string, rangeStart: numb
 		requireThat(bitmap.length <= 1 && (bitmap[0]?.length ?? 0) === expected, 'Glyph bitmap length mismatch');
 		ids.add(id);
 	}
-	return ids.size;
+	return ids;
 }
 
 function fontOutputs(value: unknown): string[] {
-	if (Array.isArray(value) && value.length > 0 && value.every(v => typeof v === 'string') && value.every(v => FONT_STACKS.includes(v as typeof FONT_STACKS[number]))) return value;
+	if (Array.isArray(value) && value.length > 0 && value.every(v => typeof v === 'string') && value.every(v => FONT_STACKS.includes(v as typeof FONT_STACKS[number]))) {
+		requireThat(value.length === 1, 'Combined font stacks require their own packaged glyph directory');
+		return value;
+	}
 	requireThat(Array.isArray(value), 'Unsupported text-font value');
 	if (value[0] === 'literal') return fontOutputs(value[1]);
 	if (value[0] === 'case') return value.slice(2).filter((_, i) => i % 2 === 0 || i === value.length - 3).flatMap(fontOutputs);
@@ -123,7 +144,7 @@ function inspectFontReferences(value: unknown, used: Set<string>) {
 
 type Sprite = { x: number; y: number; width: number; height: number; pixelRatio: number };
 export type ReadAsset = (path: string) => Promise<Uint8Array>;
-export interface StyleAssets { styles: StyleSpecification[]; icons: Set<string>; glyphFiles: number; }
+export interface StyleAssets { styles: StyleSpecification[]; icons: Set<string>; glyphFiles: number; glyphs: Map<string, ReadonlySet<number>>; }
 /** Public content seam: all references must resolve inside the declared, hash-checked package. */
 export async function validateStyleAssets(manifest: OfflineMapManifest, readAsset: ReadAsset): Promise<StyleAssets> {
 	const files = new Map(manifest.assets.map(asset => [asset.path, asset]));
@@ -133,6 +154,7 @@ export async function validateStyleAssets(manifest: OfflineMapManifest, readAsse
 		const stylePath = `${theme}.json`;
 		requireThat(files.get(stylePath)?.kind === 'style', `Missing ${stylePath}`);
 		const style = json(await readAsset(stylePath), stylePath);
+		requireThat(Object.keys(style).every(key => ['version', 'glyphs', 'sprite', 'sources', 'layers'].includes(key)), `${stylePath}: unsupported top-level style resource or override`);
 		const errors = validateStyleMin(style as StyleSpecification);
 		requireThat(errors.length === 0, `${stylePath}: ${errors.map(e => e.message).join('; ')}`);
 		requireThat(style.glyphs === 'fonts/{fontstack}/{range}.pbf' && style.sprite === `sprites/${theme}`, `${stylePath}: external or incorrect resource URL`);
@@ -167,14 +189,16 @@ export async function validateStyleAssets(manifest: OfflineMapManifest, readAsse
 		styles.push(style as StyleSpecification);
 	}
 	let glyphFiles = 0;
+	const glyphs = new Map<string, Set<number>>(FONT_STACKS.map(stack => [stack, new Set<number>()]));
 	for (const stack of FONT_STACKS) for (let start = 0; start < 65536; start += 256) {
 		const path = `fonts/${encodeURIComponent(stack)}/${start}-${start + 255}.pbf`;
 		requireThat(files.get(path)?.kind === 'glyph', `Missing BMP glyph range ${path}`);
-		validateGlyph(await readAsset(path), stack, start); glyphFiles++;
+		for (const id of validateGlyph(await readAsset(path), stack, start)) glyphs.get(stack)!.add(id);
+		glyphFiles++;
 	}
 	requireThat(manifest.assets.filter(asset => asset.kind === 'glyph').length === glyphFiles, 'Unexpected glyph file');
 	resourceChecks(styles, icons!);
-	return { styles, icons: icons!, glyphFiles };
+	return { styles, icons: icons!, glyphFiles, glyphs };
 }
 
 interface TileFeature { type: 1 | 2 | 3; properties: Record<string, string | number | boolean>; }
@@ -294,6 +318,85 @@ function resourceChecks(styles: StyleSpecification[], icons: Set<string>) {
 	}));
 }
 
+/** Evaluate the pinned renderer's text expressions against decoded features, not font filenames.
+ * This profile packages single-font stacks; combined fallback stacks need distinct URL resources.
+ * Whitespace/control codepoints carry layout or shaping instructions, not visible glyph requirements.
+ * Collision, shaping and visual correctness still require the complementary browser gate.
+ */
+export function createTextCoverageValidator(assets: StyleAssets) {
+	const checks = assets.styles.flatMap(style => style.layers.flatMap(layer => {
+		if (layer.type !== 'symbol' || layer.layout?.['text-field'] === undefined) return [];
+		const layout = layer.layout;
+		function compile(property: 'text-field' | 'text-font' | 'text-transform', value: unknown) {
+			const literalFont = property === 'text-font' && Array.isArray(value) && value.every(v => typeof v === 'string') && FONT_STACKS.includes(value[0] as typeof FONT_STACKS[number]);
+			const expression = createExpression(literalFont ? ['literal', value] : value, `${layer.id}.${property}`, latest.layout_symbol[property] as unknown as StylePropertySpecification);
+			requireThat(expression.result === 'success', `Invalid ${property} expression in ${layer.id}`);
+			return expression.value;
+		}
+		const text = compile('text-field', layout['text-field']);
+		const font = compile('text-font', layout['text-font']);
+		const transform = compile('text-transform', layout['text-transform'] ?? 'none');
+		// Legacy token replacement is a renderer-specific path, unused by this pinned profile.
+		requireThat(typeof layout['text-field'] !== 'string' || !/\{[^{}]+\}/.test(layout['text-field']), 'Legacy text tokens are unsupported by this profile');
+		const filter = featureFilter(layer.filter, `${layer.id}.filter`);
+		return [{ layer, filter, text, font, transform }];
+	}));
+	return (layers: Map<string, TileFeature[]>, zoom: number) => {
+		let labels = 0, localGlyphs = 0, packagedGlyphs = 0;
+		for (const { layer, filter, text, font, transform } of checks) {
+			if (zoom < (layer.minzoom ?? 0) || zoom >= (layer.maxzoom ?? 24) || layer.layout?.visibility === 'none') continue;
+			for (const feature of layers.get(layer['source-layer']!) ?? []) {
+				if (!filter.filter({ zoom }, feature)) continue;
+				const formatted = text.evaluateWithoutErrorHandling({ zoom }, feature);
+				requireThat(formatted instanceof Formatted, `Unsupported formatted text in ${layer.id}`);
+				const defaultFonts = font.evaluateWithoutErrorHandling({ zoom }, feature);
+				requireThat(Array.isArray(defaultFonts) && defaultFonts.length === 1 && assets.glyphs.has(defaultFonts[0]), `Unpackaged font stack in ${layer.id}`);
+				const textTransform = transform.evaluateWithoutErrorHandling({ zoom }, feature);
+				requireThat(['none', 'uppercase', 'lowercase'].includes(textTransform), `Unsupported text transform in ${layer.id}`);
+				let joined = '';
+				const sections: Array<{ end: number; stack: string; image: boolean }> = [];
+				for (const section of formatted.sections) {
+					const stack = section.fontStack || defaultFonts[0];
+					requireThat(assets.glyphs.has(stack), `Unpackaged formatted font stack ${stack} in ${layer.id}`);
+					let value = section.text;
+					if (section.image) {
+						requireThat(assets.icons.has(section.image.name), `Missing inline sprite ${section.image.name}`);
+						value = '\uFFFC';
+					} else {
+						if (textTransform === 'uppercase') value = value.toLocaleUpperCase();
+						if (textTransform === 'lowercase') value = value.toLocaleLowerCase();
+						value = shaping.applyArabicShaping(value);
+						if (value.length > 0) labels++;
+					}
+					joined += value;
+					sections.push({ end: joined.length, stack, image: !!section.image });
+				}
+				let offset = 0, sectionIndex = 0;
+				// MapLibre assigns a cross-section grapheme to the font of its first codepoint.
+				for (const grapheme of graphemes.toGraphemes(joined)) {
+					while (sections[sectionIndex].end <= offset) sectionIndex++;
+					const section = sections[sectionIndex]; offset += grapheme.length;
+					if (section.image) continue;
+					const available = assets.glyphs.get(section.stack)!;
+					// symbol_bucket requests the whole cluster AND every constituent codepoint.
+					// Whole-cluster local rasterization therefore cannot waive fetched constituent glyphs.
+					// The counters below measure character dependencies, not additional cluster images.
+					for (const character of grapheme) {
+						if (/[\p{White_Space}\p{Cc}\p{Cf}]/u.test(character)) continue;
+						const codepoint = character.codePointAt(0)!;
+						// Matches glyph_manager with localIdeographFontFamily: 'sans-serif'.
+						if (unicode.codePointUsesLocalIdeographFontFamily(codepoint) || unicode.codePointIsInComplexShapingScript(codepoint)) { localGlyphs++; continue; }
+						requireThat(codepoint <= 0xffff, `Non-BMP text unsupported: U+${codepoint.toString(16).toUpperCase()} in ${layer.id}`);
+						requireThat(available.has(codepoint), `Missing glyph U+${codepoint.toString(16).toUpperCase()} (${character}) in ${section.stack}, layer ${layer.id}, zoom ${zoom}`);
+						packagedGlyphs++;
+					}
+				}
+			}
+		}
+		return { labels, localGlyphs, packagedGlyphs };
+	};
+}
+
 async function validateArchive(path: string, manifest: OfflineMapManifest, assets: StyleAssets) {
 	const handle = await open(path, 'r');
 	try {
@@ -326,9 +429,10 @@ async function validateArchive(path: string, manifest: OfflineMapManifest, asset
 			if ('source-layer' in layer) requireThat(declaredLayers.has(layer['source-layer']!), `Style references absent source layer ${layer['source-layer']}`);
 		}
 		const checks = resourceChecks(assets.styles, assets.icons);
+		const checkText = createTextCoverageValidator(assets);
 		const deadline = Date.now() + 120_000;
 		let decodedBytes = 0;
-		let validatedTiles = 0, tileLookups = 0, validatedFeatures = 0;
+		let validatedTiles = 0, tileLookups = 0, validatedFeatures = 0, validatedTextSections = 0, localGlyphDependencies = 0, packagedGlyphDependencies = 0;
 		const coordinates = (lon: number, lat: number, z: number) => [Math.floor((lon + 180) / 360 * 2 ** z), Math.floor((1 - Math.asinh(Math.tan(lat * Math.PI / 180)) / Math.PI) / 2 * 2 ** z)];
 		for (let z = header.minZoom; z <= header.maxZoom; z++) {
 			const [minX, minY] = coordinates(manifest.bounds[0], manifest.bounds[3], z);
@@ -344,6 +448,10 @@ async function validateArchive(path: string, manifest: OfflineMapManifest, asset
 				for (const layer of layers.keys()) requireThat(declaredLayers.has(layer), `Undeclared vector tile layer ${layer}`);
 				for (const features of layers.values()) validatedFeatures += features.length;
 				requireThat(validatedFeatures <= 10_000_000, 'Archive exceeds feature validation work limit');
+				for (let zoom = z; zoom <= (z === header.maxZoom ? 22 : z); zoom++) {
+					const text = checkText(layers, zoom); validatedTextSections += text.labels;
+					localGlyphDependencies += text.localGlyphs; packagedGlyphDependencies += text.packagedGlyphs;
+				}
 				for (const check of checks) {
 					// At the native maximum zoom, the same features also serve overzoomed views.
 					for (let zoom = z; zoom <= (z === header.maxZoom ? 22 : z); zoom++) {
@@ -357,7 +465,7 @@ async function validateArchive(path: string, manifest: OfflineMapManifest, asset
 			}
 		}
 		requireThat(validatedTiles > 0 && validatedTiles === header.numAddressedTiles, 'Archive has unvalidated tiles outside manifest bounds or inconsistent tile count');
-		return { validatedTiles, tileLookups, validatedFeatures, decodedBytes };
+		return { validatedTiles, tileLookups, validatedFeatures, decodedBytes, validatedTextSections, localGlyphDependencies, packagedGlyphDependencies };
 	} finally { await handle.close(); }
 }
 

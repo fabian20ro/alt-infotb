@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-	testDir: './browser', testMatch: 'package.spec.ts', workers: 1, fullyParallel: false,
+	testDir: './browser', testMatch: 'package.browser.ts', workers: 1, fullyParallel: false,
 	forbidOnly: !!process.env.CI, retries: 0, timeout: 180_000,
 	reporter: [['list'], ['./browser/receipt-reporter.ts']],
 	outputDir: 'out/browser-results',

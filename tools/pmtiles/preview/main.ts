@@ -126,6 +126,7 @@ async function download() {
 		state.theme = themeSelect.value as Theme;
 		const map = new maplibregl.Map({ container: 'map', style: localStyle(state.theme),
 			center: PLACES.Bucuresti, zoom: 12, minZoom: 0, maxZoom: 19,
+			localIdeographFontFamily: 'sans-serif',
 			attributionControl: { compact: true }, fadeDuration: 0 });
 		state.map = map;
 		map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');

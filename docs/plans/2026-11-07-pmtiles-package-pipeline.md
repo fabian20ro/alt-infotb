@@ -1,8 +1,8 @@
 # PMTiles step 2: reproducible package and preview distribution
 
 Status: implemented in an isolated tool package; production application remains on
-its existing renderer and providers. The user declined R2 activation/billing. Distribution in this step is a downloadable
-GitHub Actions artifact; no cloud storage account or deployment is created. Operational commands: [pipeline README](../../tools/pmtiles/README.md).
+its existing renderer and providers. The user declined R2 activation/billing. Distribution in this step is local output, with an optional
+GitHub Actions artifact (off by default); no cloud storage account or deployment is created. Operational commands: [pipeline README](../../tools/pmtiles/README.md).
 
 ## Implementation
 
@@ -13,7 +13,10 @@ GitHub Actions artifact; no cloud storage account or deployment is created. Oper
   file and validates the candidate before exposing its immutable directory.
 - Validator imports the step 1 descriptor contract. It verifies files, PMTiles
   structure/header/schema, every addressed vector tile, actual feature-dependent
-  icon/font references, sprite PNG data/atlas geometry and all 1,024 BMP font ranges.
+  icon/font references, actual shaped text glyph IDs, sprite PNG data/atlas geometry
+  and all1,024 BMP font ranges. The validator uses pure shaping/Unicode helpers
+  from the pinned MapLibre dependency; the profile explicitly uses local
+  sans-serif rasterization for the scripts MapLibre handles on-device.
   It rejects external style resources, executable source overrides, extras and
   symlinks. This is structural/resource validation, not proof of map accuracy or
   readability. Browser checks complement it.
@@ -29,7 +32,7 @@ GitHub Actions artifact; no cloud storage account or deployment is created. Oper
   a captured ETag and atomic `If-Match`, so stale
   publishers cannot overwrite a concurrent winner. No unconditional retry.
 - A separate workflow runs cheap tooling tests on PRs; manual generation retains
-  the verified regional extract as an artifact. There is no provider adapter,
+  the verified regional extract locally; optional CI artifacts expire after7 days. There is no provider adapter,
   publication CLI, credential configuration or cloud deployment job. The
   application's deploy workflow is unchanged.
 
@@ -58,6 +61,8 @@ expanded font aliases increase the complete package size.
 
 - App:1,195 tests/32 suites; Svelte check0 errors/warnings; static build; catalog,
   service-worker and shared API type checks pass. App package/lockfile unchanged.
+- Isolated tools:60 Node tests pass, including corruption/ZIP/race/range faults,
+  required ASCII/Romanian glyph removal and receipt/server guards; typecheck passes.
 - Offline browser matrix:84/84 scenarios on Chromium with software WebGL for CI,
   one worker, no HTTP(S) attempts after offline transition. Light/dark screenshots
   visually inspected for streets, labels, parks, water, POIs and attribution.
@@ -69,6 +74,10 @@ expanded font aliases increase the complete package size.
   restored afterward; existing prototype/PWA data was preserved.
 - Fresh regional extraction matches the original SHA256. CLI installer archive
   checksum verified for local macOS and CI Linux; workflow lint passes.
+- Full text audit:3,032,412 evaluated text sections,13,078,142 packaged glyph
+  dependency checks,6 local character dependency checks,0 missing packaged glyphs.
+  Device font availability for locally rasterized scripts remains a renderer/device
+  property; package validation does not certify every operating system font.
 - Live public hosting, persistent install/restart, app integration and Brave-specific
   behavior are not verified by this step.
 
@@ -89,7 +98,7 @@ expanded font aliases increase the complete package size.
   enabling remote installation; verify real Range/CORS behavior rather than assuming
   any static host supports it. The local fault server is not evidence about a provider.
 - Retain the regional archive independently of temporary planet-host retention.
-  CI artifacts expire after90 days; save an exported package separately for durable
+  Opt-in CI artifacts expire after7 days; save an exported package separately for durable
   retention. Once the pinned planet expires and no retained extract/cache exists,
   regeneration intentionally fails instead of silently changing source. No automatic
   cloud garbage collection in this step.
@@ -100,7 +109,9 @@ expanded font aliases increase the complete package size.
 
 Step3: a package manager behind an independent storage interface, before UI or
 renderer replacement. Keep the package protocol shared and pure; keep Node
-generation/publishing code outside the browser bundle.
+generation/publishing code outside the browser bundle. Renderer compatibility must
+also preserve the pinned text-shaping/local-font policy; changing it requires
+revalidating packages rather than assuming that the manifest schema alone suffices.
 
 1. Inject bounded fetch, OPFS, CacheStorage, IndexedDB and Web Locks at the manager
    boundary. Namespace every resource by app/region/version. Add a real-browser

@@ -69,7 +69,7 @@ browser suites, with one Playwright worker. No test requires production credenti
 Step 2 adds an isolated generator, full content validator, browser gate and preview
 publisher under `tools/pmtiles`; see the [implementation report](plans/2026-11-07-pmtiles-package-pipeline.md).
 The descriptor remains shared/pure; no Node tooling enters the application bundle.
-Distribution is a downloadable CI artifact; R2 activation was declined by the user.
+Distribution is local output with opt-in CI artifacts (disabled by default); R2 activation was declined by the user.
 The provider-independent publication protocol is tested locally, with no cloud adapter.
 Actual storage, atomic activation, update/delete UX and persistence remain steps 3–5.
 Application dependency files are unchanged; tooling has its own pinned lockfile.
