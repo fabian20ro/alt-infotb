@@ -1,6 +1,6 @@
 # Plan: integrare PMTiles și hărți offline
 
-**Stare: plan acceptat, 2026-11-07.** Pasul 1 este implementat pe branchul `codex/pmtiles-integration-contracts`; pașii 2–6 rămân planificați. Nicio activare sau publicare în producție. Detalii: [contractele pasului 1](../pmtiles-contracts.md).
+**Stare: plan acceptat, 2026-11-07.** Pasul 1 este integrat; pasul 2 este implementat izolat în `tools/pmtiles`, cu export ca artifact GitHub Actions. Utilizatorul a refuzat activarea R2 din cauza riscului de facturare; distribuția cloud este amânată. Pașii 3–6 rămân planificați. Vezi [raportul pasului 2](2026-11-07-pmtiles-package-pipeline.md). Nicio activare sau publicare în producție. Detalii: [contractele pasului 1](../pmtiles-contracts.md).
 
 ## Recomandare
 
@@ -51,9 +51,11 @@ Manifestul este validat la intrare: scheme/versiuni cunoscute, limite numerice, 
 
 Pipeline separat: extragere din sursă Protomaps fixată → verificare PMTiles → resurse complete → verificări de simboluri/fonturi → manifest/hashuri → test offline → publicare obiecte imutabile → publicare pointerul `latest` **ultimul**. Păstrăm extrasul regional; nu depindem de retenția temporară a arhivelor planetare Protomaps. Nu schimbăm sursa în tăcere dacă data fixată nu mai există.
 
-**Găzduire recomandată:** bucket Cloudflare R2 separat pentru aceste date redistribuibile, cu adresă publică stabilă și CORS pentru aplicație. Nu trecem fișierele prin proxy-ul STB și nu avem nevoie de chei secrete în browser. Fișierele PMTiles păstrează reprezentarea binară pentru Range requests; fără transformări care schimbă offseturile. Verificăm GET/HEAD/Range, răspuns 206, Content-Range, ETag și CORS. Nu folosim domeniul de dezvoltare cu limitări ca infrastructură permanentă.
+**Găzduire — recomandare inițială, neaprobată:** bucket Cloudflare R2 separat pentru aceste date redistribuibile, cu adresă publică stabilă și CORS pentru aplicație. Nu trecem fișierele prin proxy-ul STB și nu avem nevoie de chei secrete în browser. Fișierele PMTiles păstrează reprezentarea binară pentru Range requests; fără transformări care schimbă offseturile. Verificăm GET/HEAD/Range, răspuns 206, Content-Range, ETag și CORS. Nu folosim domeniul de dezvoltare cu limitări ca infrastructură permanentă.
 
 Obiecte versionate: cache HTTP lung, immutable; manifestul `latest`: prospețime scurtă/revalidare. Păstrăm cel puțin ultimele trei versiuni / 90 zile pentru reinstalare și revenire; politica exactă se confirmă înainte de lansare. Pachetele deja instalate continuă să funcționeze și după retragerea versiunii lor de pe server.
+
+**Actualizare 2026-11-07:** R2 nu se activează. Pasul 2 exportă un pachet verificat ca artifact GitHub Actions, fără job de publicare sau credentiale cloud. Alegerea unei găzduiri fără risc de facturare și verificarea ei reală rămân deschise.
 
 Inițial publicare manuală; ulterior candidat lunar și la cerere, activat numai după verificări. Publicarea unui pachet nou nu obligă dispozitivele să îl descarce.
 

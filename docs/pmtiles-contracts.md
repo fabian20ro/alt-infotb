@@ -64,11 +64,15 @@ Results and physical-device baseline are recorded in the
 [baseline report](plans/2026-11-07-pmtiles-baseline.md). Run units/types/build before
 browser suites, with one Playwright worker. No test requires production credentials.
 
-## Next step
+## Package pipeline and next step
 
-Build the immutable package generator/validator and a separate distribution preview
-(step 2). Keep current package assets and license provenance reproducible. Actual
-storage, atomic activation, update/delete UX and persistence remain steps 3–5.
-Dependency files are unchanged. The current audit reports 5 low and 5 moderate
+Step 2 adds an isolated generator, full content validator, browser gate and preview
+publisher under `tools/pmtiles`; see the [implementation report](plans/2026-11-07-pmtiles-package-pipeline.md).
+The descriptor remains shared/pure; no Node tooling enters the application bundle.
+Distribution is a downloadable CI artifact; R2 activation was declined by the user.
+The provider-independent publication protocol is tested locally, with no cloud adapter.
+Actual storage, atomic activation, update/delete UX and persistence remain steps 3–5.
+Application dependency files are unchanged; tooling has its own pinned lockfile.
+The current application audit reports 5 low and 5 moderate
 advisories (no high/critical), including build-tool dependency chains; address those
 in a separate dependency update, retaining the established SvelteKit/PWA peer compatibility.

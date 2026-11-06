@@ -130,6 +130,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 **[2026-02-14]** CI runs type-check, tests, then build — The GitHub Actions workflow (`deploy.yml`) runs `npm run check`, `npm test`, and `npm run build` in sequence. It also runs on PRs (not just main branch pushes), with deploy only on main/master.
 
+**[2026-11-07]** PMTiles archive validity does not prove offline asset completeness — CLI verify checks archive structure. Validate actual MVT content and style-dependent resource references, sprite atlases/PNG data and full glyph ranges; complement with both themes/DPRs and zero-network browser renders. Pinned Protomaps assets include intentional font symlink aliases and a missing townhall icon; expand verified aliases and use an explicit supplied fallback, not silent resource omissions.
+
+**[2026-11-07]** Immutable package publication also needs ordered same-date revisions — dataDate-only downgrade prevention lets a retry of v1 replace corrected v2 from the same source day. Require a canonical YYYYMMDD-vN pipeline version, compare revisions on equal dates, and preserve latest-last atomic ETag preconditions. Keep this policy in the publisher rather than restricting the generic manifest parser.
+
 ## Dependencies & External Services
 
 **[2026-10-27]** Treat SvelteKit major upgrades as an integration migration — Kit3.0.0 caused `npm ci` ERESOLVE with adapter-static3.0.10 and @vite-pwa/sveltekit1.1.0; Kit3 also needs TS6 and conflicts with the old cookie override. An npm audit improvement does not prove install/build compatibility. Verify the full peer graph and a clean install, preserve unrelated security patches, and document advisory applicability for any temporary rollback rather than forcing peer resolution.
