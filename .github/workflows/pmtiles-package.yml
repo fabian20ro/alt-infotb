@@ -44,6 +44,8 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run check
       - run: npm test
+      - name: Build preview without application dependencies
+        run: npm run build:preview
 
   package:
     if: github.event_name == 'workflow_dispatch'
