@@ -26,7 +26,7 @@ src/
 │   │   ├── ArrivalRow.svelte       Selectable line row (badge, direction, times)
 │   │   ├── DrawerMenu.svelte       Hamburger drawer (favorites, recents, settings)
 │   │   ├── LastUpdated.svelte      "actualizat: HH:MM" footer text
-│   │   ├── MapView.svelte          Leaflet stations, route paths, keyed live vehicles
+│   │   ├── MapView.svelte          Svelte scene/controls; lazy renderer lifecycle
 │   │   ├── RouteStatus.svelte      Selected route direction, count, overview, close
 │   │   ├── StationArrivals.svelte  Scrollable/selectable arrivals, retry, loading bar
 │   │   ├── StationHeader.svelte    Burger menu + station name + favorite button
@@ -123,10 +123,10 @@ docs/
   ├─ StationArrivals.svelte
   │    └─ ArrivalRow.svelte ─── stores/arrivals (formatArrivalTime)
   ├─ MapView.svelte
-  │    ├─ stations/geo.ts (findStationsInBounds — viewport filtering)
-  │    ├─ map/station-icons.ts
-  │    ├─ map/user-marker.ts
-  │    └─ map/tiles.ts
+  │    ├─ lib/map/model.ts (scene, transit membership and viewport filtering)
+  │    ├─ lib/map/controller.ts (one-shot camera intents)
+  │    └─ lib/map/leaflet-renderer.ts (lazy; implements lib/map/renderer.ts)
+  │         └─ components/map/{station-icons,user-marker,tiles}.ts
   ├─ RouteStatus.svelte
   ├─ DrawerMenu.svelte
 │    └─ stations/format.ts (formatCatalogDate)
@@ -218,3 +218,12 @@ future catalog/publication policy.
 - `scripts/check-map-tiles.ts`: four-request live publication canary, no key logging.
 - `e2e/map-cache.spec.ts`, `e2e/map-no-key.spec.ts`, `playwright.pwa.config.ts`: production worker/cache and missing-key checks.
 - `tsconfig.service-worker.json`: worker typechecking independently of Svelte's excluded worker sources.
+
+## PMTiles preparation boundary (2026-11-07)
+
+- `src/lib/map/model.ts`: renderer-independent scene, selected-line membership and station-density policy.
+- `src/lib/map/renderer.ts`: scene, basemap, camera, selection/status events and destruction contract; no Leaflet types.
+- `src/lib/map/controller.ts`: initial view and queued, one-shot recentre/overview commands; polling never refits the map.
+- `src/lib/map/leaflet-renderer.ts` + `.css`: existing Leaflet rendering, tile health/canary/retry and lazy renderer-owned styles.
+- `src/lib/offline-maps/manifest.ts`: pure versioned package descriptor validator; not imported by the running app. No downloads, storage or service-worker changes.
+- `docs/pmtiles-contracts.md`: consumer guarantees, deferred content validation and verification record.

@@ -1,598 +1,69 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { ArrivalInfo, VehiclePosition } from '$lib/api/types.js';
 	import type { Station } from '$lib/stations/types.js';
-	import type { GeoPosition } from '$lib/stores/geolocation.svelte.js';
-	import { findStationsInBounds, type LatLngBounds } from '$lib/stations/geo.js';
-	import { stationServesLine } from '$lib/stations/data.js';
 	import { translations } from '$lib/i18n/translations.js';
 	import type { Lang } from '$lib/stores/settings.svelte.js';
+	import { createMapScene, type MapSceneInput, type RouteOverviewRequest } from '$lib/map/model.js';
+	import { createMapController, type LocationStatus } from '$lib/map/controller.js';
+	import type { BasemapStatus, MapRenderer } from '$lib/map/renderer.js';
 
-	const MAX_VISIBLE_MARKERS = 100;
-	const DEBOUNCE_MS = 150;
-
-	export interface MapRouteOverlay {
-		key: string;
-		lineId: number;
-		lineName: string;
-		vehicleType: string;
-		primary: ArrivalInfo | null;
-		opposite: ArrivalInfo | null;
-	}
-
-	export interface RouteOverviewRequest {
-		id: number;
-		routeKey: string;
-	}
-
-	interface Props {
-		allStations: Station[];
-		selectedStationId: number | null;
-		userPosition: GeoPosition | null;
-		locationPermission: 'granted' | 'denied' | 'prompt';
+	interface Props extends Omit<MapSceneInput, 'locationError' | 'route'> {
 		locationError?: string | null;
 		lang?: Lang;
-		theme: 'light' | 'dark';
-		route?: MapRouteOverlay | null;
+		route?: MapSceneInput['route'];
 		overviewRequest?: RouteOverviewRequest | null;
 		onStationSelect: (station: Station) => void;
 	}
 
-	let {
-		allStations,
-		selectedStationId,
-		userPosition,
-		locationPermission,
-		locationError = null,
-		lang = 'ro',
-		theme,
-		route = null,
-		overviewRequest = null,
-		onStationSelect
-	}: Props = $props();
-
+	let { allStations, selectedStationId, userPosition, locationPermission,
+		locationError = null, lang = 'ro', theme, route = null,
+		overviewRequest = null, onStationSelect }: Props = $props();
 	let mapContainer: HTMLDivElement;
-	let map: L.Map | null = null;
-	let tileLayer: L.TileLayer | null = null;
-	let markerCache = new Map<number, L.Marker>();
-	let currentSelectedId: number | null = null;
-	let userMarker: L.Marker | null = null;
-	let accuracyCircle: L.Circle | null = null;
-	let routeCasing: L.Polyline | null = null;
-	let primaryRouteLine: L.Polyline | null = null;
-	let oppositeRouteLine: L.Polyline | null = null;
-	let primaryVehicleMarkers = new Map<number, L.Marker>();
-	let oppositeVehicleMarkers = new Map<number, L.Marker>();
-	let handledOverviewRequestId = 0;
+	let renderer: MapRenderer | null = null;
+	let controller: ReturnType<typeof createMapController> | null = null;
 	let loaded = $state(false);
 	let satellite = $state(false);
-	let tileStatus = $state<'loading' | 'ready' | 'missing-key' | 'unavailable'>('loading');
+	let tileStatus = $state<BasemapStatus>('loading');
 	let tileRetryCoolingDown = $state(false);
-	let tileActivation = 0;
-	let tileProbe: AbortController | null = null;
-	let tileRetryTimer: ReturnType<typeof setTimeout> | null = null;
-	let initialViewSet = false;
-	let zooming = false;
-	let pendingRecenter = $state(false);
-	let recenterError = $state<'locationDenied' | 'locationUnavailable' | null>(null);
+	let locationStatus = $state<LocationStatus>({ pending: false, error: null });
+	let pendingRecenter = $derived(locationStatus.pending);
+	let recenterError = $derived(locationStatus.error);
 	let strings = $derived(translations[lang]);
-	let routeStationIds = $derived(new Set(allStations
-		.filter((station) => route && stationServesLine(station, route))
-		.map((station) => station.id)));
-	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-	// Lazy-load Leaflet modules
-	let L: typeof import('leaflet') | null = null;
-	let tilesModule: typeof import('./map/tiles.js') | null = null;
-	let stationIcons: typeof import('./map/station-icons.js') | null = null;
-	let userMarkerModule: typeof import('./map/user-marker.js') | null = null;
+	let scene = $derived(createMapScene({ allStations, selectedStationId, userPosition,
+		locationPermission, locationError, theme, route }));
 
 	onMount(() => {
-		loadMap();
-		return () => {
-			if (debounceTimer) clearTimeout(debounceTimer);
-			if (tileRetryTimer) clearTimeout(tileRetryTimer);
-			tileActivation++;
-			tileProbe?.abort();
-			removeRouteOverlay();
-			markerCache.clear();
-			map?.remove();
-			map = null;
-		};
-	});
-
-	async function loadMap() {
-		const [leaflet, tiles, icons, userMod] = await Promise.all([
-			import('leaflet'),
-			import('./map/tiles.js'),
-			import('./map/station-icons.js'),
-			import('./map/user-marker.js')
-		]);
-		await import('leaflet/dist/leaflet.css');
-
-		L = leaflet.default ?? leaflet;
-		tilesModule = tiles;
-		stationIcons = icons;
-		userMarkerModule = userMod;
-
-		const center: [number, number] = userPosition
-			? [userPosition.lat, userPosition.lon]
-			: [44.4268, 26.1025];
-
-		map = L.map(mapContainer, {
-			center,
-			zoom: 15,
-			zoomControl: false,
-			attributionControl: false
+		let disposed = false;
+		void import('$lib/map/leaflet-renderer.js').then(({ createLeafletRenderer }) => {
+			// Navigation may unmount the component while the lazy chunk is loading.
+			if (disposed) return;
+			renderer = createLeafletRenderer(mapContainer, scene, {
+				onStationSelect: (station) => onStationSelect(station),
+				onBasemapStatus: (status) => { tileStatus = status; },
+				onRetryCooldown: (active) => { tileRetryCoolingDown = active; },
+				onCameraIdle: () => controller?.cameraIdle()
+			});
+			controller = createMapController(renderer, (status) => { locationStatus = status; });
+			loaded = true;
 		});
-
-		L.control.zoom({ position: 'topright' }).addTo(map);
-		L.control.attribution({ position: 'bottomleft' }).addTo(map);
-		map.on('zoomstart', () => { zooming = true; });
-		map.on('zoomend', () => {
-			zooming = false;
-			applyPendingRecenter();
-		});
-
-		// Debounced handler for pan/zoom
-		map.on('moveend', () => {
-			if (debounceTimer) clearTimeout(debounceTimer);
-			debounceTimer = setTimeout(updateVisibleStations, DEBOUNCE_MS);
-		});
-
-		loaded = true;
-		updateVisibleStations();
-		updateUserMarker();
-	}
-
-	function updateVisibleStations() {
-		if (!map || !L || !stationIcons || allStations.length === 0) return;
-
-		const leafletBounds = map.getBounds();
-		const bounds: LatLngBounds = {
-			south: leafletBounds.getSouth(),
-			north: leafletBounds.getNorth(),
-			west: leafletBounds.getWest(),
-			east: leafletBounds.getEast()
-		};
-
-		const visible = findStationsInBounds(bounds, allStations, MAX_VISIBLE_MARKERS, selectedStationId, routeStationIds);
-		const visibleIds = new Set(visible.map((s) => s.id));
-
-		// Remove markers no longer visible
-		for (const [id, marker] of markerCache) {
-			if (!visibleIds.has(id)) {
-				marker.remove();
-				markerCache.delete(id);
-			}
-		}
-
-		// Add new markers and update selection state
-		for (const station of visible) {
-			const isSelected = station.id === selectedStationId;
-			const existing = markerCache.get(station.id);
-
-			if (existing) {
-				// Update icon if selection state changed
-				const wasSelected = station.id === currentSelectedId;
-				if (isSelected !== wasSelected) {
-					const icon = isSelected
-						? stationIcons.createSelectedStationIcon()
-						: stationIcons.createStationIcon();
-					existing.setIcon(icon);
-				}
-			} else {
-				// Create new marker
-				const icon = isSelected
-					? stationIcons.createSelectedStationIcon()
-					: stationIcons.createStationIcon();
-
-				const marker = L.marker([station.lat, station.lon], {
-					icon,
-					alt: station.name
-				})
-					.addTo(map!)
-					.on('click', () => onStationSelect(station))
-					.on('keydown', (event: L.LeafletKeyboardEvent) => {
-						// Leaflet DivIcons are focusable role=button elements, not native buttons.
-						const key = event.originalEvent.key;
-						if (key === 'Enter' || key === ' ') {
-							event.originalEvent.preventDefault();
-							onStationSelect(station);
-						}
-					});
-
-				marker.bindTooltip(station.name, {
-					className: 'station-name-tooltip',
-					interactive: false,
-					direction: 'top',
-					offset: [0, -16]
-				});
-
-				markerCache.set(station.id, marker);
-			}
-			// setIcon may replace the DivIcon DOM node. Its name must survive selection changes.
-			const element = markerCache.get(station.id)?.getElement();
-			element?.setAttribute('aria-label', station.name);
-			element?.classList.toggle('station-marker-on-route', routeStationIds.has(station.id));
-		}
-
-		currentSelectedId = selectedStationId;
-	}
-
-	function setInitialView() {
-		if (!map || !L || initialViewSet) return;
-		initialViewSet = true;
-
-		const points: [number, number][] = [];
-		if (userPosition) points.push([userPosition.lat, userPosition.lon]);
-
-		// Include selected station if known
-		if (selectedStationId) {
-			const sel = allStations.find((s) => s.id === selectedStationId);
-			if (sel) points.push([sel.lat, sel.lon]);
-		}
-
-		if (points.length > 1) {
-			const bounds = L.latLngBounds(points);
-			map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
-		} else if (points.length === 1) {
-			map.setView(points[0], 15);
-		}
-	}
-
-	function updateUserMarker() {
-		if (!map || !L || !userMarkerModule || !userPosition) return;
-
-		const latLng: [number, number] = [userPosition.lat, userPosition.lon];
-
-		if (userMarker) {
-			userMarker.setLatLng(latLng);
-		} else {
-			userMarker = L.marker(latLng, {
-				icon: userMarkerModule.createUserIcon(),
-				interactive: false,
-				keyboard: false,
-				zIndexOffset: 1000
-			}).addTo(map);
-		}
-
-		if (accuracyCircle) {
-			accuracyCircle.setLatLng(latLng);
-			accuracyCircle.setRadius(userPosition.accuracy);
-		} else {
-			accuracyCircle = L.circle(latLng, {
-				radius: userPosition.accuracy,
-				color: '#4285f4',
-				fillColor: '#4285f4',
-				fillOpacity: 0.1,
-				weight: 1,
-				interactive: false
-			}).addTo(map);
-		}
-	}
-
-	function recenter() {
-		recenterError = null;
-		pendingRecenter = true;
-		applyPendingRecenter();
-	}
-
-	function applyPendingRecenter() {
-		if (!map || !pendingRecenter) return;
-		if (locationPermission === 'denied' || (!userPosition && locationError)) {
-			pendingRecenter = false;
-			recenterError = locationPermission === 'denied' ? 'locationDenied' : 'locationUnavailable';
-			return;
-		}
-		// Leaflet ignores setView during CSS zoom, even with animate:false.
-		// Keep this one-shot intent until zoomend or the first GPS fix.
-		if (!userPosition || zooming) return;
-		pendingRecenter = false;
-		initialViewSet = true;
-		map.stop();
-		map.setView([userPosition.lat, userPosition.lon], 15, { animate: false });
-	}
-
-	function safeColor(color: string | undefined): string {
-		return color && /^#[0-9a-f]{3,8}$/i.test(color) ? color : '#0077b6';
-	}
-
-	function escapeHtml(value: string): string {
-		return value.replace(/[&<>'"]/g, (char) => ({
-			'&': '&amp;',
-			'<': '&lt;',
-			'>': '&gt;',
-			"'": '&#39;',
-			'"': '&quot;'
-		})[char]!);
-	}
-
-	function vehicleIcon(lineName: string, color: string, variant: 'primary' | 'opposite') {
-		if (!L) throw new Error('Leaflet is not loaded');
-		const label = escapeHtml(lineName);
-		return L.divIcon({
-			className: 'vehicle-marker-shell',
-			html: `<span class="vehicle-marker ${variant}" style="--vehicle-color:${safeColor(color)}">${label}</span>`,
-			iconSize: [44, 44],
-			iconAnchor: [22, 22]
-		});
-	}
-
-	function syncVehicleMarkers(
-		markers: Map<number, L.Marker>,
-		vehicles: VehiclePosition[],
-		arrival: ArrivalInfo,
-		variant: 'primary' | 'opposite'
-	) {
-		if (!map || !L) return;
-		const currentIds = new Set(vehicles.map((vehicle) => vehicle.id));
-		for (const [id, marker] of markers) {
-			if (!currentIds.has(id)) {
-				marker.remove();
-				markers.delete(id);
-			}
-		}
-
-		for (const vehicle of vehicles) {
-			const latLng: [number, number] = [vehicle.lat, vehicle.lng];
-			const title = `${arrival.lineName} · ${arrival.direction || arrival.vehicleType}`;
-			const existing = markers.get(vehicle.id);
-			if (existing) {
-				existing.setLatLng(latLng);
-				existing.setIcon(vehicleIcon(arrival.lineName, arrival.color, variant));
-				continue;
-			}
-			const marker = L.marker(latLng, {
-				icon: vehicleIcon(arrival.lineName, arrival.color, variant),
-				title,
-				alt: title,
-				zIndexOffset: variant === 'primary' ? 800 : 700
-			}).addTo(map);
-			marker.bindTooltip(title, { direction: 'top', offset: [0, -17] });
-			markers.set(vehicle.id, marker);
-		}
-	}
-
-	function clearVehicleMarkers(markers: Map<number, L.Marker>) {
-		for (const marker of markers.values()) marker.remove();
-		markers.clear();
-	}
-
-	function syncDirectionVehicles(
-		markers: Map<number, L.Marker>,
-		arrival: ArrivalInfo | null,
-		variant: 'primary' | 'opposite'
-	) {
-		if (arrival) {
-			syncVehicleMarkers(markers, arrival.vehicles, arrival, variant);
-		} else {
-			clearVehicleMarkers(markers);
-		}
-	}
-
-	function removeRouteOverlay() {
-		routeCasing?.remove();
-		primaryRouteLine?.remove();
-		oppositeRouteLine?.remove();
-		routeCasing = null;
-		primaryRouteLine = null;
-		oppositeRouteLine = null;
-		clearVehicleMarkers(primaryVehicleMarkers);
-		clearVehicleMarkers(oppositeVehicleMarkers);
-	}
-
-	function drawRouteOverlay() {
-		if (!map || !L) return;
-		if (!route) {
-			removeRouteOverlay();
-			return;
-		}
-
-		const primary = route.primary;
-		const opposite = route.opposite;
-		const primaryCoordinates = primary?.path.map((point) => [point.lat, point.lng] as [number, number]) ?? [];
-		const oppositeCoordinates = opposite?.path.map((point) => [point.lat, point.lng] as [number, number]) ?? [];
-
-		if (primaryCoordinates.length >= 2) {
-			if (!routeCasing) {
-				routeCasing = L.polyline(primaryCoordinates, {
-					className: 'selected-route-casing',
-					color: theme === 'dark' ? '#10121c' : '#ffffff',
-					weight: 8,
-					opacity: 0.86,
-					interactive: false
-				}).addTo(map);
-			} else {
-				routeCasing.setLatLngs(primaryCoordinates);
-				routeCasing.setStyle({ color: theme === 'dark' ? '#10121c' : '#ffffff' });
-			}
-			if (!primaryRouteLine) {
-				primaryRouteLine = L.polyline(primaryCoordinates, {
-					className: 'selected-route-line',
-					color: safeColor(primary?.color),
-					weight: 5,
-					opacity: 1,
-					interactive: false
-				}).addTo(map);
-			} else {
-				primaryRouteLine.setLatLngs(primaryCoordinates);
-				primaryRouteLine.setStyle({ color: safeColor(primary?.color) });
-			}
-		} else {
-			routeCasing?.remove();
-			primaryRouteLine?.remove();
-			routeCasing = null;
-			primaryRouteLine = null;
-		}
-
-		if (oppositeCoordinates.length >= 2) {
-			if (!oppositeRouteLine) {
-				oppositeRouteLine = L.polyline(oppositeCoordinates, {
-					className: 'opposite-route-line',
-					color: safeColor(opposite?.color),
-					weight: 4,
-					opacity: 0.72,
-					dashArray: '8 9',
-					interactive: false
-				}).addTo(map);
-			} else {
-				oppositeRouteLine.setLatLngs(oppositeCoordinates);
-				oppositeRouteLine.setStyle({ color: safeColor(opposite?.color) });
-			}
-		} else {
-			oppositeRouteLine?.remove();
-			oppositeRouteLine = null;
-		}
-
-		syncDirectionVehicles(primaryVehicleMarkers, primary, 'primary');
-		syncDirectionVehicles(oppositeVehicleMarkers, opposite, 'opposite');
-	}
-
-	function fitRouteOverview(routeToFit: MapRouteOverlay): boolean {
-		if (!map || !L) return false;
-		const points = [
-			...(routeToFit.primary?.path ?? []),
-			...(routeToFit.opposite?.path ?? [])
-		].map((point) => [point.lat, point.lng] as [number, number]);
-		if (points.length < 2) return false;
-		map.fitBounds(L.latLngBounds(points), {
-			paddingTopLeft: [24, 24],
-			paddingBottomRight: [64, 24],
-			animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-		});
-		return true;
-	}
-
-	// Set initial view once allStations first populates
-	$effect(() => {
-		if (loaded && allStations.length > 0) {
-			setInitialView();
-			updateVisibleStations();
-		}
-	});
-
-	// React to selection changes — update marker icons
-	$effect(() => {
-		if (loaded) {
-			selectedStationId; // track
-			updateVisibleStations();
-		}
-	});
-
-	// React to user position changes
-	$effect(() => {
-		if (loaded && userPosition) {
-			updateUserMarker();
-		}
+		return () => { disposed = true; renderer?.destroy(); renderer = null; controller = null; };
 	});
 
 	$effect(() => {
-		if (!loaded) return;
-		userPosition;
-		locationPermission;
-		locationError;
-		if ((recenterError === 'locationDenied' && locationPermission !== 'denied') ||
-			(recenterError === 'locationUnavailable' && userPosition && !locationError)) {
-			recenterError = null;
-		}
-		applyPendingRecenter();
+		const nextScene = scene;
+		if (loaded) controller?.update(nextScene);
 	});
-
-	async function setTileLayer(tileTheme: 'light' | 'dark' | 'satellite') {
-		if (!map || !L || !tilesModule) return;
-		const activation = ++tileActivation;
-		tileProbe?.abort();
-		tileProbe = null;
-		// Leaflet removes attribution via its own remove listener; retain it until removal.
-		tileLayer?.remove();
-		tileLayer?.off();
-		tileLayer = null;
-		const config = tilesModule.getTileConfig(tileTheme);
-		if (!config.url) {
-			tileStatus = 'missing-key';
-			return;
-		}
-		tileStatus = 'loading';
-		// The SW validates every controlled CARTO response. On a fresh visit, verify
-		// one visible tile first so an invalid key cannot fill the map with placeholders.
-		// Offline, let individual cached tiles load even if the center tile is absent.
-		if (tileTheme !== 'satellite' && navigator.onLine && !navigator.serviceWorker?.controller) {
-			const controller = new AbortController();
-			tileProbe = controller;
-			const timeout = setTimeout(() => controller.abort(), 10_000);
-			const center = map.getCenter();
-			let valid = false;
-			try {
-				valid = await tilesModule.verifyCartoTile(
-					tilesModule.centerTileUrl(config.url, center.lat, center.lng, map.getZoom()), controller.signal
-				);
-			} catch {
-				// A failed canary needs explicit user retry; never start a request loop.
-			} finally {
-				clearTimeout(timeout);
-			}
-			if (activation !== tileActivation || !map) return;
-			tileProbe = null;
-			if (!valid) {
-				tileStatus = 'unavailable';
-				return;
-			}
-		}
-		const health = tilesModule.createTileHealthTracker();
-		const layer = L.tileLayer(config.url, {
-			attribution: config.attribution,
-			maxZoom: config.maxZoom,
-			crossOrigin: config.crossOrigin
-		});
-		tileLayer = layer;
-		layer.on('tileerror', (event: L.TileErrorEvent) => {
-			health.failed(event.tile);
-			tileStatus = 'unavailable';
-		});
-		layer.on('tileload', (event: L.TileEvent) => health.loaded(event.tile));
-		layer.on('tileunload', (event: L.TileEvent) => health.unloaded(event.tile));
-		layer.on('load', () => {
-			tileStatus = health.isHealthy() ? 'ready' : 'unavailable';
-		});
-		layer.addTo(map);
-	}
-
-	function retryTiles() {
-		if (tileRetryCoolingDown || !tilesModule) return;
-		tileRetryCoolingDown = true;
-		tileRetryTimer = setTimeout(() => {
-			tileRetryCoolingDown = false;
-			tileRetryTimer = null;
-		}, tilesModule.TILE_RETRY_COOLDOWN_MS);
-		setTileLayer(satellite ? 'satellite' : theme);
-	}
-
-	// Replace the layer so Leaflet also removes/adds the provider attribution.
 	$effect(() => {
-		const tileTheme = satellite ? 'satellite' : theme;
-		if (loaded) setTileLayer(tileTheme);
+		const basemap = satellite ? 'satellite' : theme;
+		if (loaded) renderer?.setBasemap(basemap);
 	});
-
-	// Route geometry and positions update independently from station markers.
-	$effect(() => {
-		if (!loaded) return;
-		route;
-		theme;
-		drawRouteOverlay();
-	});
-
 	$effect(() => {
 		const request = overviewRequest;
-		if (!loaded || !request || request.id <= handledOverviewRequestId) return;
-
-		const currentRoute = route;
-		if (!currentRoute || request.routeKey !== currentRoute.key) {
-			handledOverviewRequestId = request.id;
-			return;
-		}
-		if (fitRouteOverview(currentRoute)) handledOverviewRequestId = request.id;
+		if (loaded) controller?.overview(request);
 	});
+
+	function recenter() { controller?.recenter(); }
+	function retryTiles() { renderer?.retryBasemap(); }
 </script>
 
 <div class="map-wrapper" class:route-mode={!!route}>
@@ -759,67 +230,4 @@
 	.tile-actions button:disabled { opacity: 0.6; cursor: wait; }
 	.tile-actions button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
-	/* Override Leaflet default styles */
-	:global(.leaflet-container) {
-		font-family: inherit;
-	}
-
-	:global(.station-marker),
-	:global(.station-marker-selected),
-	:global(.user-location-marker) {
-		background: transparent !important;
-		border: none !important;
-	}
-
-	:global(.user-location-marker) {
-		pointer-events: none !important;
-	}
-
-	:global(.station-name-tooltip) {
-		pointer-events: none;
-	}
-
-	/* Touch has no hover exit: Leaflet opens labels on tap and leaves them over nearby stops.
-	 * The selected name remains in the station header; desktop hover/focus keeps its label.
-	 * CSS also follows input-capability changes without rebinding Leaflet event handlers. */
-	@media (hover: none), (pointer: coarse) {
-		:global(.station-name-tooltip) {
-			display: none;
-		}
-	}
-
-	.route-mode :global(.station-marker) {
-		opacity: 0.32;
-	}
-
-	.route-mode :global(.station-marker.station-marker-on-route) {
-		opacity: 0.72;
-	}
-
-	:global(.vehicle-marker-shell) {
-		background: transparent !important;
-		border: none !important;
-	}
-
-	:global(.vehicle-marker) {
-		display: grid;
-		place-items: center;
-		width: 2rem;
-		height: 2rem;
-		margin: 0.375rem;
-		border: 3px solid #fff;
-		border-radius: 50%;
-		background: var(--vehicle-color);
-		color: #fff;
-		box-shadow: 0 2px 7px rgb(0 0 0 / 0.45);
-		font-size: 0.65rem;
-		font-weight: 800;
-		line-height: 1;
-	}
-
-	:global(.vehicle-marker.opposite) {
-		border-color: var(--color-warning);
-		background: var(--color-surface);
-		color: var(--color-text);
-	}
 </style>

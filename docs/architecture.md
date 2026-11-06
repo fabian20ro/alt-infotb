@@ -18,7 +18,7 @@ Browser ──fetch──▸ Proxy ──fetch + headers──▸ info.stb.ro (p
    ├── extract arrivals, selected route, and live vehicles (arrivals.ts)
    ├── render (Svelte components)
    ├── cache arrivals and preferences (localStorage)
-   └── display on map (Leaflet)
+   └── map scene → camera controller + lazy Leaflet renderer
 ```
 
 ### Proxy layer
@@ -55,7 +55,7 @@ Credentials remain server-side. Collection checkpoints retain response bodies, h
 - **Proxy required** — The STB API requires custom headers (`User-Info`, `App-Id`, etc.) that CORS blocks from browsers. A server-side proxy injects them. Vite handles dev, Cloudflare Worker handles prod.
 - **Static adapter** — SvelteKit prerenders a single HTML shell. All logic runs client-side (`ssr = false`).
 - **PWA** — The root layout explicitly registers the custom Workbox worker and manifest under the application base path. Static assets are precached; arrival requests remain network-only. CORS-readable map tiles use bounded `CacheFirst` with strict provider freshness, scoped/versioned caches and known-placeholder rejection. CARTO requires the build-time `VITE_CARTO_API_KEY`; a missing key disables those requests and exposes a manual satellite fallback. Provider changes update attribution. See [map setup](map-setup.md) for migration and production verification.
-- **Leaflet lazy-loading** — Leaflet (~43KB gzip) is loaded via dynamic `import()` after initial render, with a loading skeleton shown while the map initializes.
+- **Renderer boundary** — `MapView.svelte` adapts Svelte state and controls to a vendor-independent scene/controller/renderer contract. The only implementation is the lazy Leaflet adapter, including its CSS and helpers. Scene updates do not move the camera; explicit recentre/overview intents are consumed once by the controller. No MapLibre runtime or offline package installation is activated. See [PMTiles contracts](pmtiles-contracts.md) and the [integration plan](plans/2026-11-07-pmtiles-integration.md).
 - **Versioned catalog from independent source captures** — Registered STB topology supplies current line IDs, stop identities, coordinates and both directions. A fresh GTFS catalog supplies physical metro markers and explicit fallback services. Source snapshots and generated data are versioned separately, keeping the test oracle independent of its output. No browser-wide network discovery or duplicate IndexedDB cache is added.
 - **Stable upstream identities** — Known STB lines match station `lineIds`; names and transport labels cannot invalidate their membership. `CABLE_CAR` normalizes to `TROLLEYBUS` at the API boundary. Unknown types remain diagnostic failures in catalog collection instead of silently becoming buses.
 - **Immutable state** — All stores use Svelte 5 `$state` runes. State updates create new values rather than mutating.

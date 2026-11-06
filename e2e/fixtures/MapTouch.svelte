@@ -1,5 +1,6 @@
 <script lang="ts">
-	import MapView, { type MapRouteOverlay } from '../../src/lib/components/MapView.svelte';
+	import MapView from '../../src/lib/components/MapView.svelte';
+	import type { MapRouteOverlay } from '../../src/lib/map/model.js';
 	import type { Station } from '../../src/lib/stations/types';
 	import type { GeoPosition } from '../../src/lib/stores/geolocation.svelte';
 	const routeFixture = location.search.includes('routes');
