@@ -13,6 +13,9 @@
     "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "paths": {
+      "@noble/hashes/*": ["./node_modules/@noble/hashes/*"]
+    },
     "types": [
       "node"
     ]
@@ -22,6 +25,8 @@
     "test/**/*.ts",
     "*.ts",
     "preview/**/*.ts",
-    "browser/**/*.ts"
+    "browser/**/*.ts",
+    "storage-preview/**/*.ts",
+    "storage-browser/**/*.ts"
   ]
 }

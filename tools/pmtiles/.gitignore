@@ -10,3 +10,5 @@ playwright-report/
 dist-preview/
 .bin/
 __pycache__/
+
+dist-storage/
