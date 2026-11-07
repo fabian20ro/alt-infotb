@@ -43,6 +43,12 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Code Patterns & Pitfalls
 
+**[2026-11-07]** Offline package generation IDs must differ from logical versions — A same-version repair must never overwrite OPFS/cache files held by an existing renderer. Journal the unique generation before file creation, switch only the active IDB pointer after stored-byte verification, and defer deletion under an exclusive generation lock. Never wait for that lock while holding the region mutation lock: the reader may need the mutation lock to confirm or close.
+
+**[2026-11-07]** BroadcastChannel is notification, not durable cancellation — Persist cancellation in the shared journal and recheck it in the activation transaction. A suspended tab or lost broadcast must not allow a cancelled download to become active.
+
+**[2026-11-07]** Browser restart tests need an owned process and persistent profile — Page reload only proves a warm shell. In the storage harness, terminate only the browser created for the test, reopen the same profile offline, and verify recovery plus actual rendered labels. CDP Page.crash can leave an unresolved command/teardown.
+
 **[2026-10-21]** Remove Leaflet layers before clearing their listeners — Calling `TileLayer.off()` before `remove()` deletes Leaflet's own removal callback and leaves stale attribution behind. A production fallback→street roundtrip exposed this; remove the layer first, then clear custom listeners.
 
 **[2026-10-21]** Normalize the generated PWA home entry to the actual registration scope — SvelteKitPWA's injected manifest emitted `/` despite the app being served under `/alt-infotb/`. A navigation handler bound to the application base then threw `non-precached-url` during worker evaluation. Resolve the home entry to `registration.scope` before precaching and verify registration plus offline reload against the built artifact.
