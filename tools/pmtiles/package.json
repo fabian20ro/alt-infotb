@@ -11,10 +11,13 @@
     "generate": "node src/cli.ts generate",
     "verify": "node src/cli.ts verify",
     "build:preview": "vite build",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "build:storage": "vite build --config vite.storage.config.ts && node src/build-storage-shell.ts",
+    "test:storage": "playwright test --config playwright.storage.config.ts"
   },
   "dependencies": {
     "@maplibre/maplibre-gl-style-spec": "26.5.1",
+    "@noble/hashes": "2.4.0",
     "@protomaps/basemaps": "5.7.2",
     "maplibre-gl": "6.16.0",
     "pmtiles": "4.5.0"
