@@ -26,9 +26,23 @@ aplicație, modificări ale service workerului de producție, distribuție cloud
 
 ## Verificare și reproducere
 
-Teste deterministe: 27 manager, 16 jurnal, 21 transfer; incluse în cele 1.259 teste
+Teste deterministe: 29 manager, 16 jurnal, 21 transfer; incluse în cele 1.261 teste
 ale aplicației. Pipeline izolat: 64 teste Node, inclusiv coruperea fișierelor salvate.
-Typecheck aplicație/tooling/service worker și build static trecute.
+Typecheck aplicație/tooling/service worker și build static trecute. Cele 4 teste de
+stocare în Chromium au trecut, inclusiv proces oprit cu SIGKILL în timpul scrierii
+unui candidat și pornirea unui proces nou offline cu același profil. Buildul
+izolat trece și fără dependențele aplicației sau fișierele generate Svelte.
+
+Pixel 6a / Chrome 156: instalare și verificare în 39.971 ms prin USB; utilizare
+raportată 51.389.848 bytes, inclusiv shell; 922 features / 23 simboluri afișate,
+fără erori. Cererea explicită de persistență a returnat `granted`. După oprirea
+serverului local și force-stop/restart Chrome: același pachet, shell complet,
+aceleași features/simboluri, 0 erori; cererea de control către server a eșuat.
+Screenshotul a fost inspectat. Nu reprezintă un benchmark de rețea mobilă și nu
+confirmă permisiunea originii de producție. Brave nu a fost verificat în acest pas.
+
+Audit: tooling 0 vulnerabilități; aplicație 5 low / 5 moderate existente, fără
+high/critical. Update-urile de securitate sunt păstrate.
 
 Preview-ul testează OPFS/CacheStorage/IDB/Web Locks reale, instalare, randare offline,
 actualizare, rollback, două taburi, ștergere amânată, anulare, crash și restart.

@@ -173,8 +173,15 @@ export function createOfflineMapManager(config: ManagerConfig, ports: ManagerPor
 			const s = await ports.metadata.read();
 			if (s.active?.id !== generationId || !s.pendingRender || s.invalidActive) return false;
 			if (!await ports.files.inspect(s.active) || !await ports.shellReady()) throw new OfflineMapError('damaged', 'Installed map or shell is incomplete');
-			await ports.metadata.change(latest => ({ ...latest, previous: null, pendingRender: false,
-				garbage: latest.previous ? [...latest.garbage, latest.previous] : latest.garbage }));
+			let confirmed = false;
+			await ports.metadata.change(latest => {
+				// A reader can report corruption while the asynchronous checks above are running.
+				if (latest.active?.id !== generationId || !latest.pendingRender || latest.invalidActive) return latest;
+				confirmed = true;
+				return { ...latest, previous: null, pendingRender: false,
+					garbage: latest.previous ? [...latest.garbage, latest.previous] : latest.garbage };
+			});
+			if (!confirmed) return false;
 			await cleanupLocked(); return true;
 		}) ?? false;
 	}
@@ -220,7 +227,12 @@ export function createOfflineMapManager(config: ManagerConfig, ports: ManagerPor
 				return { generation,
 					archive() { assertOpen(); return readStored(generation, () => ports.files.archive(generation)); },
 					asset(path) { assertOpen(); if (!generation.manifest.assets.some(a => a.path === path)) throw new OfflineMapError('invalid', 'Undeclared asset'); return readStored(generation, () => ports.files.asset(generation, path)); },
-					async close() { if (closed) return; closed = true; await lease.release(); if (!disposed) await cleanup(); }
+					async close() {
+						if (closed) return;
+						closed = true; await lease.release();
+						// Queue after the current mutation: a try-lock could lose the final cleanup wakeup.
+						if (!disposed) await withMutation(cleanupLocked);
+					}
 				};
 			} catch (error) { await lease.release(); throw error; }
 		}

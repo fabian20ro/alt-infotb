@@ -222,6 +222,31 @@ describe('offline package lifecycle', () => {
 		expect(env.files.size).toBe(0);
 	});
 
+	it('retries deferred deletion when its last reader closes while region cleanup still owns the mutation lock', async () => {
+		const env = environment(), { manager, active } = await confirmed(env);
+		const reader = await manager.openActiveReader(), skippedReader = gate();
+		const acquire = env.ports.locks.acquire.bind(env.ports.locks);
+		let cleanupPaused = false, retried!: () => void;
+		const retryRequested = new Promise<void>(resolve => { retried = resolve; });
+		env.ports.locks.acquire = async (name, mode, options) => {
+			if (cleanupPaused && name.endsWith(':mutation')) retried();
+			const lease = await acquire(name, mode, options);
+			if (!lease && name.endsWith(`:generation:${active.id}`) && mode === 'exclusive') {
+				cleanupPaused = true;
+				await skippedReader.wait();
+			}
+			return lease;
+		};
+		const deletion = manager.remove();
+		await skippedReader.entered;
+		const closing = reader.close();
+		await retryRequested; // The reader released its shared lease; deletion still holds mutation.
+		skippedReader.release();
+		await Promise.all([deletion, closing]);
+		expect(env.files.has(active.id)).toBe(false);
+		expect(await manager.snapshot()).toMatchObject({ availability: 'absent', operation: 'idle', pendingDeletionCount: 0 });
+	});
+
 	for (const file of ['archive', 'asset'] as const) it(`durably marks the confirmed generation damaged after a reader ${file} failure`, async () => {
 		const env = environment(), { manager, active } = await confirmed(env);
 		const reader = await manager.openActiveReader();
@@ -247,6 +272,26 @@ describe('offline package lifecycle', () => {
 		expect((await env.ports.metadata.read()).invalidActive).toBe(false);
 		expect(await manager.snapshot()).toMatchObject({ active: b, availability: 'ready' });
 		await old.close();
+	});
+
+	it('preserves rollback when a reader discovers corruption during render confirmation', async () => {
+		const env = environment(), { manager, active: a } = await confirmed(env);
+		await manager.install(offers.b); const b = (await manager.snapshot()).active!;
+		const reader = await manager.openActiveReader(), shell = gate();
+		env.ports.shellReady = async () => { await shell.wait(); return true; };
+		const confirmation = manager.confirmRendered(b.id);
+		await shell.entered;
+		const data = env.files.get(b.id)!.get('license.txt')!;
+		env.files.get(b.id)!.delete('license.txt');
+		await expect(reader.asset('license.txt')).rejects.toThrow('Missing asset');
+		env.files.get(b.id)!.set('license.txt', data);
+		shell.release();
+		expect(await confirmation).toBe(false);
+		expect(await manager.snapshot()).toMatchObject({ active: b, previous: a, availability: 'damaged', pendingRender: true });
+		expect(env.files.has(a.id)).toBe(true);
+		expect(await manager.rejectRendered(b.id)).toBe(true);
+		await reader.close();
+		expect(await manager.snapshot()).toMatchObject({ active: a, previous: null, availability: 'ready', pendingRender: false });
 	});
 });
 
