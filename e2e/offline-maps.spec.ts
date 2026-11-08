@@ -281,6 +281,7 @@ test('app update waits for approval, old tab retains its shell, package update w
 	const oldTab = await context.newPage(); await open(oldTab);
 	await expect(mapStatus(oldTab)).toHaveAttribute('data-generation', first.id);
 	await openPanel(oldTab);
+	await expect(mapStatus(oldTab)).toHaveAttribute('data-renderer-status', 'ready');
 	const oldTabCdp = await context.newCDPSession(oldTab);
 	await oldTabCdp.send('Page.setWebLifecycleState', { state: 'frozen' });
 	try {
@@ -396,6 +397,28 @@ test('shell collection defers for a waiting replacement, unknown window and inco
 	});
 	await expect.poll(async () => { await cleanupShells(page); return hasCache(page, oldCache); }).toBe(false);
 	expect(await hasCache(page, candidateCache)).toBe(true);
+	// Cached bytes alone cannot establish readiness when their ownership/handoff
+	// journal cannot be read. The actual UI must disable package activation too.
+	await openPanel(page);
+	await expect(panel(page).getByRole('button', { name: ro.offlineDownload, exact: true })).toBeEnabled();
+	await page.evaluate(async () => {
+		const name = (await caches.keys()).find(name => name.startsWith('alt-infotb-shell-registry-v1:'))!;
+		const key = `${location.origin}/alt-infotb/__offline_shell_registry__/state`;
+		const cache = await caches.open(name);
+		(window as any).savedShellRegistry = { name, key, response: await cache.match(key) };
+		await cache.put(key, new Response(JSON.stringify({ schema: 999 }), { headers: { 'Content-Type': 'application/json' } }));
+	});
+	expect((await shellVersion(page)).complete).toBe(false);
+	await panel(page).getByRole('button', { name: ro.offlinePersistenceCheck, exact: true }).click();
+	await expect(panel(page).getByRole('button', { name: ro.offlineDownload, exact: true })).toBeDisabled();
+	await page.evaluate(async () => {
+		const saved = (window as any).savedShellRegistry;
+		await (await caches.open(saved.name)).put(saved.key, saved.response);
+		delete (window as any).savedShellRegistry;
+	});
+	await panel(page).getByRole('button', { name: ro.offlinePersistenceCheck, exact: true }).click();
+	await expect(panel(page).getByRole('button', { name: ro.offlineDownload, exact: true })).toBeEnabled();
+	expect((await shellVersion(page)).complete).toBe(true);
 	await context.setOffline(true); await page.reload();
 	await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible();
 	expect((await shellVersion(page)).complete).toBe(true);
@@ -416,9 +439,17 @@ test('history back after shell cleanup restores a protected document or reloads 
 		addEventListener('pageshow', event => { (window as any).historyRestoredFromCache = event.persisted; });
 	});
 	await open(historyTab);
-	const token = await historyTab.evaluate(() => (window as any).historyDocumentToken);
+	const baselineToken = await historyTab.evaluate(() => (window as any).historyDocumentToken);
 	const away = 'http://localhost:4190/__shell_history_away';
 	await historyTab.route(away, route => route.fulfill({ contentType: 'text/html', body: '<title>Outside application scope</title>' }));
+	await historyTab.goto(away);
+	await historyTab.goBack({ waitUntil: 'commit' });
+	await expect(historyTab.locator('canvas.maplibregl-canvas')).toBeVisible();
+	const baseline = await historyTab.evaluate(previous => ({
+		sameDocument: (window as any).historyDocumentToken === previous,
+		persisted: (window as any).historyRestoredFromCache === true
+	}), baselineToken);
+	const token = await historyTab.evaluate(() => (window as any).historyDocumentToken);
 	await historyTab.goto(away);
 	await build('build-offline-next'); await waitForUpdate(page); await applyShellUpdate(page);
 	const currentVersion = (await shellVersion(page)).version;
@@ -442,7 +473,7 @@ test('history back after shell cleanup restores a protected document or reloads 
 		expect((await shellVersion(historyTab)).version).toBe(currentVersion);
 		expect((await shellVersion(historyTab)).complete).toBe(true);
 	}
-	await writeFile(testInfo.outputPath('history-restore.json'), JSON.stringify({ ...restored, retainedBeforeBack }, null, 2));
+	await writeFile(testInfo.outputPath('history-restore.json'), JSON.stringify({ baseline, ...restored, retainedBeforeBack }, null, 2));
 });
 
 test('unacknowledged navigation pins survive a closed bootstrap and worker restart', async ({ page, context }) => {
@@ -507,6 +538,7 @@ test('WebGL loss is recoverable; corrupted stored style requires a verified repl
 
 test('missing cached shell chunk blocks package activation; app update cannot bypass another tab operation lock', async ({ page, context }) => {
 	await network(context); await open(page); await openPanel(page);
+	const lockTab = await context.newPage(); await open(lockTab);
 	await expect(panel(page).getByRole('button', { name: ro.offlineDownload, exact: true })).toBeEnabled();
 	await page.evaluate(async () => {
 		const cache = await caches.open((await caches.keys()).find(name => name.startsWith('alt-infotb-preview-') && name.includes('-precache-v2-'))!);
@@ -516,7 +548,6 @@ test('missing cached shell chunk blocks package activation; app update cannot by
 	await panel(page).getByRole('button', { name: ro.offlinePersistenceCheck, exact: true }).click();
 	await expect(panel(page).getByRole('button', { name: ro.offlineDownload, exact: true })).toBeDisabled();
 	await build('build-offline-next'); await waitForUpdate(page);
-	const lockTab = await context.newPage(); await lockTab.goto(APP);
 	await lockTab.evaluate(() => { Object.assign(window, { releasePreviewLock: null }); void navigator.locks.request(`offline-shell:${location.origin}/alt-infotb/:transition`, { mode: 'shared' }, () => new Promise<void>(resolve => { (window as any).releasePreviewLock = resolve; })); });
 	await expect.poll(() => lockTab.evaluate(() => typeof (window as any).releasePreviewLock)).toBe('function');
 	const old = (await shellVersion(page)).version;

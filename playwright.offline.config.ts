@@ -15,7 +15,7 @@ export default defineConfig({
 	outputDir: 'test-results-offline',
 	use: {
 		...devices['Pixel 5'], baseURL: 'http://localhost:4190/alt-infotb/',
-		launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
+		launchOptions: { ignoreDefaultArgs: ['--disable-back-forward-cache'], args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
 		serviceWorkers: 'allow', trace: 'retain-on-failure', screenshot: 'only-on-failure',
 		geolocation: { latitude: 44.4268, longitude: 26.1025 }, permissions: ['geolocation']
 	},
