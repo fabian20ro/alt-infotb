@@ -298,6 +298,9 @@ Document-lifetime version Web Locks retain old-tab lazy imports. The preview's
 `shell-cache.ts` manager collects only positively owned, unused shell caches;
 legacy caches remain outside its deletion authority. A separate durable registry
 records ownership, active HTML identity and navigation pins before bootstrap.
+Per-document proof locks bind real SW message senders to Web Lock owners without
+assuming the two browser APIs expose identical client IDs. Verified bindings
+survive worker restart and are pruned only after their browser-held proof ends.
 Install/activation/navigation/collection share a lifecycle lock, and deletion
 requires an exclusive version lock. Unknown clients, incomplete active shells,
 pending replacements and unacknowledged navigations defer collection. No reader

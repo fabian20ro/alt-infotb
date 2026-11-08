@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createShellCacheManager, emptyShellRegistry, parseShellRegistry, shellCacheName, type ShellCachePorts, type ShellClient, type ShellLock, type ShellRecord, type ShellRegistry } from './shell-cache';
-import { shellReaderLock } from './shell-protocol';
+import { shellDocumentLock, shellReaderLock } from './shell-protocol';
 
 const scope = 'http://localhost/alt-infotb/';
 function record(version: string): ShellRecord {
@@ -8,14 +8,19 @@ function record(version: string): ShellRecord {
 	return { version, cacheName: shellCacheName(scope, version), homeKey, keys: [homeKey, `${scope}_app/immutable/${version}.js`], fingerprint: version.charCodeAt(0).toString(16).padStart(2, '0').repeat(32) };
 }
 const a = record('a'), b = record('b');
+const tokenA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', tokenB = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+function readerLocks(version: string, token: string, clientId: string): ShellLock[] {
+	return [{ name: shellReaderLock(scope, version), clientId, mode: 'shared' },
+		{ name: shellDocumentLock(scope, version, token), clientId, mode: 'exclusive' }];
+}
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 function fixture() {
 	const state = {
-		registry: { schema: 1, scope, active: 'b', owned: [a, b], pins: [] } as ShellRegistry | undefined,
+		registry: { schema: 1, scope, active: 'b', owned: [a, b], pins: [], readers: [{ clientId: 'client-b', version: 'b', token: tokenB }] } as ShellRegistry | undefined,
 		names: new Set([a.cacheName, b.cacheName]),
 		complete: new Set(['a', 'b']),
 		clients: [{ id: 'client-b', url: scope }] as ShellClient[],
-		held: [{ name: shellReaderLock(scope, 'b'), clientId: 'client-b', mode: 'shared' }] as ShellLock[],
+		held: readerLocks('b', tokenB, 'opaque-lock-client-b'),
 		replacement: false,
 		activeWorker: true
 	};
@@ -95,23 +100,77 @@ describe('offline shell cache ownership and reader cleanup', () => {
 		state.registry!.pins.push({ clientId: 'client-a', version: 'a' });
 		const client = { id: 'client-a', url: scope };
 		state.clients.push(client);
-		await manager.status(client, 'a', 1);
+		await manager.status(client, 'a', 1, tokenA);
 		expect(state.registry!.pins).toHaveLength(1);
-		state.held.push({ name: shellReaderLock(scope, 'a'), clientId: client.id, mode: 'shared' });
-		await manager.status(client, 'a', 0);
+		state.held.push(...readerLocks('a', tokenA, 'different-opaque-lock-client-a'));
+		await manager.status(client, 'a', 0, tokenA);
 		expect(state.registry!.pins).toHaveLength(1);
-		await manager.status({ ...client, url: 'http://localhost/other/' }, 'a', 1);
+		await manager.status({ ...client, url: 'http://localhost/other/' }, 'a', 1, tokenA);
 		expect(state.registry!.pins).toHaveLength(1);
-		expect((await manager.status(client, 'a', 1)).cleanup.deleted).toEqual([]);
+		expect((await manager.status(client, 'a', 1, tokenA)).cleanup.deleted).toEqual([]);
 		expect(state.registry!.pins).toEqual([]);
-		state.clients.pop(); state.held.pop();
+		expect(state.registry!.readers).toContainEqual({ clientId: 'client-a', version: 'a', token: tokenA });
+		state.clients.pop(); state.held.splice(-2);
 		expect((await manager.cleanup()).deleted).toEqual([a.cacheName]);
+		expect(state.registry!.readers).toEqual([{ clientId: 'client-b', version: 'b', token: tokenB }]);
 	});
 	it('serves the durable current shell even when an obsolete worker handles a queued navigation', async () => {
 		const { state, ports } = fixture();
+		state.activeWorker = false;
 		const served = await createShellCacheManager(scope, a, ports).navigation('new-b', async shell => shell.version);
 		expect(served).toBe('b');
 		expect(state.registry!.pins).toEqual([{ clientId: 'new-b', version: 'b' }]);
+	});
+	it('preserves the SW-client binding across worker restarts despite different Web Locks IDs', async () => {
+		const { state, ports, manager } = fixture();
+		const client = { id: 'service-worker-client-a', url: scope };
+		state.clients.push(client);
+		state.held.push(...readerLocks('a', tokenA, 'unrelated-web-locks-client-a'));
+		state.registry!.pins.push({ clientId: client.id, version: 'a' });
+		await manager.status(client, 'a', 1, tokenA);
+		const restarted = createShellCacheManager(scope, b, ports);
+		expect((await restarted.cleanup()).deferred).toBe(null);
+		expect(state.names.has(a.cacheName)).toBe(true);
+		expect(state.registry!.pins).toEqual([]);
+		state.clients.pop(); state.held.splice(-2);
+		expect((await restarted.cleanup()).deleted).toEqual([a.cacheName]);
+		expect(state.registry!.readers.some(reader => reader.clientId === client.id)).toBe(false);
+	});
+	it('rejects a guessed token and a proof/version lock pair held by different opaque clients', async () => {
+		const { state, manager } = fixture();
+		const client = { id: 'unconfirmed-a', url: scope };
+		state.clients.push(client);
+		state.registry!.pins.push({ clientId: client.id, version: 'a' });
+		expect((await manager.status(client, 'a', 1, tokenA)).cleanup.deferred).toBe('unknown-client');
+		const locks = readerLocks('a', tokenA, 'lock-a'); locks[1].clientId = 'different-lock-client';
+		state.held.push(...locks);
+		expect((await manager.status(client, 'a', 1, tokenA)).cleanup.deferred).toBe('unknown-client');
+		expect(state.registry!.readers.some(reader => reader.clientId === client.id)).toBe(false);
+		expect(state.registry!.pins).toHaveLength(1);
+	});
+	it('never rebinds a live document token to another SW client', async () => {
+		const { state, manager } = fixture();
+		const claimant = { id: 'another-client', url: scope }; state.clients.push(claimant);
+		state.registry!.pins.push({ clientId: claimant.id, version: 'b' });
+		expect((await manager.status(claimant, 'b', 1, tokenB)).cleanup.deferred).toBe('unknown-client');
+		expect(state.registry!.readers).toEqual([{ clientId: 'client-b', version: 'b', token: tokenB }]);
+		expect(state.registry!.pins).toHaveLength(1);
+	});
+	it('prunes dead reader bindings without treating them as permission to clear navigation pins', async () => {
+		const { state, manager } = fixture();
+		state.registry!.readers.push({ clientId: 'closed-a', version: 'a', token: tokenA });
+		state.registry!.pins.push({ clientId: 'closed-a', version: 'a' });
+		expect((await manager.cleanup()).deleted).toEqual([]);
+		expect(state.registry!.readers).toHaveLength(1);
+		expect(state.registry!.pins).toEqual([{ clientId: 'closed-a', version: 'a' }]);
+	});
+	it('rejects duplicate reader tokens and malformed token metadata', () => {
+		const { state } = fixture();
+		const duplicate = structuredClone(state.registry!);
+		duplicate.readers.push({ clientId: 'another-client', version: 'b', token: tokenB });
+		expect(() => parseShellRegistry(duplicate, scope)).toThrow('Invalid offline shell registry');
+		duplicate.readers = [{ clientId: 'client-b', version: 'b', token: 'not-a-token' }];
+		expect(() => parseShellRegistry(duplicate, scope)).toThrow('Invalid offline shell registry');
 	});
 	it('serializes navigation pin persistence and activation before old-shell collection', async () => {
 		const { state, ports, manager } = fixture();
@@ -168,11 +227,48 @@ describe('offline shell cache ownership and reader cleanup', () => {
 		const { state, manager, ports } = fixture();
 		state.registry = undefined;
 		expect(await manager.cleanup()).toMatchObject({ deleted: [], deferred: 'unavailable' });
+		expect((await manager.status()).complete).toBe(false);
 		ports.read = async () => ({ ...emptyShellRegistry(scope), active: 'missing' });
 		expect(await manager.cleanup()).toMatchObject({ deleted: [], deferred: 'unavailable' });
+		expect((await manager.status()).complete).toBe(false);
+	});
+	it('does not advertise offline readiness when the reader handoff cannot be persisted', async () => {
+		const { state, manager, ports } = fixture();
+		state.registry!.pins.push({ clientId: 'client-b', version: 'b' });
+		ports.write = async () => { throw new Error('quota'); };
+		expect(await manager.status(state.clients[0], 'b', 1, tokenB)).toMatchObject({ complete: false, cleanup: { deferred: 'unavailable' } });
+		expect(state.registry!.pins).toHaveLength(1);
+	});
+	it('repairs a failed activation commit after worker restart before reporting readiness or serving HTML', async () => {
+		const { state, ports } = fixture();
+		state.registry!.active = 'a';
+		const write = ports.write;
+		ports.write = async () => { throw new Error('interrupted activation'); };
+		await expect(createShellCacheManager(scope, b, ports).activate(async () => {})).rejects.toThrow('interrupted activation');
+		expect(state.registry!.active).toBe('a');
+		expect((await createShellCacheManager(scope, b, ports).status()).complete).toBe(false);
+		ports.write = write;
+		const restarted = createShellCacheManager(scope, b, ports);
+		expect(await restarted.navigation('boot-b', async shell => shell.version)).toBe('b');
+		expect(state.registry!.active).toBe('b');
+		expect((await restarted.status()).complete).toBe(true);
+	});
+	it('keeps readiness when only old-cache reclamation fails', async () => {
+		const { manager, ports } = fixture();
+		ports.remove = async () => { throw new Error('old cache busy'); };
+		expect(await manager.status()).toMatchObject({ complete: true, cleanup: { deferred: 'unavailable' } });
+	});
+	it('rejects active metadata whose declared entry differs from the compiled shell', async () => {
+		const { state, manager } = fixture();
+		state.registry = structuredClone(state.registry);
+		const current = state.registry!.owned.find(shell => shell.version === 'b')!;
+		current.homeKey = `${scope}?__WB_REVISION__=wrong`;
+		current.keys[0] = current.homeKey;
+		expect((await manager.status()).complete).toBe(false);
+		await expect(manager.navigation('boot-b', async () => 'wrong')).rejects.toThrow('Active offline shell unavailable');
 	});
 	it('rejects foreign or malformed deletion records', () => {
-		const valid = { schema: 1, scope, active: 'b', owned: [b], pins: [] };
+		const valid = { schema: 1, scope, active: 'b', owned: [b], pins: [], readers: [] };
 		for (const patch of [{ cacheName: 'unrelated-user-data' }, { homeKey: 'http://localhost/foreign/' }, { keys: ['http://evil.test/'] }, { version: '../x' }]) {
 			expect(() => parseShellRegistry({ ...valid, owned: [{ ...b, ...patch }] }, scope)).toThrow();
 		}

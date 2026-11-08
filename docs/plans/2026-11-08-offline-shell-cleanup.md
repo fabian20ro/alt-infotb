@@ -9,10 +9,14 @@ Fiecare document ține un Web Lock comun pe versiunea sa de shell până când
 browserul distruge documentul. Nu eliberăm acest lock la ascundere, `pagehide`
 sau demontarea unui component. Workerul poate verifica proprietarii lockurilor
 chiar după repornirea propriului proces; nu deduce dispariția unui cititor din
-expirarea unui heartbeat.
+expirarea unui heartbeat. Chromium-ul testat raportează ID-uri diferite prin
+Web Locks și Service Worker, deși specificația le corelează. Un token aleator
+per document identifică un al doilea lock ținut pe aceeași durată. Workerul leagă
+expeditorul real al mesajului de acel lock și verifică faptul că el și cititorul
+versiunii au același proprietar în API-ul Web Locks. Nu echivalăm cele două ID-uri.
 
 Un registru mic, separat de datele hărții, reține numai shellurile create prin
-noul protocol, identitatea shellului activ și navigările care încă nu și-au
+noul protocol, legăturile cititorilor confirmate, identitatea shellului activ și navigările care încă nu și-au
 confirmat cititorul. Cache-ul registrului are un nume distinct de precache-uri.
 Instalarea, activarea, înregistrarea navigărilor și curățarea folosesc aceeași
 poartă de coordonare. Instalarea Workbox este apelată explicit în interiorul ei.
@@ -66,6 +70,12 @@ workerul refuză noua navigare în loc să livreze o pagină neprotejată. Pagin
 ștergerea pachetului este un gate suplimentar înainte de rollout, nu o garanție
 implementată în acest preview.
 
+Readiness include validitatea registrului și confirmarea cititorului. Un eșec
+de colectare a unui cache vechi nu invalidează un shell activ sănătos. Dacă
+activarea browserului reușește, dar commitul identității active este întrerupt,
+workerul efectiv activ reconciliază registrul înainte de a confirma readiness
+sau de a livra următoarea navigare.
+
 Brave fizic și iOS rămân verificări separate. Distribuția publică fără risc de
 facturare rămâne nealeasă; R2 nu este activat.
 
@@ -79,6 +89,13 @@ Browser pe builduri reale: A → B cu tab A suspendat; import vechi offline dup�
 repornirea workerului; colectarea lui A numai după închidere; candidat în așteptare;
 bootstrap întârziat; rollback și pornire într-un proces nou. Pachetul instalat,
 persistența și datele fără legătură trebuie să rămână intacte. Playwright: un worker.
+
+Rezultate locale: 1.341 teste unitare, verificări de tipuri și build normal izolat.
+Pixel 6a / Chrome 156: actualizare A → B prin UI; A păstrat cu tab vechi deschis,
+apoi șters după închiderea lui. Pornire PWA după oprirea serverului și a procesului
+Chrome: hartă offline funcțională, aceeași generație PMTiles, persistență acordată.
+Stocare totală după colectare: aproximativ 75,1 MB, inclusiv patru shelluri istorice
+păstrate. Aceasta este o măsurătoare a originii de test, nu o limită garantată.
 
 ## Recomandarea următoare
 

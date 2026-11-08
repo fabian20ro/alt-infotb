@@ -49,7 +49,7 @@ const manager = (async () => {
   clients: async () => [...await self.clients.matchAll({ type: 'window', includeUncontrolled: true })],
   held: async () => (await navigator.locks.query()).held ?? [],
   replacement: () => !!self.registration.installing || !!self.registration.waiting,
-  activeWorker: () => self.serviceWorker.state === 'activated',
+  activeWorker: () => self.registration.active === self.serviceWorker && self.serviceWorker.state === 'activated',
   tryExclusive: async (readerVersion, action) => await navigator.locks.request(shellReaderLock(scope, readerVersion), { mode: 'exclusive', ifAvailable: true }, async lock => {
    if (!lock) return false;
    await action(); return true;
@@ -87,7 +87,7 @@ self.addEventListener('message', event => {
   if (!client || client.type !== 'window' || !inShellScope(scope, client.url)) return;
   const cacheManager = await manager;
   if (type === 'OFFLINE_SHELL_STATUS') {
-   reply(await cacheManager.status(client, event.data.readerVersion, event.data.protocol));
+   reply(await cacheManager.status(client, event.data.readerVersion, event.data.protocol, event.data.readerToken));
   } else if (type === 'OFFLINE_SHELL_CLEANUP') {
    reply(await cacheManager.cleanup());
   } else {

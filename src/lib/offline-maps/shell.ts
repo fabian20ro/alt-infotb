@@ -22,6 +22,7 @@ let prompt: InstallPrompt | undefined;
 let startup: Promise<void> | undefined;
 let busy = false;
 let scope = '';
+let readerToken: string | undefined;
 const emit = () => { state = { ...state }; for (const fn of listeners) fn(); };
 function message<T>(worker: ServiceWorker, data: unknown): Promise<T> {
  return new Promise((resolve, reject) => {
@@ -36,7 +37,7 @@ async function status(): Promise<ShellStatus | null> {
  const controller = navigator.serviceWorker?.controller;
  if (!controller || !registration?.active || controller.scriptURL !== registration.active.scriptURL) return null;
  try { return await message<ShellStatus>(controller, {
-  type: 'OFFLINE_SHELL_STATUS', protocol: OFFLINE_SHELL_PROTOCOL, readerVersion: version
+  type: 'OFFLINE_SHELL_STATUS', protocol: OFFLINE_SHELL_PROTOCOL, readerVersion: version, readerToken
  }); } catch { return null; }
 }
 async function isReady(): Promise<boolean> {
@@ -63,7 +64,8 @@ async function start() {
   const { base } = await import('$app/paths');
   scope = new URL(`${base}/`, location.origin).href;
   if (!navigator.locks) throw new Error('Offline shell locks unavailable');
-  await acquireShellReader(navigator.locks, scope, version);
+  readerToken = crypto.randomUUID();
+  await acquireShellReader(navigator.locks, scope, version, readerToken);
   window.addEventListener('beforeinstallprompt', event => {
    event.preventDefault(); prompt = event as InstallPrompt; state.installAvailable = true; emit();
   });
