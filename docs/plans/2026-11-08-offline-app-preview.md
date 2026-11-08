@@ -42,7 +42,10 @@ neașteptate: RO/EN/teme/dialog; anulare; persistență refuzată fără pierder
 activare explicită; ștergere exactă; actualizare aplicație și pachet între taburi;
 import lazy din shell vechi; rollback de aplicație cu pachet mai nou; WebGL pierdut;
 stil corupt și reparare; chunk lipsă; lock concurent; proces Chromium nou offline.
-Capturi în ambele teme inspectate. Review Standards și Spec: toate observațiile
+Capturi în ambele teme inspectate; regresia de suprapunere confirmă că markerii nu
+interceptează controalele de zoom sau atribuirea. Instalarea izolată numai a
+tooling-ului trece separat 64 teste și ambele builduri: core-ul validatorului primește
+dependențele runtime de la fiecare consumator, fără dependențe implicite pe app. Review Standards și Spec: toate observațiile
 rezolvate, inclusiv precondiția de generație verificată în lockul de mutație și
 actualizarea imediată a stării shellului în taburi deja deschise.
 
@@ -58,7 +61,8 @@ heap JS aproximativ 44,7 MB (nu RAM total/GPU). Acest eșantion era într-o zon�
 puține stații vizibile; nu reprezintă un benchmark exhaustiv al scenei aglomerate.
 Originea ocupa circa 51,7 MB după prima instalare și circa 64,5 MB după trei
 shelluri de test păstrate. Shellurile istorice explică o parte din creștere;
-colectarea lor sigură rămâne o limită explicită a preview-ului.
+colectarea lor sigură rămâne o limită explicită a preview-ului. După al patrulea
+shell de test: aproximativ 69,8 MB; încă un restart rece a păstrat harta și persistența.
 
 Brave fizic amânat explicit de utilizator. Local preview nu configurează proxy-ul
 STB: eroarea de sosiri live este afișată separat de harta offline funcțională.
