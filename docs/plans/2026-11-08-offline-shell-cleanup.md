@@ -90,7 +90,11 @@ repornirea workerului; colectarea lui A numai după închidere; candidat în aș
 bootstrap întârziat; rollback și pornire într-un proces nou. Pachetul instalat,
 persistența și datele fără legătură trebuie să rămână intacte. Playwright: un worker.
 
-Rezultate locale: 1.341 teste unitare, verificări de tipuri și build normal izolat.
+Rezultate locale: 1.341 teste unitare, 8/8 teste browser (1,8 minute, un worker),
+verificări de tipuri și build normal izolat. Cu BFCache permis explicit, Chromium
+nu a restaurat documentul nici înainte, nici după update; revenirea offline a
+încărcat corect B. Restaurarea efectivă din BFCache rămâne neobservată. Testul cu
+document suspendat și repornirea workerului a trecut separat.
 Pixel 6a / Chrome 156: actualizare A → B prin UI; A păstrat cu tab vechi deschis,
 apoi șters după închiderea lui. Pornire PWA după oprirea serverului și a procesului
 Chrome: hartă offline funcțională, aceeași generație PMTiles, persistență acordată.
