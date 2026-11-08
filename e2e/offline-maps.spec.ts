@@ -151,6 +151,35 @@ test('RO/EN dialog, cancellation, denied persistence, explicit use, offline relo
 	expect((await journal(page))?.pendingRender).toBe(true);
 	await useOffline(page, 'en'); const generation = (await journal(page))!.active!.id;
 	await closePanel(page, 'en');
+	// Force a real station marker over each native control using their observed
+	// rectangles. Hit testing must still choose the control, not the marker.
+	const overlapHits = await page.evaluate(() => {
+		const attribution = document.querySelector<HTMLDetailsElement>('.maplibregl-ctrl-attrib')!;
+		const wasOpen = attribution.open; attribution.open = true;
+		const marker = document.querySelector<HTMLElement>('.maplibre-station.station-marker-selected')
+			?? document.querySelector<HTMLElement>('.maplibre-station')!;
+		const originalStyle = marker.getAttribute('style');
+		try {
+			return ['.maplibregl-ctrl-zoom-in', '.maplibregl-ctrl-attrib-inner a'].map(selector => {
+				if (originalStyle === null) marker.removeAttribute('style'); else marker.setAttribute('style', originalStyle);
+				const target = document.querySelector<HTMLElement>(selector)!;
+				const bounds = target.getBoundingClientRect(), before = marker.getBoundingClientRect();
+				const x = bounds.left + bounds.width / 2, y = bounds.top + bounds.height / 2;
+				marker.style.transform += ` translate(${x - before.left - before.width / 2}px, ${y - before.top - before.height / 2}px)`;
+				const moved = marker.getBoundingClientRect();
+				const hit = document.elementFromPoint(x, y);
+				return { selector, overlaps: moved.left <= x && moved.right >= x && moved.top <= y && moved.bottom >= y,
+					controlWins: !!hit && (target === hit || target.contains(hit)) };
+			});
+		} finally {
+			if (originalStyle === null) marker.removeAttribute('style'); else marker.setAttribute('style', originalStyle);
+			attribution.open = wasOpen;
+		}
+	});
+	expect(overlapHits).toEqual([
+		{ selector: '.maplibregl-ctrl-zoom-in', overlaps: true, controlWins: true },
+		{ selector: '.maplibregl-ctrl-attrib-inner a', overlaps: true, controlWins: true }
+	]);
 	await page.screenshot({ path: testInfo.outputPath('map-light.png') });
 	await page.getByRole('button', { name: 'Meniu', exact: true }).click();
 	await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
@@ -263,7 +292,9 @@ test('WebGL loss is recoverable; corrupted stored style requires a verified repl
 	await page.getByRole('button', { name: ro.offlineMaps, exact: true }).click();
 	await expect(packageStatus(page)).toHaveAttribute('data-availability', 'damaged');
 	await panel(page).getByRole('button', { name: ro.offlineRepair, exact: true }).click();
-	await expect(packageStatus(page)).toHaveText(ro.offlineAwaitingRender, { timeout: 150_000 });
+	// The invalid prior reader may keep cleanup pending until the replacement is used.
+	await expect(panel(page).getByRole('button', { name: ro.offlineUse, exact: true })).toBeEnabled({ timeout: 150_000 });
+	expect((await journal(page))?.pendingRender).toBe(true);
 	await useOffline(page);
 	const repaired = (await journal(page))!.active!;
 	expect(repaired.id).not.toBe(first.id); expect(repaired.manifestSha256).toBe(first.manifestSha256);

@@ -244,7 +244,7 @@ future catalog/publication policy.
 - `browser-storage.ts` + `journal.ts`: scoped OPFS/CacheStorage/IndexedDB, Web Locks, persistence and validated metadata.
 - `transport.ts`: trusted manifest SHA256, bounded HTTPS transfer, streaming hashes and cancellation.
 - Adjacent manager/journal/transfer tests: failure boundaries, lost notifications, old readers and repair.
-- `tools/pmtiles/src/browser-validation.ts`: stored-byte readback, renderer compatibility and local resource closure.
+- `src/lib/offline-maps/browser-validation.ts`: stored-byte readback, renderer compatibility and local resource closure; tooling reexports the same validator.
 - `tools/pmtiles/storage-preview/`, `storage-browser/`, `src/serve-storage.ts`: isolated real-storage UI, browser tests and validated local package server.
 - `docs/plans/2026-11-07-pmtiles-offline-manager.md`: invariants, verification, limitations and next renderer implementation.
 
@@ -258,3 +258,15 @@ future catalog/publication policy.
 - `tools/pmtiles/storage-preview`: real installed-package consumer using the actual renderer and transit scene.
 - `tools/pmtiles/tsconfig.browser.json`: browser bundler typecheck separate from native Node tooling.
 - `docs/plans/2026-11-08-maplibre-preview.md`: implementation, validation limits and next UI/SW coordinator.
+
+## Offline application preview (2026-11-08)
+
+- `src/lib/offline-maps/coordinator.ts`: application source policy, stable renderer wrapper, camera retention and explicit activation.
+- `src/lib/offline-maps/app-runtime.ts`: browser ports, profile validator and localhost-only distribution mapping.
+- `src/lib/offline-maps/shell.ts`: actual shell readiness, PWA install prompt and guarded explicit application update.
+- `src/lib/components/OfflineMapExperience.svelte` / `OfflineMapsPanel.svelte`: opt-in map integration and accessible RO/EN management dialog.
+- `src/service-worker-offline.ts`: per-build preview precache, old-tab immutable assets and download cache exclusion.
+- `src/lib/map/raster-worker.ts`: shared production/preview raster and network-only transit policy.
+- `scripts/*offline-preview*.ts`: validated local preparation, loopback server and built-shell verification.
+- `e2e/offline-maps.spec.ts` / `playwright.offline.config.ts`: real built-app lifecycle, multi-tab shell/package updates and cold offline process.
+- `docs/plans/2026-11-08-offline-app-preview.md`: verification, constraints, leftovers and next recommendation.

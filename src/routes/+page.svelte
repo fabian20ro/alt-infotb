@@ -200,7 +200,9 @@
 	{/if}
 
 	{#if offlineLoadFailed}<p class="offline-load-error" role="alert">{translations[settings.lang].offlineLoadFailed}</p>{/if}
-	{#if OfflineMapExperience}
+	{#if import.meta.env.MODE === 'offline-preview' && !OfflineMapExperience && !offlineLoadFailed}
+		<div class="offline-loading" role="status">{translations[settings.lang].offlineStarting}</div>
+	{:else if OfflineMapExperience}
 	<OfflineMapExperience
 		open={offlineOpen}
 		onClose={closeOfflineMaps}
@@ -232,6 +234,7 @@
 </main>
 
 <style>
+	.offline-loading { height: min(50dvh, 100vw); flex-shrink: 0; display: grid; place-items: center; color: var(--color-text-muted); background: var(--color-surface); }
 	.offline-load-error { margin: 0; padding: .5rem 1rem; background: var(--color-surface); color: var(--color-text); font-size: .85rem; }
 	.app-layout {
 		display: flex;

@@ -1064,3 +1064,10 @@ Each entry should follow this structure:
 - Preview build and registration restricted to local loopback; trusted local package config pinned at build time. Separate output and worker; normal application remains lazyLeaflet. Coordinator owns stable renderer delegation and manager lifecycle; UI keeps download, map activation and application update separate.
 - Versioned shell caches retain old-tab lazy imports; worker proves complete precache and build identity. Explicit activation uses exclusive WebLock against shared package/source operations. Old shells intentionally retained pending a future reader-aware cleanup policy. Package archive never enters SW runtime/precache.
 - Svelte surprise: local prop named state collides with $state rune parsing; renamed view/model. Documented reusable lesson.
+
+- Real compiled-app browser tests exposed a transient initial Leaflet mount while the preview module loaded; replacing it during a CSS zoom left a Leaflet timer touching removed panes. Preview now shows a fixed-height loading state until its renderer is ready; default build and explicit import-failure fallback retain Leaflet.
+
+- Physical screenshot found transit markers above native MapLibre attribution/zoom controls (marker z10–30 vs defaultcontrol z2). Raised only controlcorners to40; regression verifies control hit testing with overlapping marker.
+
+- Final corevalidation:1306unit/38suites,64tooling,alltypechecks andnormal/previewbuildspass;compiledworkeridentity+24immutableJS/MJS/CSSassetsguard. Browser5/5A3/B3passed1.6m,zero unexpectedexceptions. Standards2findings/spec1findingfixedandre-reviewed:lockedexpectedgeneration,sharedlocalizedcontrols,oldtab shellreadinesssync.
+- PixelChrome156:installednativeWebAPK af66fb4617cc13df8_v2 localhost4191 /alt-infotb/,standalonetrue,persistedtrue. Serverstopped+Chrome/PWAforce-stop+relaunchpreservedsamegeneration/lightEN/45viewportmarkers. Initialoriginusage51.7MB,after3retainedshells64.5MB. TapPiataUnirii verifiedusingcontrolledGPS;realpan/pinch216framesp9516.8ms,max16.9ms,nolongtasks in lowdensityscene;JSheap44.7MB nottotalRAM. Brave explicitlydeferred; no production/cloud/billingactivation.
