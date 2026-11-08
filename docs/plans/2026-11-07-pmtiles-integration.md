@@ -146,7 +146,7 @@ Fiecare etapă produce un PR separat; producția se activează abia după gate-u
 | 5. SW și UI | Rute SW dedicate și activare controlată; panou „Hărți offline” în `DrawerMenu.svelte`, traduceri RO/EN și store Svelte 5 | Stări corecte, instalare PWA, request/read persistence, dimensiuni/progres/update/delete; shell și pachet complet offline |
 | 6. Verificare și lansare | E2E pe buildul real cu baza `/alt-infotb/`; test fizic; documentație operațională | Matricea de acceptare de mai jos; preview opt-in, apoi activare explicită separată; revenire testată |
 
-Pasul 5 implementează coordonatorul aplicației, UI și shell offline, încă opt-in. Următoarea recomandare: colectarea sigură a shellurilor vechi și închiderea criteriilor de distribuție fără facturare, înaintea activării publice. Adaptorul MapLibre este implementat în preview separat. Managerul pasului 3 furnizează cititori pentru generații imutabile; rendererul îi eliberează după distrugerea hărții. Nu mutăm codul demo în `MapView.svelte` și nu schimbăm motorul implicit în acest pas.
+Pasul 5 implementează coordonatorul aplicației, UI și shell offline, încă opt-in. Continuarea implementează [colectarea sigură a shellurilor](2026-11-08-offline-shell-cleanup.md), cu limite explicite pentru cache-urile anterioare protocolului și navigările neconfirmate. Următoarea recomandare: închiderea criteriilor de distribuție fără facturare și verificarea browserelor rămase, înaintea activării publice. Adaptorul MapLibre este implementat în preview separat. Managerul pasului 3 furnizează cititori pentru generații imutabile; rendererul îi eliberează după distrugerea hărții. Motorul implicit rămâne neschimbat.
 
 ### Matrice minimă de acceptare
 

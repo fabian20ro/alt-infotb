@@ -43,6 +43,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Code Patterns & Pitfalls
 
+**[2026-11-08]** Verify client identity across browser APIs instead of assuming equality — actual Chromium tests exposed different Service Worker `Client.id` and Web Locks `clientId` for the same document, despite the specification's correlation. Bind the real message sender through a unique held document lock, and verify that proof and the shared resource lock belong to the same Web Locks owner. Keep deletion authority in an exclusive resource lock; an identity query alone is only a snapshot.
+
+**[2026-11-08]** Rejected service-worker activation work is not rollback — the browser retires the previous worker even if an activate event's `waitUntil` rejects. Journal installation first, then let the actual active worker reconcile interrupted metadata commits before reporting offline readiness or serving navigation. Cache completeness alone cannot establish readiness when navigation also requires valid lifecycle metadata.
+
 **[2026-11-08]** Hit-test wrapped inline links using a real fragment — the center of getBoundingClientRect can fall in whitespace between text lines. Select a visible getClientRects fragment before moving an overlapping marker; still assert that elementFromPoint returns the actual control. Force wrapping in the regression instead of relying on host font metrics.
 
 **[2026-11-08]** Debouncing notifications does not serialize asynchronous inspections — resetting a debounce flag before awaiting a full storage snapshot allowed five progress notifications to start five concurrent inspections. Keep one in-flight refresh promise and coalesce subsequent notifications into a follow-up read. A gated browser regression proves the overlap without relying on machine speed.

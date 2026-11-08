@@ -92,6 +92,46 @@ async function shellVersion(page: Page) {
 		navigator.serviceWorker.controller!.postMessage({ type: 'OFFLINE_SHELL_STATUS' }, [channel.port2]);
 	}));
 }
+interface ShellCleanup {
+	deleted: string[];
+	retained: string[];
+	deferred: null | 'unavailable' | 'replacement' | 'incomplete' | 'unknown-client';
+}
+async function cleanupShells(page: Page): Promise<ShellCleanup> {
+	return page.evaluate(() => new Promise((resolve, reject) => {
+		const channel = new MessageChannel();
+		const timer = setTimeout(() => { channel.port1.close(); reject(new Error('No shell cleanup reply')); }, 15_000);
+		channel.port1.onmessage = event => { clearTimeout(timer); channel.port1.close(); resolve(event.data); };
+		navigator.serviceWorker.controller!.postMessage({ type: 'OFFLINE_SHELL_CLEANUP' }, [channel.port2]);
+	}));
+}
+async function shellCache(page: Page, version: string): Promise<string> {
+	return page.evaluate(async version => {
+		const names = (await caches.keys()).filter(name => name.startsWith('alt-infotb-preview-')
+			&& name.includes('-precache-v2-') && name.endsWith(`-${version}`));
+		if (names.length !== 1) throw new Error(`Expected one shell cache for ${version}: ${names.join(',')}`);
+		return names[0];
+	}, version);
+}
+async function hasCache(page: Page, name: string): Promise<boolean> {
+	return page.evaluate(name => caches.has(name), name);
+}
+async function restartWorkers(page: Page) {
+	const cdp = await page.context().newCDPSession(page);
+	try { await cdp.send('ServiceWorker.enable'); await cdp.send('ServiceWorker.stopAllWorkers'); }
+	finally { await cdp.detach(); }
+	// postMessage restarts the worker; this must succeed using durable registry state.
+	expect((await shellVersion(page)).complete).toBe(true);
+}
+async function applyShellUpdate(page: Page) {
+	await openPanel(page);
+	await Promise.all([
+		page.waitForEvent('load', { timeout: 30_000 }),
+		panel(page).getByRole('button', { name: ro.offlineApplyAppUpdate, exact: true }).click()
+	]);
+	await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible();
+}
+
 async function waitForUpdate(page: Page) {
 	await page.evaluate(async () => { const registration = await navigator.serviceWorker.ready; await registration.update(); });
 	await expect.poll(() => page.evaluate(async () => !!(await navigator.serviceWorker.ready).waiting)).toBe(true);
@@ -222,24 +262,48 @@ test('RO/EN dialog, cancellation, denied persistence, explicit use, offline relo
 test('app update waits for approval, old tab retains its shell, package update waits for explicit use', async ({ page, context }) => {
 	test.setTimeout(360_000); await network(context); await open(page); await install(page); await useOffline(page);
 	const first = (await journal(page))!.active!; const oldShell = await shellVersion(page);
-	const oldChunk = await page.evaluate(async () => {
-		const cache = await caches.open((await caches.keys()).find(name => name.startsWith('alt-infotb-preview-'))!);
+	const oldCache = await shellCache(page, oldShell.version);
+	const sentinels = await page.evaluate(async () => {
+		const names = ['unrelated-map-cache', 'alt-infotb-preview-%2Fforeign%2F-precache-v2-sentinel',
+			'alt-infotb-preview-%2Falt-infotb%2F-precache-v2-legacy-unowned'];
+		for (const name of names) await (await caches.open(name)).put('/shell-cleanup-sentinel', new Response(name));
+		return names;
+	});
+	const oldChunk = await page.evaluate(async name => {
+		const cache = await caches.open(name);
 		const request = (await cache.keys()).find(request => request.url.includes('/_app/immutable/nodes/2.') && request.url.endsWith('.js'))!;
 		if (!request) throw new Error('Missing old page entry');
 		return { url: request.url, body: await (await cache.match(request))!.text() };
-	});
+	}, oldCache);
 	await closePanel(page);
+	await page.getByRole('button', { name: 'Adaugă la favorite', exact: true }).click();
+	const favorite = await page.evaluate(() => localStorage.getItem('alt-stb-favorites'));
+	expect(favorite).not.toBeNull();
 	const oldTab = await context.newPage(); await open(oldTab);
 	await expect(mapStatus(oldTab)).toHaveAttribute('data-generation', first.id);
 	await openPanel(oldTab);
-	await build('build-offline-next'); await waitForUpdate(page);
-	expect((await shellVersion(page)).version).toBe(oldShell.version);
-	await openPanel(page);
-	const reloaded = page.waitForEvent('load');
-	await panel(page).getByRole('button', { name: ro.offlineApplyAppUpdate, exact: true }).click();
-	await reloaded;
-	await expect.poll(async () => (await shellVersion(page)).version).not.toBe(oldShell.version);
-	await expect(mapStatus(page)).toHaveAttribute('data-generation', first.id);
+	await expect(mapStatus(oldTab)).toHaveAttribute('data-renderer-status', 'ready');
+	const oldTabCdp = await context.newCDPSession(oldTab);
+	await oldTabCdp.send('Page.setWebLifecycleState', { state: 'frozen' });
+	try {
+		await build('build-offline-next'); await waitForUpdate(page);
+		expect((await shellVersion(page)).version).toBe(oldShell.version);
+		await openPanel(page);
+		const reloaded = page.waitForEvent('load');
+		await panel(page).getByRole('button', { name: ro.offlineApplyAppUpdate, exact: true }).click();
+		await reloaded;
+		await expect.poll(async () => (await shellVersion(page)).version).not.toBe(oldShell.version);
+		await expect(mapStatus(page)).toHaveAttribute('data-generation', first.id);
+		// A frozen document cannot answer a heartbeat, but its browser-held lease
+		// still protects its lazy chunks through activation and worker termination.
+		await cleanupShells(page);
+		expect(await hasCache(page, oldCache)).toBe(true);
+		await restartWorkers(page); await cleanupShells(page);
+		expect(await hasCache(page, oldCache)).toBe(true);
+	} finally {
+		await oldTabCdp.send('Page.setWebLifecycleState', { state: 'active' }).catch(() => {});
+		await oldTabCdp.detach();
+	}
 	await expect(mapStatus(oldTab)).toHaveAttribute('data-generation', first.id);
 	const newShell = await shellVersion(page);
 	expect(await page.evaluate(async ({ url, version }) => {
@@ -265,6 +329,11 @@ test('app update waits for approval, old tab retains its shell, package update w
 	await expect(mapStatus(oldTab)).toHaveAttribute('data-generation', first.id);
 	// Closing the old tab releases its reader before the exact old generation can be reclaimed.
 	await oldTab.close();
+	await expect.poll(async () => { await cleanupShells(page); return hasCache(page, oldCache); }).toBe(false);
+	for (const name of sentinels) expect(await page.evaluate(async name =>
+		(await (await caches.open(name)).match('/shell-cleanup-sentinel'))?.text(), name)).toBe(name);
+	expect(await page.evaluate(() => localStorage.getItem('alt-stb-favorites'))).toBe(favorite);
+	expect(await hasCache(page, await shellCache(page, newShell.version))).toBe(true);
 	await panel(page).getByRole('button', { name: ro.offlinePersistenceCheck, exact: true }).click();
 	await expect.poll(async () => (await journal(page))?.garbage.length ?? 0).toBe(0);
 	expect((await journal(page))?.active?.id).toBe(next.active!.id);
@@ -276,6 +345,7 @@ test('app update waits for approval, old tab retains its shell, package update w
 	const rollbackLoaded = page.waitForEvent('load');
 	await panel(page).getByRole('button', { name: ro.offlineApplyAppUpdate, exact: true }).click(); await rollbackLoaded;
 	await expect.poll(async () => (await shellVersion(page)).version).toBe(oldShell.version);
+	expect(await hasCache(page, oldCache)).toBe(true);
 	await expect(mapStatus(page)).toHaveAttribute('data-generation', next.active!.id);
 	await openPanel(page);
 	await expect(panel(page).getByRole('button', { name: ro.offlineUpdate, exact: true })).toHaveCount(0);
@@ -283,6 +353,161 @@ test('app update waits for approval, old tab retains its shell, package update w
 	await context.setOffline(true); await page.reload();
 	await expect(mapStatus(page)).toHaveAttribute('data-generation', next.active!.id);
 	await expect(mapStatus(page)).toHaveAttribute('data-renderer-status', 'ready');
+});
+
+test('shell collection defers for a waiting replacement, unknown window and incomplete active shell', async ({ page, context }) => {
+	await network(context);
+	// Create a real in-scope legacy window before registration exists. It has no
+	// lease and no navigation pin; the new worker must not guess its shell version.
+	const unknown = await context.newPage();
+	await unknown.route(`${APP}legacy-window`, route => route.fulfill({ contentType: 'text/html', body: '<title>Legacy window</title>' }));
+	await unknown.goto(`${APP}legacy-window`);
+	await open(page); const oldVersion = (await shellVersion(page)).version;
+	const oldCache = await shellCache(page, oldVersion);
+	await build('build-offline-next'); await waitForUpdate(page);
+	expect((await cleanupShells(page)).deferred).toBe('replacement');
+	const candidate = await page.evaluate(async () => {
+		const registration = await navigator.serviceWorker.ready;
+		return new Promise<{ version: string; complete: boolean }>((resolve, reject) => {
+			const channel = new MessageChannel();
+			const timer = setTimeout(() => { channel.port1.close(); reject(new Error('No candidate shell reply')); }, 10_000);
+			channel.port1.onmessage = event => { clearTimeout(timer); channel.port1.close(); resolve(event.data); };
+			registration.waiting!.postMessage({ type: 'OFFLINE_SHELL_STATUS' }, [channel.port2]);
+		});
+	});
+	expect(candidate.complete).toBe(true);
+	const candidateCache = await shellCache(page, candidate.version);
+	expect(await hasCache(page, oldCache)).toBe(true);
+	await applyShellUpdate(page);
+	await expect.poll(async () => (await shellVersion(page)).version).toBe(candidate.version);
+	expect((await cleanupShells(page)).deferred).toBe('unknown-client');
+	expect(await hasCache(page, oldCache)).toBe(true);
+	await page.evaluate(async name => {
+		const cache = await caches.open(name);
+		const request = (await cache.keys()).find(request => request.url.includes('/_app/immutable/') && request.url.endsWith('.js'))!;
+		(window as any).removedShellEntry = { name, request, response: await cache.match(request) };
+		await cache.delete(request);
+	}, candidateCache);
+	await unknown.close();
+	expect((await cleanupShells(page)).deferred).toBe('incomplete');
+	expect(await hasCache(page, oldCache)).toBe(true);
+	await page.evaluate(async () => {
+		const entry = (window as any).removedShellEntry;
+		await (await caches.open(entry.name)).put(entry.request, entry.response);
+		delete (window as any).removedShellEntry;
+	});
+	await expect.poll(async () => { await cleanupShells(page); return hasCache(page, oldCache); }).toBe(false);
+	expect(await hasCache(page, candidateCache)).toBe(true);
+	// Cached bytes alone cannot establish readiness when their ownership/handoff
+	// journal cannot be read. The actual UI must disable package activation too.
+	await openPanel(page);
+	await expect(panel(page).getByRole('button', { name: ro.offlineDownload, exact: true })).toBeEnabled();
+	await page.evaluate(async () => {
+		const name = (await caches.keys()).find(name => name.startsWith('alt-infotb-shell-registry-v1:'))!;
+		const key = `${location.origin}/alt-infotb/__offline_shell_registry__/state`;
+		const cache = await caches.open(name);
+		(window as any).savedShellRegistry = { name, key, response: await cache.match(key) };
+		await cache.put(key, new Response(JSON.stringify({ schema: 999 }), { headers: { 'Content-Type': 'application/json' } }));
+	});
+	expect((await shellVersion(page)).complete).toBe(false);
+	await panel(page).getByRole('button', { name: ro.offlinePersistenceCheck, exact: true }).click();
+	await expect(panel(page).getByRole('button', { name: ro.offlineDownload, exact: true })).toBeDisabled();
+	await page.evaluate(async () => {
+		const saved = (window as any).savedShellRegistry;
+		await (await caches.open(saved.name)).put(saved.key, saved.response);
+		delete (window as any).savedShellRegistry;
+	});
+	await panel(page).getByRole('button', { name: ro.offlinePersistenceCheck, exact: true }).click();
+	await expect(panel(page).getByRole('button', { name: ro.offlineDownload, exact: true })).toBeEnabled();
+	expect((await shellVersion(page)).complete).toBe(true);
+	await context.setOffline(true); await page.reload();
+	await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible();
+	expect((await shellVersion(page)).complete).toBe(true);
+});
+
+test('history back after shell cleanup restores a protected document or reloads the current shell offline', async ({ page, context }, testInfo) => {
+	await network(context); await open(page);
+	const oldVersion = (await shellVersion(page)).version;
+	const oldCache = await shellCache(page, oldVersion);
+	const oldChunk = await page.evaluate(async name => {
+		const cache = await caches.open(name);
+		const request = (await cache.keys()).find(request => request.url.includes('/_app/immutable/nodes/2.') && request.url.endsWith('.js'))!;
+		return { url: request.url, body: await (await cache.match(request))!.text() };
+	}, oldCache);
+	const historyTab = await context.newPage();
+	await historyTab.addInitScript(() => {
+		(window as any).historyDocumentToken = crypto.randomUUID();
+		addEventListener('pageshow', event => { (window as any).historyRestoredFromCache = event.persisted; });
+	});
+	await open(historyTab);
+	const baselineToken = await historyTab.evaluate(() => (window as any).historyDocumentToken);
+	const away = 'http://localhost:4190/__shell_history_away';
+	await historyTab.route(away, route => route.fulfill({ contentType: 'text/html', body: '<title>Outside application scope</title>' }));
+	await historyTab.goto(away);
+	await historyTab.goBack({ waitUntil: 'commit' });
+	await expect(historyTab.locator('canvas.maplibregl-canvas')).toBeVisible();
+	const baseline = await historyTab.evaluate(previous => ({
+		sameDocument: (window as any).historyDocumentToken === previous,
+		persisted: (window as any).historyRestoredFromCache === true
+	}), baselineToken);
+	const token = await historyTab.evaluate(() => (window as any).historyDocumentToken);
+	await historyTab.goto(away);
+	await build('build-offline-next'); await waitForUpdate(page); await applyShellUpdate(page);
+	const currentVersion = (await shellVersion(page)).version;
+	expect(currentVersion).not.toBe(oldVersion);
+	await cleanupShells(page);
+	const retainedBeforeBack = await hasCache(page, oldCache);
+	await context.setOffline(true); await historyTab.goBack({ waitUntil: 'commit' });
+	await expect(historyTab.locator('canvas.maplibregl-canvas')).toBeVisible();
+	const restored = await historyTab.evaluate(previous => ({
+		sameDocument: (window as any).historyDocumentToken === previous,
+		persisted: (window as any).historyRestoredFromCache === true
+	}), token);
+	if (restored.sameDocument) {
+		// A browser may keep the document in BFCache. Its lease must protect even
+		// a chunk imported only after the history restore, with the network absent.
+		expect(retainedBeforeBack).toBe(true);
+		expect(await historyTab.evaluate(async url => (await fetch(url, { cache: 'no-store' })).text(), oldChunk.url)).toBe(oldChunk.body);
+	} else {
+		// Browsers may evict BFCache entries on lock contention or worker updates.
+		// A fresh history navigation must use the complete active shell instead.
+		expect((await shellVersion(historyTab)).version).toBe(currentVersion);
+		expect((await shellVersion(historyTab)).complete).toBe(true);
+	}
+	await writeFile(testInfo.outputPath('history-restore.json'), JSON.stringify({ baseline, ...restored, retainedBeforeBack }, null, 2));
+});
+
+test('unacknowledged navigation pins survive a closed bootstrap and worker restart', async ({ page, context }) => {
+	await network(context); await open(page);
+	const oldVersion = (await shellVersion(page)).version;
+	const oldCache = await shellCache(page, oldVersion);
+	const bootstrap = await context.newPage();
+	await bootstrap.addInitScript(() => {
+		const request = navigator.locks.request.bind(navigator.locks);
+		navigator.locks.request = ((name: string, ...options: any[]) => {
+			// Pause before acquiring any lifecycle lock. Holding that lock while
+			// blocking the reader would correctly prevent B from installing at all.
+			// The navigation pin must cover the still-unacknowledged document.
+			if (name.endsWith(':lifecycle') && options[0]?.mode === 'shared') return new Promise(() => {});
+			return (request as any)(name, ...options);
+		}) as typeof navigator.locks.request;
+	});
+	await bootstrap.goto(APP);
+	const pins = () => page.evaluate(async () => {
+		const name = (await caches.keys()).find(name => name.startsWith('alt-infotb-shell-registry-v1:'))!;
+		const response = await (await caches.open(name)).match(`${location.origin}/alt-infotb/__offline_shell_registry__/state`);
+		return (await response!.json()).pins as Array<{ clientId: string; version: string }>;
+	});
+	await expect.poll(async () => (await pins()).some(pin => pin.version === oldVersion)).toBe(true);
+	await build('build-offline-next'); await waitForUpdate(page); await applyShellUpdate(page);
+	await expect.poll(async () => (await shellVersion(page)).version).not.toBe(oldVersion);
+	await bootstrap.close();
+	await restartWorkers(page); await cleanupShells(page);
+	expect(await hasCache(page, oldCache)).toBe(true);
+	expect((await pins()).some(pin => pin.version === oldVersion)).toBe(true);
+	const heldVersions = await page.evaluate(async () => (await navigator.locks.query()).held
+		?.filter(lock => lock.name?.includes(':reader:')).map(lock => lock.name));
+	expect(heldVersions).not.toContain(`offline-shell:${APP}:reader:${oldVersion}`);
 });
 
 test('WebGL loss is recoverable; corrupted stored style requires a verified replacement', async ({ page, context }) => {
@@ -314,16 +539,16 @@ test('WebGL loss is recoverable; corrupted stored style requires a verified repl
 
 test('missing cached shell chunk blocks package activation; app update cannot bypass another tab operation lock', async ({ page, context }) => {
 	await network(context); await open(page); await openPanel(page);
+	const lockTab = await context.newPage(); await open(lockTab);
 	await expect(panel(page).getByRole('button', { name: ro.offlineDownload, exact: true })).toBeEnabled();
 	await page.evaluate(async () => {
-		const cache = await caches.open((await caches.keys()).find(name => name.startsWith('alt-infotb-preview-'))!);
+		const cache = await caches.open((await caches.keys()).find(name => name.startsWith('alt-infotb-preview-') && name.includes('-precache-v2-'))!);
 		const request = (await cache.keys()).find(request => request.url.includes('/_app/immutable/') && request.url.endsWith('.js'))!;
 		if (!request) throw new Error('No cached chunk'); await cache.delete(request);
 	});
 	await panel(page).getByRole('button', { name: ro.offlinePersistenceCheck, exact: true }).click();
 	await expect(panel(page).getByRole('button', { name: ro.offlineDownload, exact: true })).toBeDisabled();
 	await build('build-offline-next'); await waitForUpdate(page);
-	const lockTab = await context.newPage(); await lockTab.goto(APP);
 	await lockTab.evaluate(() => { Object.assign(window, { releasePreviewLock: null }); void navigator.locks.request(`offline-shell:${location.origin}/alt-infotb/:transition`, { mode: 'shared' }, () => new Promise<void>(resolve => { (window as any).releasePreviewLock = resolve; })); });
 	await expect.poll(() => lockTab.evaluate(() => typeof (window as any).releasePreviewLock)).toBe('function');
 	const old = (await shellVersion(page)).version;
@@ -337,15 +562,32 @@ test('missing cached shell chunk blocks package activation; app update cannot by
 	await expect.poll(async () => (await shellVersion(page)).version).not.toBe(old);
 });
 
-test('fresh Chromium process reopens the complete app and package offline', async () => {
-	test.setTimeout(240_000); const profile = await mkdtemp(path.join(tmpdir(), 'alt-infotb-offline-app-'));
+test('browser crash releases old shell leases and reopens the complete app and package offline', async () => {
+	test.setTimeout(300_000); const profile = await mkdtemp(path.join(tmpdir(), 'alt-infotb-offline-app-'));
 	let context: BrowserContext | undefined;
 	const browserErrors: string[] = [];
 	try {
 		context = await chromium.launchPersistentContext(profile, { headless: true, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'], viewport: { width: 393, height: 851 }, geolocation: { latitude: 44.4268, longitude: 26.1025 }, permissions: ['geolocation'] });
 		const firstErrors = captureErrors(context);
 		await network(context); let page = context.pages()[0]; await open(page); await install(page); await useOffline(page);
-		const active = (await journal(page))!.active!.id; await context.close(); browserErrors.push(...firstErrors);
+		const active = (await journal(page))!.active!.id;
+		const oldVersion = (await shellVersion(page)).version;
+		const oldCache = await shellCache(page, oldVersion);
+		const oldTab = await context.newPage(); await open(oldTab);
+		await expect(mapStatus(oldTab)).toHaveAttribute('data-renderer-status', 'ready');
+		await build('build-offline-next'); await waitForUpdate(page); await applyShellUpdate(page);
+		await expect.poll(async () => (await shellVersion(page)).version).not.toBe(oldVersion);
+		await expect(mapStatus(page)).toHaveAttribute('data-generation', active);
+		await cleanupShells(page); expect(await hasCache(page, oldCache)).toBe(true);
+		// Terminate only this test-owned browser, leaving no page lifecycle cleanup.
+		const browser = context.browser()!;
+		const cdp = await browser.newBrowserCDPSession();
+		const { processInfo } = await cdp.send('SystemInfo.getProcessInfo');
+		const browserProcess = processInfo.find(item => item.type === 'browser');
+		if (!browserProcess) throw new Error('Missing test browser process');
+		const disconnected = new Promise<void>(resolve => browser.once('disconnected', () => resolve()));
+		process.kill(browserProcess.id, 'SIGKILL'); await disconnected;
+		await context.close().catch(() => {}); browserErrors.push(...firstErrors);
 		context = await chromium.launchPersistentContext(profile, { headless: true, offline: true, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'], viewport: { width: 393, height: 851 }, geolocation: { latitude: 44.4268, longitude: 26.1025 }, permissions: ['geolocation'] });
 		const secondErrors = captureErrors(context);
 		page = context.pages()[0]; await page.goto(APP);
@@ -354,6 +596,8 @@ test('fresh Chromium process reopens the complete app and package offline', asyn
 		await expect(page.locator('.station-marker').first()).toBeVisible();
 		expect(await page.evaluate(async () => { try { await fetch('/__preview_health'); return true; } catch { return false; } })).toBe(false);
 		expect((await shellVersion(page)).complete).toBe(true);
+		await expect.poll(async () => { await cleanupShells(page); return hasCache(page, oldCache); }).toBe(false);
+		expect((await journal(page))!.active!.id).toBe(active);
 		browserErrors.push(...secondErrors); expect(browserErrors).toEqual([]);
 	} finally { await context?.close(); await rm(profile, { recursive: true, force: true }); }
 });
