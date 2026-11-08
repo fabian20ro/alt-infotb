@@ -7,7 +7,16 @@ on:
       - 'src/lib/offline-maps/**'
       - 'src/lib/map/**'
       - 'src/lib/stations/**'
-      - 'src/lib/components/map/tiles.ts'
+      - 'src/lib/components/**'
+      - 'src/lib/i18n/**'
+      - 'src/routes/**'
+      - 'src/service-worker*.ts'
+      - 'src/offline-preview.d.ts'
+      - 'scripts/*offline-preview*.ts'
+      - 'e2e/offline-maps.spec.ts'
+      - 'playwright.offline.config.ts'
+      - 'vite.config.ts'
+      - 'svelte.config.js'
       - 'e2e/fixtures/line66-scene.json'
       - 'src/lib/api/proto.ts'
       - '.github/workflows/pmtiles-package.yml'
@@ -124,6 +133,30 @@ jobs:
         env:
           PMTILES_CLI: .bin/pmtiles
         run: npm run test:storage
+      - name: Install application dependencies for opt-in preview
+        working-directory: .
+        run: npm ci
+      - name: Build two local application shells for update verification
+        working-directory: .
+        env:
+          VITE_CARTO_API_KEY: offline-preview-test-key
+          PMTILES_CLI: tools/pmtiles/.bin/pmtiles
+        run: |
+          export PMTILES_PACKAGE_DIR="tools/pmtiles/$PMTILES_PACKAGE_DIR"
+          PREVIEW_PACKAGE_REVISION=1 npm run offline:prepare
+          OFFLINE_SHELL_VERSION=ci-preview-a npm run build:offline
+          mv build-offline .offline-preview/build-a
+          PREVIEW_PACKAGE_REVISION=2 npm run offline:prepare
+          OFFLINE_SHELL_VERSION=ci-preview-b npm run build:offline
+          mv build-offline build-offline-next
+          mv .offline-preview/build-a build-offline
+      - name: Verify actual app offline UI and controlled shell updates
+        working-directory: .
+        env:
+          PMTILES_CLI: tools/pmtiles/.bin/pmtiles
+        run: |
+          export PMTILES_PACKAGE_DIR="tools/pmtiles/$PMTILES_PACKAGE_DIR"
+          npm run test:e2e:offline
       # Opt-in only: no artifact storage is allocated by default. A failed browser
       # run can retain its extract, but cannot produce a successful receipt.
       - name: Retain regional package and verification evidence

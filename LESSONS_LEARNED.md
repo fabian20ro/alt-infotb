@@ -116,6 +116,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Testing & Quality
 
+**[2026-11-08]** A custom SvelteKit preview worker needs both entry-point and asset checks — changing only VitePWA `filename` can rename the default worker rather than compile the intended source; select `kit.files.serviceWorker` too. MapLibre emits an `.mjs` worker, so a `*.js` precache glob silently misses it. Inspect compiled worker identity and every immutable JS/MJS/CSS filename, then verify a fresh browser process offline.
+
+**[2026-11-08]** Avoid naming a Svelte component variable or prop `state` when using `$state` runes — Svelte can parse `$state(...)` as a subscription to that local store and emit `store_rune_conflict`. Use a domain name such as `view` or `model`; coordinator snapshots can still expose a plain `.state` property.
+
 **[2026-11-07]** Reserve all one-shot camera guards before calling an engine — A renderer can synchronously emit camera-idle from `setCamera`. Clearing only pending recentre is insufficient when initial framing is still eligible: a newly arrived catalog/GPS can trigger nested GPS+selection framing and override recentre. Reserve the initial-view flag before the call, restore it if rejected, and test with selected station + GPS + synchronous idle together.
 
 **[2026-10-21]** A generated sw.js does not prove PWA caching is active — Fresh production-browser inspection found zero service-worker registrations, no controller and empty Cache Storage despite a published sw.js containing map caching rules. Verify registration, scope, control after reload and actual cache entries on the production build; dev-server tests and configuration inspection alone cannot establish offline behavior.

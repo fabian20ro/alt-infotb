@@ -27,6 +27,10 @@ export interface MapRenderer {
 	/** false means temporarily blocked; the caller retains the intent. */
 	setCamera(camera: MapCamera, immediate: boolean): boolean;
 	fitPoints(points: readonly MapPoint[], purpose: 'initial' | 'overview'): boolean;
+	/** Optional view snapshot supports source changes without resetting camera policy. */
+	getCamera?(): MapCamera;
+	getBounds?(): { south: number; north: number; west: number; east: number };
+	setLanguage?(lang: 'ro' | 'en'): void;
 	/** Removes rendering resources before releasing any asynchronous package reader. */
 	destroy(): void | Promise<void>;
 }

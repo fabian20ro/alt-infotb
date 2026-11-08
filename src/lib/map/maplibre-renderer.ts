@@ -76,6 +76,18 @@ export function createMapLibreRenderer(container: HTMLElement, initialScene: Map
 	map.keyboard.disableRotation();
 	map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
 	map.addControl(new ml.AttributionControl({ compact: true }), 'bottom-left');
+	let language = options.lang ?? 'en';
+	function localizeControls() {
+		const labels = language === 'ro' ? ['Mărește', 'Micșorează', 'Afișează atribuirea', 'Hartă'] : ['Zoom in', 'Zoom out', 'Toggle attribution', 'Map'];
+		for (const [index, selector] of ['.maplibregl-ctrl-zoom-in', '.maplibregl-ctrl-zoom-out', '.maplibregl-ctrl-attrib-button'].entries()) {
+			const button = container.querySelector<HTMLButtonElement>(selector);
+			button?.setAttribute('aria-label', labels[index]); button?.setAttribute('title', labels[index]);
+		}
+		map.getCanvas().setAttribute('aria-label', labels[3]);
+	}
+	// Attribution is rebuilt after style changes; localize its accessible button again.
+	map.on('styledata', localizeControls);
+	localizeControls();
 
 	function report(kind: 'context-lost' | 'basemap' | 'offline-data', error: unknown) {
 		if (destroyed) return;
@@ -284,6 +296,9 @@ export function createMapLibreRenderer(container: HTMLElement, initialScene: Map
 				maxZoom: purpose === 'initial' ? 15 : 18, duration: purpose === 'initial' ? 0 : 300 });
 			updateMarkers(); return true;
 		},
+		getCamera() { const center = map.getCenter(); return { lat: center.lat, lon: center.lng, zoom: map.getZoom() + 1 }; },
+		getBounds() { const bounds = map.getBounds(); return { south: bounds.getSouth(), north: bounds.getNorth(), west: bounds.getWest(), east: bounds.getEast() }; },
+		setLanguage(lang) { language = lang; localizeControls(); },
 		inspect() {
 			const center = map.getCenter();
 			const features = map.isStyleLoaded() ? map.queryRenderedFeatures() : [];

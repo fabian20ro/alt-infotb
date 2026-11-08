@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { translations } from '$lib/i18n/translations.js';
+	import type OfflineMapExperienceComponent from '$lib/components/OfflineMapExperience.svelte';
 	import { STOP_ID } from '$lib/api/constants.js';
 	import { createArrivalsStore, getCachedArrivals, cacheArrivals } from '$lib/stores/arrivals.svelte.js';
 	import { createGeolocationStore } from '$lib/stores/geolocation.svelte.js';
@@ -24,6 +26,9 @@
 	let allStations = $state<Station[]>([]);
 	let selectedStation = $state<Station | null>(null);
 	let drawerOpen = $state(false);
+	let offlineOpen = $state(false);
+	let offlineLoadFailed = $state(false);
+	let OfflineMapExperience = $state<typeof OfflineMapExperienceComponent | null>(null);
 	let overviewRequest = $state<{ id: number; routeKey: string } | null>(null);
 	let overviewRequestId = 0;
 
@@ -34,6 +39,12 @@
 		const favIds = new Set(favorites.favorites.map((f) => f.id));
 		return recents.getExcluding(favIds);
 	});
+
+	function closeOfflineMaps() {
+		if (!offlineOpen) return;
+		offlineOpen = false;
+		void tick().then(() => { document.querySelector<HTMLButtonElement>('.station-header .menu-btn')?.focus(); });
+	}
 
 	function selectStation(station: Station) {
 		selectedStation = station;
@@ -60,6 +71,12 @@
 	}
 
 	onMount(() => {
+		let disposed = false;
+		if (import.meta.env.MODE === 'offline-preview') {
+			void import('$lib/components/OfflineMapExperience.svelte').then(module => {
+				if (!disposed) OfflineMapExperience = module.default;
+			}).catch(() => { if (!disposed) offlineLoadFailed = true; });
+		}
 		// THREAD A: Load startup station (pinned → first favorite → default)
 		const startupStation = favorites.pinnedStation
 			?? (favorites.favorites.length > 0 ? favorites.favorites[0] : null)
@@ -85,7 +102,7 @@
 		};
 
 		const handleKeydown = (event: KeyboardEvent) => {
-			if (event.key === 'Escape' && !drawerOpen && arrivals.route) {
+			if (event.key === 'Escape' && !drawerOpen && !offlineOpen && arrivals.route) {
 				arrivals.clearLine();
 			}
 		};
@@ -103,6 +120,7 @@
 		geo.startWatching();
 
 		return () => {
+			disposed = true;
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
 			window.removeEventListener('focus', handleFocus);
 			window.removeEventListener('keydown', handleKeydown);
@@ -138,6 +156,7 @@
 	pinnedId={favorites.pinnedId}
 	onTogglePin={(id) => favorites.togglePin(id)}
 	onRemoveRecent={(id) => recents.remove(id)}
+	onOfflineMaps={OfflineMapExperience ? () => { offlineOpen = true; } : undefined}
 />
 
 <main class="app-layout">
@@ -180,6 +199,23 @@
 		/>
 	{/if}
 
+	{#if offlineLoadFailed}<p class="offline-load-error" role="alert">{translations[settings.lang].offlineLoadFailed}</p>{/if}
+	{#if OfflineMapExperience}
+	<OfflineMapExperience
+		open={offlineOpen}
+		onClose={closeOfflineMaps}
+		{allStations}
+		selectedStationId={selectedStation?.id ?? null}
+		userPosition={geo.position}
+		locationPermission={geo.permission}
+		locationError={geo.error}
+		lang={settings.lang}
+		theme={settings.theme}
+		route={arrivals.route}
+		{overviewRequest}
+		onStationSelect={selectStation}
+	/>
+	{:else}
 	<MapView
 		{allStations}
 		selectedStationId={selectedStation?.id ?? null}
@@ -192,9 +228,11 @@
 		{overviewRequest}
 		onStationSelect={selectStation}
 	/>
+	{/if}
 </main>
 
 <style>
+	.offline-load-error { margin: 0; padding: .5rem 1rem; background: var(--color-surface); color: var(--color-text); font-size: .85rem; }
 	.app-layout {
 		display: flex;
 		flex-direction: column;

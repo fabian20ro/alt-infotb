@@ -2,6 +2,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { defineConfig, loadEnv } from 'vite';
 import type { Plugin } from 'vite';
+import { readFileSync } from 'node:fs';
 import { createHandler } from './shared-api/src/index.js';
 
 /** Adapt Node HTTP to the shared proxy contract; policy/auth live in one place. */
@@ -43,6 +44,8 @@ function stbProxy(appId: string | undefined, appKey: string | undefined): Plugin
 }
 
 export default defineConfig(({ mode }) => {
+	const offlinePreview = mode === 'offline-preview';
+	const shellVersion = process.env.OFFLINE_SHELL_VERSION ?? String(Date.now());
 	const env = loadEnv(mode, process.cwd(), 'STB_');
 	const appId = env.STB_APP_ID;
 	const appKey = env.STB_APP_KEY;
@@ -56,21 +59,33 @@ export default defineConfig(({ mode }) => {
 	}
 
 	return {
+		define: { __OFFLINE_SHELL_VERSION__: JSON.stringify(offlinePreview ? shellVersion : '') },
 		// Component browser fixtures are development-only; never part of the deployed routes.
 		server: mode === 'test' ? { fs: { allow: ['./e2e'] } } : undefined,
 		plugins: [
+			{
+				name: 'offline-preview-config',
+				resolveId(id) { if (id === 'virtual:offline-preview-config') return '\0offline-preview-config'; },
+				load(id) {
+					if (id !== '\0offline-preview-config') return;
+					if (!offlinePreview) return 'export default null';
+					const config = JSON.parse(readFileSync('.offline-preview/config.json', 'utf8'));
+					return `export default ${JSON.stringify(config)}`;
+				}
+			},
 			stbProxy(appId, appKey),
 			sveltekit(),
 			SvelteKitPWA({
-				registerType: 'autoUpdate',
+				registerType: offlinePreview ? 'prompt' : 'autoUpdate',
 				strategies: 'injectManifest',
 				srcDir: 'src',
-				filename: 'service-worker.ts',
+				filename: offlinePreview ? 'service-worker-offline.ts' : 'service-worker.ts',
 				injectRegister: null,
-				injectManifest: { globPatterns: [] },
+				injectManifest: { globPatterns: offlinePreview ? ['**/*.{js,mjs,css,html,svg,png,woff,woff2,json}'] : [],
+					...(offlinePreview ? { maximumFileSizeToCacheInBytes: 8 * 1024 ** 2 } : {}) },
 				manifest: {
-					name: 'Alt InfoTB',
-					short_name: 'AltInfoTB',
+					name: offlinePreview ? 'Alt InfoTB — Offline preview' : 'Alt InfoTB',
+					short_name: offlinePreview ? 'InfoTB Preview' : 'AltInfoTB',
 					description: 'Real-time transit arrivals for București — bus, tram, trolleybus',
 					start_url: '/alt-infotb/',
 					scope: '/alt-infotb/',
