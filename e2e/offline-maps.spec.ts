@@ -156,6 +156,7 @@ test('RO/EN dialog, cancellation, denied persistence, explicit use, offline relo
 	const overlapHits = await page.evaluate(() => {
 		const attribution = document.querySelector<HTMLDetailsElement>('.maplibregl-ctrl-attrib')!;
 		const wasOpen = attribution.open; attribution.open = true;
+		const attributionStyle = attribution.getAttribute('style');
 		const marker = document.querySelector<HTMLElement>('.maplibre-station.station-marker-selected')
 			?? document.querySelector<HTMLElement>('.maplibre-station')!;
 		const originalStyle = marker.getAttribute('style');
@@ -163,22 +164,33 @@ test('RO/EN dialog, cancellation, denied persistence, explicit use, offline relo
 			return ['.maplibregl-ctrl-zoom-in', '.maplibregl-ctrl-attrib-inner a'].map(selector => {
 				if (originalStyle === null) marker.removeAttribute('style'); else marker.setAttribute('style', originalStyle);
 				const target = document.querySelector<HTMLElement>(selector)!;
-				const bounds = target.getBoundingClientRect(), before = marker.getBoundingClientRect();
+				if (selector.includes('attrib')) {
+					// Exercise an inline link split across lines, independent of host fonts.
+					attribution.style.width = '150px'; attribution.style.maxWidth = '150px';
+				}
+				const fragments = [...target.getClientRects()];
+				// An inline link's bounding-box center can be whitespace between lines.
+				// Select a real visible fragment, never search for a point that already hits.
+				const bounds = fragments.find(rect => rect.width > 0 && rect.height > 0 && rect.left >= 0
+					&& rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight);
+				if (!bounds) throw new Error(`No visible control fragment: ${selector}`);
+				const before = marker.getBoundingClientRect();
 				const x = bounds.left + bounds.width / 2, y = bounds.top + bounds.height / 2;
 				marker.style.transform += ` translate(${x - before.left - before.width / 2}px, ${y - before.top - before.height / 2}px)`;
 				const moved = marker.getBoundingClientRect();
 				const hit = document.elementFromPoint(x, y);
-				return { selector, overlaps: moved.left <= x && moved.right >= x && moved.top <= y && moved.bottom >= y,
+				return { selector, wrapped: fragments.length > 1, overlaps: moved.left <= x && moved.right >= x && moved.top <= y && moved.bottom >= y,
 					controlWins: !!hit && (target === hit || target.contains(hit)) };
 			});
 		} finally {
 			if (originalStyle === null) marker.removeAttribute('style'); else marker.setAttribute('style', originalStyle);
+			if (attributionStyle === null) attribution.removeAttribute('style'); else attribution.setAttribute('style', attributionStyle);
 			attribution.open = wasOpen;
 		}
 	});
 	expect(overlapHits).toEqual([
-		{ selector: '.maplibregl-ctrl-zoom-in', overlaps: true, controlWins: true },
-		{ selector: '.maplibregl-ctrl-attrib-inner a', overlaps: true, controlWins: true }
+		{ selector: '.maplibregl-ctrl-zoom-in', wrapped: false, overlaps: true, controlWins: true },
+		{ selector: '.maplibregl-ctrl-attrib-inner a', wrapped: true, overlaps: true, controlWins: true }
 	]);
 	await page.screenshot({ path: testInfo.outputPath('map-light.png') });
 	await page.getByRole('button', { name: 'Meniu', exact: true }).click();

@@ -43,6 +43,8 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Code Patterns & Pitfalls
 
+**[2026-11-08]** Hit-test wrapped inline links using a real fragment — the center of getBoundingClientRect can fall in whitespace between text lines. Select a visible getClientRects fragment before moving an overlapping marker; still assert that elementFromPoint returns the actual control. Force wrapping in the regression instead of relying on host font metrics.
+
 **[2026-11-08]** Debouncing notifications does not serialize asynchronous inspections — resetting a debounce flag before awaiting a full storage snapshot allowed five progress notifications to start five concurrent inspections. Keep one in-flight refresh promise and coalesce subsequent notifications into a follow-up read. A gated browser regression proves the overlap without relying on machine speed.
 
 **[2026-11-08]** MapLibre markers own their inline opacity — CSS route classes alone did not fade station markers because MapLibre 6 writes inline opacity. Use `Marker.setOpacity()` for selected/served/background state; browser tests must inspect computed opacity, not only class names.
