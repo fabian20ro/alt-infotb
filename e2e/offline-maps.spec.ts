@@ -100,7 +100,7 @@ async function waitForUpdate(page: Page) {
 test.beforeEach(async ({ context }) => { await build('build-offline'); captureErrors(context); });
 test.afterEach(async ({ context }) => { await build('build-offline'); expect(errorsByContext.get(context) ?? [], 'Unexpected browser exceptions').toEqual([]); });
 
-test('RO/EN dialog, cancellation, denied persistence, explicit use, offline reload and exact deletion', async ({ page, context }) => {
+test('RO/EN dialog, cancellation, denied persistence, explicit use, offline reload and exact deletion', async ({ page, context }, testInfo) => {
 	await context.addInitScript(() => {
 		Object.defineProperty(navigator.storage, 'persisted', { value: async () => false });
 		Object.defineProperty(navigator.storage, 'persist', { value: async () => false });
@@ -115,6 +115,7 @@ test('RO/EN dialog, cancellation, denied persistence, explicit use, offline relo
 	await openPanel(page);
 	await expect(panel(page)).toHaveAttribute('open', '');
 	await expect(panel(page).getByRole('heading', { name: ro.offlineMaps })).toBeVisible();
+	await page.screenshot({ path: testInfo.outputPath('panel-dark.png') });
 	await page.keyboard.press('Escape'); await expect(panel(page)).not.toBeVisible();
 	await page.getByRole('button', { name: 'Meniu', exact: true }).click();
 	await page.getByRole('button', { name: 'English', exact: true }).click();
@@ -122,6 +123,7 @@ test('RO/EN dialog, cancellation, denied persistence, explicit use, offline relo
 	await page.getByRole('button', { name: en.offlineMaps, exact: true }).click();
 	await expect(panel(page).getByRole('heading', { name: en.offlineMaps })).toBeVisible();
 	await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+	await page.screenshot({ path: testInfo.outputPath('panel-light.png') });
 	await expect(panel(page).getByRole('button', { name: en.offlineDownload, exact: true })).toBeEnabled();
 	let release!: () => void; const held = new Promise<void>(resolve => { release = resolve; });
 	await context.route('**/__offline_downloads__/**/*.pmtiles', async route => { await held; await route.continue().catch(() => {}); });
@@ -149,11 +151,13 @@ test('RO/EN dialog, cancellation, denied persistence, explicit use, offline relo
 	expect((await journal(page))?.pendingRender).toBe(true);
 	await useOffline(page, 'en'); const generation = (await journal(page))!.active!.id;
 	await closePanel(page, 'en');
+	await page.screenshot({ path: testInfo.outputPath('map-light.png') });
 	await page.getByRole('button', { name: 'Meniu', exact: true }).click();
 	await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
 	await page.keyboard.press('Escape');
 	await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 	await expect(mapStatus(page)).toHaveAttribute('data-renderer-status', 'ready');
+	await page.screenshot({ path: testInfo.outputPath('map-dark.png') });
 	const before = net.downloads.length; await context.setOffline(true); await page.reload();
 	await expect(mapStatus(page)).toHaveAttribute('data-source', 'offline');
 	await expect(mapStatus(page)).toHaveAttribute('data-renderer-status', 'ready');
@@ -186,6 +190,7 @@ test('app update waits for approval, old tab retains its shell, package update w
 	await closePanel(page);
 	const oldTab = await context.newPage(); await open(oldTab);
 	await expect(mapStatus(oldTab)).toHaveAttribute('data-generation', first.id);
+	await openPanel(oldTab);
 	await build('build-offline-next'); await waitForUpdate(page);
 	expect((await shellVersion(page)).version).toBe(oldShell.version);
 	await openPanel(page);
@@ -245,7 +250,7 @@ test('WebGL loss is recoverable; corrupted stored style requires a verified repl
 	const lost = await page.locator('canvas.maplibregl-canvas').evaluate((canvas: HTMLCanvasElement) => {
 		const extension = canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context'); extension?.loseContext(); return !!extension;
 	});
-	expect(lost).toBe(true); await expect(page.getByText(ro.offlineContextLost)).toBeVisible();
+	expect(lost).toBe(true); await expect(mapStatus(page).getByText(ro.offlineContextLost)).toBeVisible();
 	await openPanel(page); await panel(page).getByRole('button', { name: ro.offlineReopen, exact: true }).click();
 	await expect(mapStatus(page)).toHaveAttribute('data-renderer-status', 'ready'); expect((await journal(page))!.active!.id).toBe(first.id);
 	await closePanel(page);
@@ -294,11 +299,11 @@ test('fresh Chromium process reopens the complete app and package offline', asyn
 	let context: BrowserContext | undefined;
 	const browserErrors: string[] = [];
 	try {
-		context = await chromium.launchPersistentContext(profile, { headless: true, viewport: { width: 393, height: 851 }, geolocation: { latitude: 44.4268, longitude: 26.1025 }, permissions: ['geolocation'] });
+		context = await chromium.launchPersistentContext(profile, { headless: true, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'], viewport: { width: 393, height: 851 }, geolocation: { latitude: 44.4268, longitude: 26.1025 }, permissions: ['geolocation'] });
 		const firstErrors = captureErrors(context);
 		await network(context); let page = context.pages()[0]; await open(page); await install(page); await useOffline(page);
 		const active = (await journal(page))!.active!.id; await context.close(); browserErrors.push(...firstErrors);
-		context = await chromium.launchPersistentContext(profile, { headless: true, offline: true, viewport: { width: 393, height: 851 }, geolocation: { latitude: 44.4268, longitude: 26.1025 }, permissions: ['geolocation'] });
+		context = await chromium.launchPersistentContext(profile, { headless: true, offline: true, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'], viewport: { width: 393, height: 851 }, geolocation: { latitude: 44.4268, longitude: 26.1025 }, permissions: ['geolocation'] });
 		const secondErrors = captureErrors(context);
 		page = context.pages()[0]; await page.goto(APP);
 		await expect(mapStatus(page)).toHaveAttribute('data-generation', active);

@@ -225,4 +225,14 @@ describe('offline application coordinator', () => {
 		await h.coordinator.dispose(); expect(h.engines[0].renderer.destroy).toHaveBeenCalledOnce();
 	});
 
+	it('binds its version check to the active generation passed to the manager transaction', async () => {
+		const h = environment(); await h.coordinator.start();
+		await h.coordinator.install(offer);
+		expect(h.manager.install).toHaveBeenCalledWith(offer, undefined, { expectedActiveId: 'a' });
+		await h.coordinator.dispose();
+		const empty = environment(null); await empty.coordinator.start(); await empty.coordinator.install(offer, { repair: true });
+		expect(empty.manager.install).toHaveBeenCalledWith(offer, undefined, { repair: true, expectedActiveId: null });
+		await empty.coordinator.dispose();
+	});
+
 });

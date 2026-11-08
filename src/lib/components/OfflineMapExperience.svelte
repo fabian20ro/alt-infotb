@@ -41,7 +41,13 @@
 	onMount(() => {
 		let disposed = false;
 		let stopCoordinator = () => {};
-		const stopShell = offlineShell.subscribe(() => { shell = offlineShell.state; });
+		const stopShell = offlineShell.subscribe(() => {
+			const readinessChanged = shell.ready !== offlineShell.state.ready;
+			shell = offlineShell.state;
+			// A newer controller can claim an already-open tab. Its package controls
+			// must stop advertising the old shell as ready before another download.
+			if (readinessChanged) void coordinator?.refresh().catch(() => { actionFailed = true; });
+		});
 		void offlineShell.start().then(() => createOfflineMapRuntime({ ...previewConfig, namespace: `${base}/` }, {
 			shellReady: () => offlineShell.isReady(),
 			runOperation: (action) => offlineShell.runOperation(action)

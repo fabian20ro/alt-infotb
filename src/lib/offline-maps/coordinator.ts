@@ -251,7 +251,7 @@ export function createOfflineMapCoordinator(ports: CoordinatorPorts) {
 				const next = await ports.manager.checkUpdate(offer);
 				const current = (await ports.manager.snapshot()).active;
 				if (current && compareRelease(next.manifest, current.manifest) < 0) throw new Error('older-package');
-				await ports.manager.install(offer, undefined, options);
+				await ports.manager.install(offer, undefined, { ...options, expectedActiveId: current?.id ?? null });
 			}); await refresh();
 			if (state.offer) patch({ offer: { ...state.offer, available: state.snapshot?.active?.manifestSha256 !== offer.manifestSha256 } });
 		}); },
