@@ -1044,3 +1044,12 @@ Each entry should follow this structure:
 
 - Pixel cold check: stopped local server, force-stopped/restarted Chrome; shellReadytrue, samegeneration,922features/23symbols, persistencegranted,0errors. Controlrequest confirms serverunreachable; screenshot inspected. Isolated cleancheckout typecheck/build passes without rootdependencies/Svelte output; tooling audit0.
 - Final two-axis review caught/fixed confirmation racing a reader integrity report (must recheck ID/pending/invalid atomically before deleting rollback) and reader-close cleanup lost-wakeup (release reader first, then queue region mutation rather than silently skipping). Deterministic regressions added.
+
+## 2026-11-08 — MapLibre preview adapter (step 4)
+
+- Started isolated codex/maplibre-preview from e8e1814: PR63 merged into still-open PR62, not main. Original prototype worktree and unrelated changes retained. User approved physical Chrome now, Brave deferred explicitly.
+- Added optional MapView factory injection with default lazyLeaflet; normal artifact checked for absentMapLibre runtime/worker. Added MapLibre scene/camera/raster/PMTiles adapter, scoped accessible DOMstations, bothroute/vehiclesets, useraccuracy and classifiederrors.
+- PMTiles source owns isolatedpermapprotocol and immutable reader, no storageAPI/networkfallback. Sharedpureprofile avoids pipeline/renderer drift. Source mustretainlease throughstylefailure untilmapremoved; failedleasecannotbe retriedasready. Post-first-idle GLloss is rendererfailure ratherthan rollbackofapreviouslyrenderedmap.
+- Newpairedcomponentparity suite and realstoragepreviewusingactualadapter/catalog/captured66geometry. NativeNode/browsertooling typechecks separated; exactaliasesrequired toavoid rewritingworkerpaths through the mainMapLibre entryfile.
+- Surprises: MapLibre512px world requires zoomminusone atcontractboundary to preserveLeaflet256px scale; isStyleLoaded maytemporarilybefalse whileworkersprocessGeoJSON, so latestoverlay updatesneed deferredflush. Initialbrowserrun foundfixture structuredClone on Svelteproxy and invalidGPS sequencing; fixes remain test-scoped.
+- Existingsecuritydependency versions preserved (geojson typepackage only losesdevflag because nowtransitive runtime). Added exactMapLibre6.16/PMTiles4.5/stylespec26.5; rootaudit5low/5moderate/nohighcritical unchanged.

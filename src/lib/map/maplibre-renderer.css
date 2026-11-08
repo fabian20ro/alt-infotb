@@ -1,0 +1,14 @@
+.maplibre-preview-engine.maplibregl-map { font-family: inherit; }
+.maplibre-preview-engine .maplibre-station {
+	width: 44px; height: 44px; padding: 0; border: 0; background: transparent; cursor: pointer;
+	display: grid; place-items: center; overflow: visible; z-index: 10;
+}
+.maplibre-preview-engine .maplibre-station-dot { display: block; width: 30px; height: 30px; box-sizing: border-box; border-radius: 50%; background: #4cc9f0; border: 3px solid white; box-shadow: 0 1px 3px #0006; }
+.maplibre-preview-engine .maplibre-station.station-marker-selected { z-index: 20; }
+.maplibre-preview-engine .maplibre-station.station-marker-selected .maplibre-station-dot { width: 34px; height: 34px; box-shadow: 0 0 0 3px #4cc9f04d, 0 1px 4px #0006; }
+.maplibre-preview-engine .maplibre-station:focus-visible { outline: 3px solid var(--color-text, #111); outline-offset: 2px; border-radius: 50%; z-index: 30; }
+.maplibre-preview-engine .maplibre-station-label { display: none; position: absolute; bottom: 46px; left: 50%; transform: translateX(-50%); padding: 5px 8px; background: white; border: 1px solid #888; color: #111; border-radius: 4px; white-space: nowrap; pointer-events: none; }
+@media (hover: hover) and (pointer: fine) { .maplibre-preview-engine .maplibre-station:hover .maplibre-station-label, .maplibre-preview-engine .maplibre-station:focus-visible .maplibre-station-label { display: block; } }
+.maplibre-preview-engine .maplibre-user { width: 22px; height: 22px; border-radius: 50%; background: #4285f4; border: 3px solid white; box-sizing: border-box; outline: 4px solid #ffffff66; box-shadow: 0 0 0 2px #4285f44d, 0 2px 4px #0005; z-index: 25; pointer-events: none; }
+.maplibre-preview-engine .maplibre-vehicle { display: grid; place-items: center; width: 38px; height: 38px; margin: 0; box-sizing: border-box; border: 3px solid white; border-radius: 50%; background: var(--vehicle-color); color: white; box-shadow: 0 2px 7px #0007; font-size: 11px; font-weight: 800; line-height: 1; z-index: 22; }
+.maplibre-preview-engine .maplibre-vehicle.opposite { border-color: var(--color-warning, #ffc107); background: var(--color-surface, #fff); color: var(--color-text, #111); z-index: 21; }

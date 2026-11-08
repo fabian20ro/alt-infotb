@@ -247,3 +247,14 @@ future catalog/publication policy.
 - `tools/pmtiles/src/browser-validation.ts`: stored-byte readback, renderer compatibility and local resource closure.
 - `tools/pmtiles/storage-preview/`, `storage-browser/`, `src/serve-storage.ts`: isolated real-storage UI, browser tests and validated local package server.
 - `docs/plans/2026-11-07-pmtiles-offline-manager.md`: invariants, verification, limitations and next renderer implementation.
+
+## MapLibre preview boundary (2026-11-08)
+
+- `src/lib/map/maplibre-renderer.ts` + `.css`: optional renderer, native station controls, transit layers, normalized camera and classified errors.
+- `src/lib/map/pmtiles-source.ts` + `.test.ts`: lease-bound local protocols, style closure and render/teardown lifecycle.
+- `src/lib/offline-maps/profile.ts`: compatibility shared with pipeline; no browser imports.
+- `MapView.svelte` / `map/renderer.ts`: injectable preview factory, default lazy Leaflet, asynchronous teardown.
+- `e2e/map-parity.spec.ts`, `e2e/fixtures/MapParity.svelte`, `playwright.maplibre.config.ts`: same component/controllers on both engines, one worker.
+- `tools/pmtiles/storage-preview`: real installed-package consumer using the actual renderer and transit scene.
+- `tools/pmtiles/tsconfig.browser.json`: browser bundler typecheck separate from native Node tooling.
+- `docs/plans/2026-11-08-maplibre-preview.md`: implementation, validation limits and next UI/SW coordinator.

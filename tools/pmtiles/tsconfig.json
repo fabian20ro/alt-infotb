@@ -14,7 +14,21 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "paths": {
-      "@noble/hashes/*": ["./node_modules/@noble/hashes/*"]
+      "@noble/hashes/*": [
+        "./node_modules/@noble/hashes/*"
+      ],
+      "maplibre-gl": [
+        "./node_modules/maplibre-gl/dist/maplibre-gl.d.ts"
+      ],
+      "pmtiles": [
+        "./node_modules/pmtiles/dist/esm/index.d.ts"
+      ],
+      "@maplibre/maplibre-gl-style-spec": [
+        "./node_modules/@maplibre/maplibre-gl-style-spec/dist/index.d.ts"
+      ],
+      "geojson": [
+        "./node_modules/@types/geojson/index.d.ts"
+      ]
     },
     "types": [
       "node"
@@ -24,9 +38,7 @@
     "src/**/*.ts",
     "test/**/*.ts",
     "*.ts",
-    "preview/**/*.ts",
     "browser/**/*.ts",
-    "storage-preview/**/*.ts",
     "storage-browser/**/*.ts"
   ]
 }

@@ -43,6 +43,12 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Code Patterns & Pitfalls
 
+**[2026-11-08]** MapLibre markers own their inline opacity — CSS route classes alone did not fade station markers because MapLibre 6 writes inline opacity. Use `Marker.setOpacity()` for selected/served/background state; browser tests must inspect computed opacity, not only class names.
+
+**[2026-11-08]** Normalize zoom at the renderer boundary — MapLibre's 512px world and Leaflet's 256px world give different extents at equal zoom numbers. Preserve the existing camera contract with MapLibre zoom = contract zoom − 1; convert max zoom/canary coordinates consistently. Fit geographic bounds directly.
+
+**[2026-11-08]** Retain an offline reader until its map is removed — A failed theme load must not close the source while an earlier style is still mounted. Keep the lease until renderer teardown, reject retries on a failed source, then reopen the manager's active generation; rollback may have changed that pointer.
+
 **[2026-11-07]** Offline package generation IDs must differ from logical versions — A same-version repair must never overwrite OPFS/cache files held by an existing renderer. Journal the unique generation before file creation, switch only the active IDB pointer after stored-byte verification, and defer deletion under an exclusive generation lock. Never wait for that lock while holding the region mutation lock: the reader may need the mutation lock to confirm or close.
 
 **[2026-11-07]** BroadcastChannel is notification, not durable cancellation — Persist cancellation in the shared journal and recheck it in the activation transaction. A suspended tab or lost broadcast must not allow a cancelled download to become active.

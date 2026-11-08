@@ -6,7 +6,7 @@
     "node": ">=22.18.0"
   },
   "scripts": {
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && tsc --noEmit --project tsconfig.browser.json",
     "test": "node --test test/*.node-test.ts browser/*.node-test.ts",
     "generate": "node src/cli.ts generate",
     "verify": "node src/cli.ts verify",

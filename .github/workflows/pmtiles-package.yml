@@ -5,6 +5,10 @@ on:
     paths:
       - 'tools/pmtiles/**'
       - 'src/lib/offline-maps/**'
+      - 'src/lib/map/**'
+      - 'src/lib/stations/**'
+      - 'src/lib/components/map/tiles.ts'
+      - 'e2e/fixtures/line66-scene.json'
       - 'src/lib/api/proto.ts'
       - '.github/workflows/pmtiles-package.yml'
   workflow_dispatch:
