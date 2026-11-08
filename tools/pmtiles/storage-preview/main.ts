@@ -100,7 +100,7 @@ async function main() {
 	async function remove() { await manager.remove(); await closeView(); await refresh(); }
 	async function selectLine(line:string){
 		state.line=line;state.selectedStation=null;
-		route=line==='66'?structuredClone(captured):line==='N109'?{key:'N109',lineId:199,lineName:'N109',vehicleType:'BUS',primary:null,opposite:null}:null;
+		route=line==='66'?structuredClone(captured):line==='N109'?{key:'N109',lineId:199,lineName:'N109',vehicleType:'BUS',primary:null,opposite:null}:line==='446'?{key:'446',lineId:859,lineName:'446',vehicleType:'BUS',primary:null,opposite:null}:null;
 		view?.controller.update(scene());
 		const current=scene();const served=stations.filter(s=>current.routeStationIds.has(s.id));
 		if(served.length)view?.renderer.fitPoints(served,'overview');describe();

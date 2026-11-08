@@ -37,8 +37,27 @@ neschimbat decoderul protobuf personalizat și accesul prin proxy.
 
 Verificate local: 1.277 teste unitare (36 suite), 64 teste Node tooling, typecheck
 aplicație/catalog/service worker/shared API, build static fără runtime MapLibre.
-36 scenarii de paritate și 6 scenarii cu stocare reală trecute; verificarea suplimentară
-fără WebGL și măsurătorile fizice sunt în curs înainte de finalizarea PR-ului.
+38 scenarii de paritate (inclusiv WebGL indisponibil) și 6 scenarii cu stocare reală
+trecute. Extinderea testului offline pentru linia regională 446 a trecut separat.
+Build/typecheck tooling trec și într-un checkout fără dependențele aplicației sau
+fișierele generate Svelte. Reviziile Standards/Spec: fără constatări acționabile.
+
+Pixel 6a / Chrome 156, DPR 2,625: pachetul instalat în pasul 3 a funcționat cu noul
+renderer fără redescărcare; persistență păstrată. În ambele teme, după stabilizarea
+camerei: 36 stații pentru 66, 55 pentru N109 (3 Isovolta), 106 pentru 446, inclusiv
+stațiile nordice de lângă limita pachetului. Fără erori; capturi vizuale inspectate.
+Gesturi fizice prin CDP touch: pan, pinch (+1,02 zoom) și selectarea stației Sportului.
+
+Eșantion de performanță: 848 ms de la construcția rendererului la primul ready;
+184 cadre în circa 3,07 s de gesturi, p95 16,9 ms / maxim 17,8 ms; nicio sarcină lungă
+în eșantionul gesturilor. La redeschidere, o sarcină de 54 ms, fără blocaj >200 ms.
+Heap JS indicativ 42,1 MB (nu RAM total și nu memorie GPU). Acestea sunt măsurători
+locale punctuale, nu garanții pentru toate dispozitivele. Originea de test ocupa
+circa 56,1 MB incluzând pachetul și shelluri de test anterioare păstrate intenționat.
+Restart rece verificat cu serverul oprit și Chrome repornit: shell și pachet disponibile,
+aceeași generație, persistență granted, 36/55/106 stații pentru 66/N109/446,
+zero cereri HTTP externe în interacțiunile urmărite. În afara acoperirii (44,84 N),
+fundal gol fără eroare de integritate; mesajul de acoperire rămâne pentru pasul 5.
 Fixture-ul liniei 66 este comparat cu capturile protobuf originale. Vehiculele de
 pe acest traseu sunt sintetice și etichetate ca atare; geometria provine din captură.
 Testele includ toate stațiile catalogate pentru N109 și cele trei platforme Isovolta.
