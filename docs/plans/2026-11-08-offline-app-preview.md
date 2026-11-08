@@ -49,6 +49,12 @@ dependențele runtime de la fiecare consumator, fără dependențe implicite pe 
 rezolvate, inclusiv precondiția de generație verificată în lockul de mutație și
 actualizarea imediată a stării shellului în taburi deja deschise.
 
+Harness-ul de stocare are șapte teste browser, inclusiv o regresie deterministă
+pentru notificări suprapuse: o singură inspecție activă, urmată de o citire grupată.
+Un timeout CI la snapshot-ul celui de-al doilea tab a trecut pe același commit la
+reluare; cauza timeout-ului nu este demonstrată. Defectul separat de concurență
+al harness-ului a fost reprodus și corectat fără mărirea timeout-urilor.
+
 Pixel 6a / Chrome 156: PWA instalat nativ, deschis în standalone; pachet de
 47.176.137 bytes instalat prin interfață și activat separat. Cererea explicită de
 persistență a returnat true; grantul a rămas după actualizarea aplicației și după
