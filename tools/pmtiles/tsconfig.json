@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "strict": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@noble/hashes/*": [
+        "./node_modules/@noble/hashes/*"
+      ],
+      "maplibre-gl": [
+        "./node_modules/maplibre-gl/dist/maplibre-gl.d.ts"
+      ],
+      "pmtiles": [
+        "./node_modules/pmtiles/dist/esm/index.d.ts"
+      ],
+      "@maplibre/maplibre-gl-style-spec": [
+        "./node_modules/@maplibre/maplibre-gl-style-spec/dist/index.d.ts"
+      ],
+      "geojson": [
+        "./node_modules/@types/geojson/index.d.ts"
+      ]
+    },
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "*.ts",
+    "browser/**/*.ts",
+    "storage-browser/**/*.ts"
+  ]
+}

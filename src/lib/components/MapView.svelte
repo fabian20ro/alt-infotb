@@ -5,7 +5,7 @@
 	import type { Lang } from '$lib/stores/settings.svelte.js';
 	import { createMapScene, type MapSceneInput, type RouteOverviewRequest } from '$lib/map/model.js';
 	import { createMapController, type LocationStatus } from '$lib/map/controller.js';
-	import type { BasemapStatus, MapRenderer } from '$lib/map/renderer.js';
+	import type { BasemapStatus, MapRenderer, MapRendererFactory } from '$lib/map/renderer.js';
 
 	interface Props extends Omit<MapSceneInput, 'locationError' | 'route'> {
 		locationError?: string | null;
@@ -13,15 +13,18 @@
 		route?: MapSceneInput['route'];
 		overviewRequest?: RouteOverviewRequest | null;
 		onStationSelect: (station: Station) => void;
+		/** Preview/test injection only; remount the component to switch engines. */
+		rendererFactory?: MapRendererFactory;
 	}
 
 	let { allStations, selectedStationId, userPosition, locationPermission,
 		locationError = null, lang = 'ro', theme, route = null,
-		overviewRequest = null, onStationSelect }: Props = $props();
+		overviewRequest = null, onStationSelect, rendererFactory }: Props = $props();
 	let mapContainer: HTMLDivElement;
 	let renderer: MapRenderer | null = null;
 	let controller: ReturnType<typeof createMapController> | null = null;
 	let loaded = $state(false);
+	let rendererFailed = $state(false);
 	let satellite = $state(false);
 	let tileStatus = $state<BasemapStatus>('loading');
 	let tileRetryCoolingDown = $state(false);
@@ -34,19 +37,28 @@
 
 	onMount(() => {
 		let disposed = false;
-		void import('$lib/map/leaflet-renderer.js').then(({ createLeafletRenderer }) => {
+		void (async () => {
+			const createRenderer = rendererFactory ?? (await import('$lib/map/leaflet-renderer.js')).createLeafletRenderer;
 			// Navigation may unmount the component while the lazy chunk is loading.
 			if (disposed) return;
-			renderer = createLeafletRenderer(mapContainer, scene, {
-				onStationSelect: (station) => onStationSelect(station),
-				onBasemapStatus: (status) => { tileStatus = status; },
-				onRetryCooldown: (active) => { tileRetryCoolingDown = active; },
-				onCameraIdle: () => controller?.cameraIdle()
+			const created = await createRenderer(mapContainer, scene, {
+				onStationSelect: (station) => { if (!disposed) onStationSelect(station); },
+				onBasemapStatus: (status) => { if (!disposed) tileStatus = status; },
+				onRetryCooldown: (active) => { if (!disposed) tileRetryCoolingDown = active; },
+				onCameraIdle: () => { if (!disposed) controller?.cameraIdle(); },
+				onError: () => { if (!disposed) tileStatus = 'unavailable'; }
 			});
+			if (disposed) { await created.destroy(); return; }
+			renderer = created;
 			controller = createMapController(renderer, (status) => { locationStatus = status; });
 			loaded = true;
-		});
-		return () => { disposed = true; renderer?.destroy(); renderer = null; controller = null; };
+		})().catch(() => { if (!disposed) rendererFailed = true; });
+		return () => {
+			disposed = true;
+			const retiring = renderer;
+			renderer = null; controller = null;
+			void Promise.resolve().then(() => retiring?.destroy()).catch(() => { /* The storage journal retains pending cleanup. */ });
+		};
 	});
 
 	$effect(() => {
@@ -68,7 +80,9 @@
 
 <div class="map-wrapper" class:route-mode={!!route}>
 	<div class="map-container" bind:this={mapContainer}>
-		{#if !loaded}
+		{#if rendererFailed}
+			<div class="map-loading"><p role="alert">{strings.mapUnavailable}</p></div>
+		{:else if !loaded}
 			<div class="map-loading">
 				<span class="map-loading-text">{strings.loadingMap}</span>
 			</div>

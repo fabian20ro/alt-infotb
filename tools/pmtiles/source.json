@@ -1,0 +1,25 @@
+{
+  "regionId": "bucuresti-ilfov",
+  "version": "20261106-v1",
+  "dataDate": "2026-11-06",
+  "bounds": [25.80, 44.19, 26.49, 44.80],
+  "nativeZoom": { "min": 0, "max": 15 },
+  "archive": {
+    "planetUrl": "https://build.protomaps.com/20261106.pmtiles",
+    "sha256": "54ef47be5f854d74d9de94e5b7670f2261aa45d1b0706061759cf9c706463180",
+    "bytes": 28789758,
+    "schemaVersion": "4.15.2",
+    "cliVersion": "1.31.2"
+  },
+  "assets": {
+    "commit": "028c18f713baecad011301ff7a69acc39bcc2ae7",
+    "url": "https://codeload.github.com/protomaps/basemaps-assets/zip/028c18f713baecad011301ff7a69acc39bcc2ae7",
+    "sha256": "e942a417d94a12596842a20b53d6b785cbf6d47f2545e458538191ba6d74b305",
+    "bytes": 6731115
+  },
+  "coverage": {
+    "description": "Padded rectangle, not an administrative polygon; no guarantee for future regional routes",
+    "source": "https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09/releaseData/gbOpen/ROU/ADM1/geoBoundaries-ROU-ADM1_simplified.geojson",
+    "attribution": "geoBoundaries / World Bank, 2017, CC BY 4.0"
+  }
+}
