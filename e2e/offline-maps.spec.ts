@@ -125,9 +125,10 @@ async function restartWorkers(page: Page) {
 }
 async function applyShellUpdate(page: Page) {
 	await openPanel(page);
-	const loaded = page.waitForEvent('load');
-	await panel(page).getByRole('button', { name: ro.offlineApplyAppUpdate, exact: true }).click();
-	await loaded;
+	await Promise.all([
+		page.waitForEvent('load', { timeout: 30_000 }),
+		panel(page).getByRole('button', { name: ro.offlineApplyAppUpdate, exact: true }).click()
+	]);
 	await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible();
 }
 
@@ -573,6 +574,7 @@ test('browser crash releases old shell leases and reopens the complete app and p
 		const oldVersion = (await shellVersion(page)).version;
 		const oldCache = await shellCache(page, oldVersion);
 		const oldTab = await context.newPage(); await open(oldTab);
+		await expect(mapStatus(oldTab)).toHaveAttribute('data-renderer-status', 'ready');
 		await build('build-offline-next'); await waitForUpdate(page); await applyShellUpdate(page);
 		await expect.poll(async () => (await shellVersion(page)).version).not.toBe(oldVersion);
 		await expect(mapStatus(page)).toHaveAttribute('data-generation', active);
