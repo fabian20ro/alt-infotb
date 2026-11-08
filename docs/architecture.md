@@ -55,7 +55,7 @@ Credentials remain server-side. Collection checkpoints retain response bodies, h
 - **Proxy required** — The STB API requires custom headers (`User-Info`, `App-Id`, etc.) that CORS blocks from browsers. A server-side proxy injects them. Vite handles dev, Cloudflare Worker handles prod.
 - **Static adapter** — SvelteKit prerenders a single HTML shell. All logic runs client-side (`ssr = false`).
 - **PWA** — The root layout explicitly registers the custom Workbox worker and manifest under the application base path. Static assets are precached; arrival requests remain network-only. CORS-readable map tiles use bounded `CacheFirst` with strict provider freshness, scoped/versioned caches and known-placeholder rejection. CARTO requires the build-time `VITE_CARTO_API_KEY`; a missing key disables those requests and exposes a manual satellite fallback. Provider changes update attribution. See [map setup](map-setup.md) for migration and production verification.
-- **Renderer boundary** — `MapView.svelte` adapts Svelte state and controls to a vendor-independent scene/controller/renderer contract. The only implementation is the lazy Leaflet adapter, including its CSS and helpers. Scene updates do not move the camera; explicit recentre/overview intents are consumed once by the controller. No MapLibre runtime or offline package installation is activated. See [PMTiles contracts](pmtiles-contracts.md) and the [integration plan](plans/2026-11-07-pmtiles-integration.md).
+- **Renderer boundary** — `MapView.svelte` adapts Svelte state and controls to a vendor-independent scene/controller/renderer contract. The production implementation remains the lazy Leaflet adapter, including its CSS and helpers. Preview fixtures can inject the MapLibre adapter through the same factory contract. Scene updates do not move the camera; explicit recentre/overview intents are consumed once by the controller. No MapLibre runtime or offline package installation is activated. See [PMTiles contracts](pmtiles-contracts.md) and the [integration plan](plans/2026-11-07-pmtiles-integration.md).
 - **Map package tooling** — `tools/pmtiles` owns reproducible data generation, content/browser verification and an independently tested immutable-publication protocol. It imports the pure manifest contract but has a separate dependency lockfile and never enters the application bundle. No cloud provider is enabled; CI artifact export is optional and disabled by default. Installation/storage now lives in an unused browser module; see the [step 2 report](plans/2026-11-07-pmtiles-package-pipeline.md) and [manager report](plans/2026-11-07-pmtiles-offline-manager.md).
 - **Versioned catalog from independent source captures** — Registered STB topology supplies current line IDs, stop identities, coordinates and both directions. A fresh GTFS catalog supplies physical metro markers and explicit fallback services. Source snapshots and generated data are versioned separately, keeping the test oracle independent of its output. No browser-wide network discovery or duplicate IndexedDB cache is added.
 - **Stable upstream identities** — Known STB lines match station `lineIds`; names and transport labels cannot invalidate their membership. `CABLE_CAR` normalizes to `TROLLEYBUS` at the API boundary. Unknown types remain diagnostic failures in catalog collection instead of silently becoming buses.
@@ -260,3 +260,17 @@ provides the isolated consumer, local trusted distribution mapping, profile
 validator and test-only precached shell. Its service worker never caches package
 downloads. Production renderer, service worker, catalog and offline UI integration
 remain separate work. No public hosting or billing service is configured.
+
+## Preview MapLibre renderer (2026-11-08)
+
+`map/maplibre-renderer.ts` implements the scene/camera contract, accessible station
+DOM, transit GeoJSON and raster/leased vector backgrounds. Camera zoom is normalized
+to the existing Leaflet scale. The optional `MapView.rendererFactory` seam is used
+only by browser fixtures; ordinary builds have no MapLibre runtime or worker assets.
+
+`map/pmtiles-source.ts` owns a unique resource protocol per renderer and consumes a
+`ReaderLease`, never browser storage directly. First-frame callbacks acknowledge
+activation; teardown removes the map before draining reads and closing the lease.
+The pure offline profile is shared with package tooling. Source selection, installed
+package UI and production-shell readiness remain outside the renderer. See the
+[step 4 report and next plan](plans/2026-11-08-maplibre-preview.md).

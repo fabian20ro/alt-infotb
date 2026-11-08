@@ -1,6 +1,6 @@
 # Plan: integrare PMTiles și hărți offline
 
-**Stare: plan acceptat, 2026-11-07.** Pasul 1 este integrat; pasul 2 este implementat izolat în `tools/pmtiles`, cu export local și artifact GitHub Actions opțional, dezactivat implicit. Utilizatorul a refuzat activarea R2 din cauza riscului de facturare; distribuția cloud este amânată. Pasul 3 este implementat și verificat izolat; pașii 4–6 rămân planificați. Vezi [managerul offline și următorul pas](2026-11-07-pmtiles-offline-manager.md). Vezi [raportul pasului 2](2026-11-07-pmtiles-package-pipeline.md). Nicio activare sau publicare în producție. Detalii: [contractele pasului 1](../pmtiles-contracts.md).
+**Stare: plan acceptat, 2026-11-07.** Pasul 1 este integrat; pasul 2 este implementat izolat în `tools/pmtiles`, cu export local și artifact GitHub Actions opțional, dezactivat implicit. Utilizatorul a refuzat activarea R2 din cauza riscului de facturare; distribuția cloud este amânată. Pasul 3 este implementat și verificat izolat; pasul 4 este implementat în preview izolat, iar pașii 5–6 rămân planificați. Vezi [adaptorul MapLibre și următorul pas](2026-11-08-maplibre-preview.md). Vezi [managerul offline și următorul pas](2026-11-07-pmtiles-offline-manager.md). Vezi [raportul pasului 2](2026-11-07-pmtiles-package-pipeline.md). Nicio activare sau publicare în producție. Detalii: [contractele pasului 1](../pmtiles-contracts.md).
 
 ## Recomandare
 
@@ -146,7 +146,7 @@ Fiecare etapă produce un PR separat; producția se activează abia după gate-u
 | 5. SW și UI | Rute SW dedicate și activare controlată; panou „Hărți offline” în `DrawerMenu.svelte`, traduceri RO/EN și store Svelte 5 | Stări corecte, instalare PWA, request/read persistence, dimensiuni/progres/update/delete; shell și pachet complet offline |
 | 6. Verificare și lansare | E2E pe buildul real cu baza `/alt-infotb/`; test fizic; documentație operațională | Matricea de acceptare de mai jos; preview opt-in, apoi activare explicită separată; revenire testată |
 
-Următoarea implementare recomandată: pasul 4, adaptorul MapLibre în spatele contractului existent, verificat într-un preview opt-in. Managerul pasului 3 furnizează cititori pentru generații imutabile; rendererul îi eliberează după distrugerea hărții. Nu mutăm codul demo în `MapView.svelte` și nu schimbăm motorul implicit în acest pas.
+Următoarea implementare recomandată: pasul 5, coordonatorul aplicației, UI și shell offline, încă opt-in. Adaptorul MapLibre este implementat în preview separat. Managerul pasului 3 furnizează cititori pentru generații imutabile; rendererul îi eliberează după distrugerea hărții. Nu mutăm codul demo în `MapView.svelte` și nu schimbăm motorul implicit în acest pas.
 
 ### Matrice minimă de acceptare
 
