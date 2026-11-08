@@ -264,6 +264,8 @@ future catalog/publication policy.
 - `src/lib/offline-maps/coordinator.ts`: application source policy, stable renderer wrapper, camera retention and explicit activation.
 - `src/lib/offline-maps/app-runtime.ts`: browser ports, profile validator and localhost-only distribution mapping.
 - `src/lib/offline-maps/shell.ts`: actual shell readiness, PWA install prompt and guarded explicit application update.
+- `src/lib/offline-maps/shell-reader.ts` / `shell-protocol.ts`: document-lifetime shell leases and shared protocol/lock identity.
+- `src/lib/offline-maps/shell-cache.ts`: exact shell ownership, durable navigation hand-off, serialized lifecycle and conservative collection; pure injected ports, separate from package storage.
 - `src/lib/components/OfflineMapExperience.svelte` / `OfflineMapsPanel.svelte`: opt-in map integration and accessible RO/EN management dialog.
 - `src/service-worker-offline.ts`: per-build preview precache, old-tab immutable assets and download cache exclusion.
 - `src/lib/map/raster-worker.ts`: shared production/preview raster and network-only transit policy.

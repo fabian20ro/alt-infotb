@@ -1078,3 +1078,9 @@ Each entry should follow this structure:
 - Full Linux CI first timed out in the storage harness's second-tab snapshot after rollback; the same commit passed on retry. Local baseline passed in 47.6s. Investigation independently proved a harness defect: five notifications started five simultaneous snapshots. Serialized refreshes with one coalesced follow-up; deterministic regression fails before the change and passes afterward. All seven storage browser tests passed locally in 55.3s. No timeout increase, storage integrity weakening or core adapter changes; the original CI timeout's cause remains unproven.
 
 - Linux app CI then exposed a hit-test geometry error: the attribution link wrapped onto two lines, so its bounding-box center hit whitespace between lines. Reproduced locally at 150px and 120px widths; the real text fragment still received the hit. Regression now forces wrapping and selects a visible getClientRects fragment, while still requiring geometric marker overlap and the actual control as hit target. Targeted lifecycle test passed in 18.9s; typecheck/diff check passed. Product code unchanged by this correction.
+
+## 2026-11-08 — Safe preview shell collection
+
+- Started isolated `codex/offline-shell-cleanup` from PR #65 head `0213488`; PR #65 and #62 remain open. Original dirty worktree preserved. Scope: local preview only, no production deployment or billing services.
+- Architecture review: browser-owned lifetime reader locks, serialized lifecycle operations and durable navigation pins. Legacy caches cannot be safely adopted because their documents never held reader locks; retain them. Unacknowledged navigations remain conservative pins without TTL. These limitations were reported before implementation.
+- Page reader seam: seven focused tests pass; startup resolves while the reader remains held and the lifecycle gate releases. No release on pagehide/component unmount.

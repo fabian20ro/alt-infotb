@@ -294,11 +294,19 @@ Only `vite build --mode offline-preview` imports these modules and writes
 immutable JS/MJS/CSS asset and verifies cached completeness through a versioned
 message protocol. Explicit update activation takes the exclusive shell transition
 lock; installs/source swaps hold its shared counterpart through the first frame.
-Previous shell caches remain for old-tab lazy imports; their safe collection is
-a follow-up, separate from package generation cleanup. The normal worker and the
+Document-lifetime version Web Locks retain old-tab lazy imports. The preview's
+`shell-cache.ts` manager collects only positively owned, unused shell caches;
+legacy caches remain outside its deletion authority. A separate durable registry
+records ownership, active HTML identity and navigation pins before bootstrap.
+Install/activation/navigation/collection share a lifecycle lock, and deletion
+requires an exclusive version lock. Unknown clients, incomplete active shells,
+pending replacements and unacknowledged navigations defer collection. No reader
+is expired by heartbeat or page visibility. The normal worker and the
 preview share unchanged raster/API policy in `map/raster-worker.ts`.
 
 The local distributor serves only validated declared package files on loopback.
 Trusted manifest hashes are compiled from operator-selected local files, not
 learned from a remote catalog. No production deployment, public storage or billing
 service is configured. See [step 5 report and next plan](plans/2026-11-08-offline-app-preview.md).
+The [shell cleanup design and migration limits](plans/2026-11-08-offline-shell-cleanup.md)
+describe the separate lifecycle registry; it never participates in PMTiles package deletion.

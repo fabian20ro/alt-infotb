@@ -78,9 +78,10 @@ Nu se declară testate date live, Safari/iOS sau distribuția publică în acest
 
 1. Distribuție publică fără risc de facturare și catalog de încredere: încă nealese.
    Nu activăm R2. Preview-ul local nu reprezintă o soluție de distribuție publică.
-2. Curățarea shellurilor istorice: introducerea unor lease-uri per versiune de
-   aplicație ar permite ștergerea numai după închiderea ultimului tab vechi.
-   Până atunci păstrăm shellurile, evitând invalidarea importurilor lazy offline.
+2. [Curățarea shellurilor](2026-11-08-offline-shell-cleanup.md): etapa următoare
+   implementează lease-uri de document și protecția navigărilor înainte de bootstrap.
+   Cache-urile anterioare protocolului rămân păstrate conservator; acestea nu pot
+   fi adoptate doar fiindcă nu vedem un tab activ care le folosește.
 3. Descărcări reluate, împachetarea/deduplicarea celor 1.039 assets și performanța
    pe conexiune mobilă reală: optimizări separate, cu integritate păstrată.
 4. Validarea browserelor: rezultate Chrome și Brave raportate separat; suportul
@@ -88,10 +89,10 @@ Nu se declară testate date live, Safari/iOS sau distribuția publică în acest
 5. Activarea implicită a PMTiles în producție rămâne o decizie și o schimbare
    separate, după alegerea distribuției și îndeplinirea matricei de acceptare.
 
-Îmbunătățire arhitecturală recomandată: un registru mic al versiunilor de shell
-folosite de taburi, separat de jurnalul generațiilor de hartă. Va lega colectarea
-cache-urilor vechi de cititori reali, fără a amesteca actualizările aplicației cu
-actualizările datelor cartografice.
+Îmbunătățirea arhitecturală este continuată în planul de curățare: registru mic
+pentru ownership și navigări, cu cititori deținuți de browser, separat de jurnalul
+generațiilor de hartă. Distribuția publică și migrarea cache-urilor vechi rămân
+decizii separate.
 
 ## Referințe tehnice
 
