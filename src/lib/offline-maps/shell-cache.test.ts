@@ -114,12 +114,11 @@ describe('offline shell cache ownership and reader cleanup', () => {
 		expect((await manager.cleanup()).deleted).toEqual([a.cacheName]);
 		expect(state.registry!.readers).toEqual([{ clientId: 'client-b', version: 'b', token: tokenB }]);
 	});
-	it('serves the durable current shell even when an obsolete worker handles a queued navigation', async () => {
+	it('declines queued navigation from an obsolete worker that cannot authenticate the current build', async () => {
 		const { state, ports } = fixture();
 		state.activeWorker = false;
-		const served = await createShellCacheManager(scope, a, ports).navigation('new-b', async shell => shell.version);
-		expect(served).toBe('b');
-		expect(state.registry!.pins).toEqual([{ clientId: 'new-b', version: 'b' }]);
+		const obsolete = createShellCacheManager(scope, a, ports);
+		await expect(obsolete.navigation('new-b', async shell => shell.version)).rejects.toThrow('Active offline shell unavailable');
 	});
 	it('preserves the SW-client binding across worker restarts despite different Web Locks IDs', async () => {
 		const { state, ports, manager } = fixture();
@@ -281,4 +280,193 @@ describe('offline shell cache ownership and reader cleanup', () => {
 		ports.remove = remove;
 		expect((await manager.cleanup()).deleted).toEqual([a.cacheName]);
 	});
+});
+
+// The agreed recovery seam is the public manager API. These fakes are browser
+// CacheStorage/network/lock boundaries; cryptography and Response are real.
+function recoveryFixture() {
+	const f = fixture();
+	const assets = [
+		{ url: scope, key: b.homeKey, integrity: 'sha256-LPJNul+wow4m6DsqxbninhsWHlwfp0JecwQzYpOLmCQ=', contentType: 'text/html' },
+		{ url: b.keys[1], key: b.keys[1], integrity: 'sha256-ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=', contentType: 'text/javascript' }
+	];
+	const stored = new Map(assets.map((asset, i) => [asset.key, new Response(i ? 'abc' : 'hello', { headers: { 'Content-Type': asset.contentType } })]));
+	const network = new Map(assets.map((asset, i) => [asset.url, new Response(i ? 'abc' : 'hello', { headers: { 'Content-Type': asset.contentType } })]));
+	let locked = false;
+	f.ports.recovery = {
+		assets,
+		async tryExclusive(action) { if (locked) return null; locked = true; try { return await action(); } finally { locked = false; } },
+		readAsset: async key => stored.get(key)?.clone(),
+		writeAsset: async (key, response) => { stored.set(key, response.clone()); },
+		fetchAsset: async url => { const response = network.get(url); if (!response) throw new TypeError('Offline'); return response.clone(); }
+	};
+	return { ...f, assets, stored, network,
+		manager: createShellCacheManager(scope, b, f.ports),
+		readHome: () => f.ports.recovery!.readAsset(b.homeKey).then(response => response!.text()) };
+}
+
+describe('offline shell recovery through its public API', () => {
+	it('restores a missing registry from the installed shell so offline navigation works again', async () => {
+		const { state, manager, network, readHome } = recoveryFixture();
+		state.registry = undefined; network.clear();
+		expect(await manager.recover()).toEqual({ status: 'ready', registryReset: true });
+		expect(await manager.navigation('reopened', readHome)).toBe('hello');
+	});
+	it('does not promise offline readiness when a cached application asset has corrupted bytes', async () => {
+		const { manager, stored, network } = recoveryFixture();
+		stored.set(b.keys[1], new Response('not the expected script', { headers: { 'Content-Type': 'text/javascript' } }));
+		network.clear();
+		expect(await manager.recover()).toEqual({ status: 'network-required' });
+		expect((await manager.status()).complete).toBe(false);
+	});
+
+	it('repairs a missing same-build asset and preserves protection of an older navigation', async () => {
+		const { state, manager, stored, readHome } = recoveryFixture();
+		stored.delete(b.homeKey);
+		state.registry!.pins.push({ clientId: 'bootstrapping-a', version: 'a' });
+		expect(await manager.recover()).toEqual({ status: 'ready', registryReset: false });
+		expect(await manager.navigation('reopened', readHome)).toBe('hello');
+		expect((await manager.cleanup()).deleted).toEqual([]);
+	});
+
+	it('rejects oversized download bodies without hanging recovery or publishing readiness', async () => {
+		const { manager, stored, network } = recoveryFixture();
+		stored.delete(b.homeKey);
+		network.set(scope, new Response(new Uint8Array(8 * 1024 ** 2 + 1), { headers: { 'Content-Type': 'text/html' } }));
+		expect(await manager.recover()).toEqual({ status: 'integrity-error' });
+		expect((await manager.status()).complete).toBe(false);
+	}, 1_000);
+
+	it('refuses a recovery descriptor that points outside the compiled shell scope', async () => {
+		const { manager, stored, assets } = recoveryFixture();
+		stored.delete(b.homeKey);
+		assets[0].url = 'https://different-origin.invalid/application.html';
+		expect(await manager.recover()).toEqual({ status: 'unavailable' });
+	});
+
+	it('repairs damaged response metadata offline when the local build bytes still verify', async () => {
+		const { manager, stored, network, readHome } = recoveryFixture();
+		stored.set(b.homeKey, new Response('hello', { headers: { 'Content-Type': 'text/plain' } }));
+		network.clear();
+		expect(await manager.recover()).toEqual({ status: 'ready', registryReset: false });
+		expect((await manager.status()).complete).toBe(true);
+		expect(await manager.navigation('reopened', readHome)).toBe('hello');
+	});
+
+	it('refuses incomplete current HTML even when an obsolete worker handles the queued navigation', async () => {
+		const { state, ports } = fixture();
+		state.activeWorker = false;
+		state.complete.delete('b');
+		const obsolete = createShellCacheManager(scope, a, ports);
+		await expect(obsolete.navigation('queued', async () => 'incomplete application')).rejects.toThrow('Active offline shell unavailable');
+	});
+
+	it('rejects a reachable newer-build response and retries only when exact build bytes return', async () => {
+		const { manager, stored, network, readHome } = recoveryFixture();
+		stored.delete(b.homeKey);
+		network.set(scope, new Response('newer application build', { headers: { 'Content-Type': 'text/html' } }));
+		expect(await manager.recover()).toEqual({ status: 'integrity-error' });
+		expect((await manager.status()).complete).toBe(false);
+		network.set(scope, new Response('hello', { headers: { 'Content-Type': 'text/html' } }));
+		expect(await manager.recover()).toEqual({ status: 'ready', registryReset: false });
+		expect(await manager.navigation('reopened', readHome)).toBe('hello');
+	});
+
+	it('retries a quota-interrupted repair without redownloading intact files', async () => {
+		const { manager, ports, stored, network, readHome } = recoveryFixture();
+		stored.delete(b.keys[1]);
+		const writeAsset = ports.recovery!.writeAsset;
+		ports.recovery!.writeAsset = async () => { throw new DOMException('Full', 'QuotaExceededError'); };
+		expect(await manager.recover()).toEqual({ status: 'storage-error' });
+		expect((await manager.status()).complete).toBe(false);
+		ports.recovery!.writeAsset = writeAsset;
+		network.delete(scope);
+		expect(await manager.recover()).toEqual({ status: 'ready', registryReset: false });
+		expect(await manager.navigation('reopened', readHome)).toBe('hello');
+	});
+
+	it('resumes an interrupted partial download after worker restart without publishing incomplete metadata', async () => {
+		const { state, manager, ports, stored, network, readHome } = recoveryFixture();
+		state.registry = undefined; stored.clear(); network.delete(b.keys[1]);
+		expect(await manager.recover()).toEqual({ status: 'network-required' });
+		expect((await manager.status()).complete).toBe(false);
+		await expect(manager.navigation('too-early', readHome)).rejects.toThrow();
+		network.delete(scope);
+		network.set(b.keys[1], new Response('abc', { headers: { 'Content-Type': 'text/javascript' } }));
+		const restarted = createShellCacheManager(scope, b, ports);
+		expect(await restarted.recover()).toEqual({ status: 'ready', registryReset: true });
+		expect(await restarted.navigation('reopened', readHome)).toBe('hello');
+	});
+
+	it('keeps recovery unavailable until the reconstructed registry is durably written', async () => {
+		const { state, manager, ports, network, readHome } = recoveryFixture();
+		state.registry = undefined; network.clear();
+		const write = ports.write;
+		ports.write = async () => { throw new DOMException('Full', 'QuotaExceededError'); };
+		expect(await manager.recover()).toEqual({ status: 'storage-error' });
+		expect((await manager.status()).complete).toBe(false);
+		await expect(manager.navigation('too-early', readHome)).rejects.toThrow();
+		ports.write = write;
+		const restarted = createShellCacheManager(scope, b, ports);
+		expect(await restarted.recover()).toEqual({ status: 'ready', registryReset: true });
+		expect(await restarted.navigation('reopened', readHome)).toBe('hello');
+	});
+
+	it('keeps navigation responsive during recovery and preserves a concurrently created bootstrap pin', async () => {
+		const { state, manager, ports } = recoveryFixture();
+		const entered = deferred(), release = deferred();
+		const readAsset = ports.recovery!.readAsset;
+		let delayFirst = true;
+		ports.recovery!.readAsset = async key => {
+			if (delayFirst) { delayFirst = false; entered.resolve(); await release.promise; }
+			return readAsset(key);
+		};
+		const repairing = manager.recover();
+		await entered.promise;
+		expect(await manager.recover()).toEqual({ status: 'busy' });
+		expect(await manager.navigation('late-bootstrap', async shell => shell.version)).toBe('b');
+		release.resolve();
+		expect(await repairing).toEqual({ status: 'ready', registryReset: false });
+		const c = record('c');
+		const newer = createShellCacheManager(scope, c, { ...ports, recovery: undefined });
+		await newer.install(async () => { state.names.add(c.cacheName); state.complete.add('c'); });
+		await newer.activate(async () => {});
+		state.clients = []; state.held = [];
+		expect((await newer.cleanup()).deleted).toEqual([a.cacheName]);
+	});
+
+	it.each([
+		{ change: 'replacement', result: 'replacement' },
+		{ change: 'active-worker', result: 'unavailable' }
+	] as const)('does not publish downloaded bytes after $change changes during the fetch', async ({ change, result }) => {
+		const { state, manager, ports, stored, network } = recoveryFixture();
+		stored.delete(b.homeKey);
+		const entered = deferred(), release = deferred();
+		const fetchAsset = ports.recovery!.fetchAsset;
+		ports.recovery!.fetchAsset = async url => { entered.resolve(); await release.promise; return fetchAsset(url); };
+		const repairing = manager.recover();
+		await entered.promise;
+		if (change === 'replacement') state.replacement = true;
+		else state.activeWorker = false;
+		release.resolve();
+		expect(await repairing).toEqual({ status: result });
+		expect((await manager.status()).complete).toBe(false);
+		state.replacement = false; state.activeWorker = true; network.clear();
+		expect(await manager.recover()).toEqual({ status: 'network-required' });
+	});
+
+	it('retains pre-recovery bootstraps and unowned legacy shells after a later app update', async () => {
+		const { state, manager, ports, network } = recoveryFixture();
+		const legacy = shellCacheName(scope, 'legacy');
+		state.names.add(legacy);
+		state.registry = { schema: 999 } as unknown as ShellRegistry;
+		state.clients = []; state.held = []; network.clear();
+		expect(await manager.recover()).toEqual({ status: 'ready', registryReset: true });
+		const c = record('c');
+		const newer = createShellCacheManager(scope, c, { ...ports, recovery: undefined });
+		await newer.install(async () => { state.names.add(c.cacheName); state.complete.add('c'); });
+		await newer.activate(async () => {});
+		expect(await newer.cleanup()).toEqual({ deleted: [], retained: [a.cacheName, b.cacheName, legacy, c.cacheName], deferred: null });
+	});
+
 });

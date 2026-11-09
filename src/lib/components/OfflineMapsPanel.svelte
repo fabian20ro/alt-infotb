@@ -2,6 +2,7 @@
 	import type { CoordinatorState } from '$lib/offline-maps/coordinator.js';
 	import type { Lang } from '$lib/stores/settings.svelte.js';
 	import { translations } from '$lib/i18n/translations.js';
+	import { shellRecoveryText } from '$lib/offline-maps/shell-recovery-page.js';
 
 	interface Props {
 		open: boolean;
@@ -26,10 +27,11 @@
 		onRefresh(): void;
 		onInstall(): void;
 		onAppUpdate(): void;
+		onAppRecovery(): void;
 	}
 	let { open, lang, model, startupFailed, actionFailed, installAvailable, standalone, updateAvailable, shellError,
 		onClose, onCheck, onDownload, onRepair, onUse, onOnline, onReopen, onCancel, onRemove,
-		onPersistence, onRefresh, onInstall, onAppUpdate }: Props = $props();
+		onPersistence, onRefresh, onInstall, onAppUpdate, onAppRecovery }: Props = $props();
 	let dialog = $state<HTMLDialogElement>();
 	let confirmingDelete = $state(false);
 	let strings = $derived(translations[lang]);
@@ -165,6 +167,7 @@
 			<button onclick={onAppUpdate} disabled={busy}>{strings.offlineApplyAppUpdate}</button>
 		</section>
 	{/if}
+	<section><button onclick={onAppRecovery} disabled={busy}>{shellRecoveryText[lang].repair}</button></section>
 </dialog>
 
 <style>

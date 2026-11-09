@@ -87,6 +87,7 @@
 	onPersistence={() => run(() => coordinator?.requestPersistence())}
 	onRefresh={refresh} onInstall={() => run(() => offlineShell.requestInstall())}
 	onAppUpdate={() => run(() => offlineShell.applyUpdate())}
+	onAppRecovery={() => { location.href = `${base}/__offline_recovery__`; }}
 />
 <div class="offline-map-experience" data-testid="offline-map-status"
 	data-source={view?.source ?? 'online'} data-generation={view?.displayedGeneration ?? ''}

@@ -1,9 +1,33 @@
 import { sveltekit } from '@sveltejs/kit/vite';
-import { SvelteKitPWA } from '@vite-pwa/sveltekit';
+import { SvelteKitPWA, type SvelteKitPWAOptions } from '@vite-pwa/sveltekit';
 import { defineConfig, loadEnv } from 'vite';
 import type { Plugin } from 'vite';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { resolve, sep } from 'node:path';
 import { createHandler } from './shared-api/src/index.js';
+
+/** Keep SvelteKit's URL transform; hash source files before it rewrites their paths. */
+function shellPwa(options: SvelteKitPWAOptions, offlinePreview: boolean) {
+	const plugins = SvelteKitPWA(options);
+	if (offlinePreview) {
+		const configure = options.integration!.configureOptions!;
+		options.integration!.configureOptions = (vite, configured) => {
+			configure(vite, configured);
+			const manifest = configured.injectManifest!;
+			manifest.manifestTransforms!.unshift(async entries => {
+				const root = resolve(manifest.globDirectory!);
+				for (const entry of entries) {
+					const file = resolve(root, entry.url);
+					if (!file.startsWith(`${root}${sep}`)) throw new Error('Offline shell asset outside build');
+					entry.integrity = `sha256-${createHash('sha256').update(readFileSync(file)).digest('base64')}`;
+				}
+				return { manifest: entries, warnings: [] };
+			});
+		};
+	}
+	return plugins;
+}
 
 /** Adapt Node HTTP to the shared proxy contract; policy/auth live in one place. */
 function stbProxy(appId: string | undefined, appKey: string | undefined): Plugin {
@@ -75,7 +99,7 @@ export default defineConfig(({ mode }) => {
 			},
 			stbProxy(appId, appKey),
 			sveltekit(),
-			SvelteKitPWA({
+			shellPwa({
 				registerType: offlinePreview ? 'prompt' : 'autoUpdate',
 				strategies: 'injectManifest',
 				srcDir: 'src',
@@ -119,7 +143,7 @@ export default defineConfig(({ mode }) => {
 						}
 					]
 				}
-			})
+			}, offlinePreview)
 		]
 	};
 });

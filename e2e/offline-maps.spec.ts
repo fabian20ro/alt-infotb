@@ -601,3 +601,114 @@ test('browser crash releases old shell leases and reopens the complete app and p
 		browserErrors.push(...secondErrors); expect(browserErrors).toEqual([]);
 	} finally { await context?.close(); await rm(profile, { recursive: true, force: true }); }
 });
+
+test('offline startup recovery repairs its registry without losing the downloaded map or favorites', async ({ page, context }) => {
+	await network(context); await open(page); await install(page); await useOffline(page); await closePanel(page);
+	const generation = await mapStatus(page).getAttribute('data-generation');
+	await page.getByRole('button', { name: 'Adaugă la favorite', exact: true }).click();
+	const persisted = await page.evaluate(() => navigator.storage.persisted());
+	// Inject a browser-storage fault; all recovery assertions use the public UI.
+	await page.evaluate(async () => {
+		const name = (await caches.keys()).find(name => name.startsWith('alt-infotb-shell-registry-v1:'))!;
+		await (await caches.open(name)).put(`${location.origin}/alt-infotb/__offline_shell_registry__/state`, new Response('{broken registry'));
+	});
+	await context.route('**/*', route => route.abort('internetdisconnected'));
+	await context.setOffline(true); await page.reload();
+	await expect(page.getByRole('heading', { name: 'Repararea aplicației offline', exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Repară aplicația offline', exact: true }).click();
+	await expect(page.getByRole('status')).toHaveText('Aplicația este pregătită să pornească offline.');
+	await page.getByRole('link', { name: 'Deschide aplicația', exact: true }).click();
+	await expect(mapStatus(page)).toHaveAttribute('data-renderer-status', 'ready');
+	await expect(mapStatus(page)).toHaveAttribute('data-generation', generation!);
+	await expect(page.getByRole('button', { name: 'Elimină din favorite', exact: true })).toBeVisible();
+	expect(await page.evaluate(() => navigator.storage.persisted())).toBe(persisted);
+});
+
+test('app repair entry preserves English and light theme through the standalone recovery page', async ({ page, context }) => {
+	await network(context); await open(page);
+	await page.getByRole('button', { name: 'Meniu', exact: true }).click();
+	await page.getByRole('button', { name: 'English', exact: true }).click();
+	await page.getByRole('button', { name: 'Light theme', exact: true }).click();
+	await page.getByRole('button', { name: en.offlineMaps, exact: true }).click();
+	await panel(page).getByRole('button', { name: 'Repair offline app', exact: true }).click({ timeout: 5_000 });
+	await expect(page.getByRole('heading', { name: 'Offline app recovery', exact: true })).toBeVisible();
+	await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+	await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+	await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(245, 245, 247)');
+	await context.route('**/*', route => route.abort('internetdisconnected'));
+	await context.setOffline(true);
+	await page.getByRole('button', { name: 'Repair offline app', exact: true }).click();
+	await expect(page.getByRole('status')).toHaveText('The app is ready to start offline.');
+	await page.getByRole('link', { name: 'Open app', exact: true }).click();
+	await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+	await openPanel(page, 'en');
+	await expect(panel(page).getByRole('heading', { name: 'Offline maps', exact: true })).toBeVisible();
+});
+
+test('missing app files show actionable recovery failures and retry preserves the offline package', async ({ page, context }) => {
+	await network(context); await open(page); await install(page); await useOffline(page); await closePanel(page);
+	const generation = await mapStatus(page).getAttribute('data-generation');
+	const assetUrl = await page.evaluate(async () => {
+		const names = await caches.keys();
+		const shell = await caches.open(names.find(name => name.startsWith('alt-infotb-preview-') && name.includes('-precache-v2-'))!);
+		const request = (await shell.keys()).find(request => request.url.includes('/_app/immutable/nodes/2.') && request.url.endsWith('.js'))!;
+		await shell.delete(request);
+		await (await caches.open(names.find(name => name.startsWith('alt-infotb-shell-registry-v1:'))!)).put(`${location.origin}/alt-infotb/__offline_shell_registry__/state`, new Response('{broken registry'));
+		return request.url;
+	});
+	// Context offline emulation does not reliably stop routed SW-owned fetches.
+	let fileMode = 'offline';
+	await context.route(assetUrl, route => fileMode === 'online' ? route.continue() : fileMode === 'wrong-build' ? route.fulfill({ status: 200, contentType: 'text/javascript', body: '/* different build */' }) : route.abort('internetdisconnected'));
+	await context.setOffline(true); await page.reload();
+	await page.getByRole('button', { name: 'Repară aplicația offline', exact: true }).click();
+	await expect(page.getByRole('alert')).toHaveText('Lipsesc sau sunt deteriorate fișiere ale aplicației. Conectează-te la internet și reîncearcă.', { timeout: 5_000 });
+	await expect(page.getByRole('link', { name: 'Deschide aplicația', exact: true })).toBeHidden();
+	await context.setOffline(false); fileMode = 'wrong-build';
+	await page.getByRole('button', { name: 'Repară aplicația offline', exact: true }).click();
+	await expect(page.getByRole('alert')).toHaveText('Fișierele disponibile nu corespund acestei versiuni. Reîncearcă după restabilirea versiunii corecte.', { timeout: 5_000 });
+	await expect(page.getByRole('link', { name: 'Deschide aplicația', exact: true })).toBeHidden();
+	fileMode = 'online';
+	const worker = context.serviceWorkers().find(worker => worker.url().includes('/alt-infotb/'))!;
+	await worker.evaluate(() => {
+		const original = Cache.prototype.put;
+		(globalThis as any).__restoreRecoveryWrite = () => { Cache.prototype.put = original; };
+		Cache.prototype.put = function(request, response) {
+			const url = typeof request === 'string' ? request : request instanceof URL ? request.href : request.url;
+			if (url.endsWith('/__offline_shell_registry__/state')) return Promise.reject(new DOMException('Simulated full storage', 'QuotaExceededError'));
+			return original.call(this, request, response);
+		};
+	});
+	await page.getByRole('button', { name: 'Repară aplicația offline', exact: true }).click();
+	await expect(page.getByRole('alert')).toHaveText('Nu s-a putut salva repararea. Verifică spațiul disponibil și reîncearcă.', { timeout: 5_000 });
+	await expect(page.getByRole('link', { name: 'Deschide aplicația', exact: true })).toBeHidden();
+	await worker.evaluate(() => { (globalThis as any).__restoreRecoveryWrite(); });
+	fileMode = 'offline';
+	await context.setOffline(true);
+	await context.route('**/*', route => route.abort('internetdisconnected'));
+	await page.getByRole('button', { name: 'Repară aplicația offline', exact: true }).click();
+	await expect(page.getByRole('status')).toHaveText('Aplicația este pregătită să pornească offline.');
+	await context.setOffline(true);
+	await page.getByRole('link', { name: 'Deschide aplicația', exact: true }).click();
+	await expect(mapStatus(page)).toHaveAttribute('data-renderer-status', 'ready');
+	await expect(mapStatus(page)).toHaveAttribute('data-generation', generation!);
+});
+
+test('recovery explains concurrent transitions and pending replacements', async ({ page, context }) => {
+	await network(context); await open(page);
+	const lockTab = await context.newPage(); await open(lockTab);
+	await lockTab.evaluate(() => {
+		void navigator.locks.request(`offline-shell:${location.origin}/alt-infotb/:transition`, { mode: 'shared' }, () => new Promise<void>(resolve => { (window as any).releaseRecoveryLock = resolve; }));
+	});
+	await expect.poll(() => lockTab.evaluate(() => typeof (window as any).releaseRecoveryLock)).toBe('function');
+	await page.goto(`${APP}__offline_recovery__`);
+	await page.getByRole('button', { name: 'Repară aplicația offline', exact: true }).click();
+	await expect(page.getByRole('alert')).toHaveText('O altă operație folosește aplicația offline. Așteaptă finalizarea ei și reîncearcă.', { timeout: 5_000 });
+	await expect(page.getByRole('link', { name: 'Deschide aplicația', exact: true })).toBeHidden();
+	await lockTab.close();
+	await page.getByRole('button', { name: 'Repară aplicația offline', exact: true }).click();
+	await expect(page.getByRole('status')).toHaveText('Aplicația este pregătită să pornească offline.');
+	await build('build-offline-next'); await waitForUpdate(page);
+	await page.getByRole('button', { name: 'Repară aplicația offline', exact: true }).click();
+	await expect(page.getByRole('alert')).toHaveText('O actualizare a aplicației este în curs. Închide toate ferestrele aplicației, apoi redeschide și reîncearcă.', { timeout: 5_000 });
+	await expect(page.getByRole('link', { name: 'Deschide aplicația', exact: true })).toBeHidden();
+});
