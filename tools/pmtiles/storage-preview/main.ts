@@ -60,7 +60,22 @@ async function main() {
 	const manager = createOfflineMapManager(managerConfig, { ...storage,
 		transport: createPackageTransport({ fetch: localFetch }), validate: createBrowserCandidateValidator(storage.files),
 		shellReady, newId: () => crypto.randomUUID() });
-	async function refresh() { state.snapshot = await manager.snapshot(); describe(); return state.snapshot; }
+	// Inspect reads every asset: serialize scans and revisit the latest journal
+	// when notifications arrive during an unfinished inspection.
+	let refreshTask: Promise<PackageSnapshot> | null = null;
+	let refreshAgain = false;
+	async function refresh(): Promise<PackageSnapshot> {
+		if (refreshTask) { refreshAgain = true; return refreshTask; }
+		refreshTask = (async () => {
+			do {
+				refreshAgain = false;
+				state.snapshot = await manager.snapshot();
+				describe();
+			} while (refreshAgain);
+			return state.snapshot!;
+		})().finally(() => { refreshTask = null; });
+		return refreshTask;
+	}
 	async function closeView() {
 		const old = view; view = null; state.mapReady = false;
 		if (old) await old.renderer.destroy();
@@ -115,7 +130,7 @@ async function main() {
 	element('line').onchange=()=>{void selectLine(element<HTMLSelectElement>('line').value);};
 	element('theme').onchange = () => {view?.controller.update(scene());view?.renderer.setBasemap(scene().theme);};
 	let refreshPending = false;
-	manager.subscribe(() => { if (!refreshPending) { refreshPending = true; setTimeout(() => { refreshPending = false; void refresh().catch(record); }, 40); } });
+	manager.subscribe(() => { if (refreshTask) { refreshAgain = true; return; } if (!refreshPending) { refreshPending = true; setTimeout(() => { refreshPending = false; void refresh().catch(record); }, 40); } });
 	Object.assign(window, { storageHarness: { state, manager, storage, offers: config.offers, install, remove, refresh, openView, closeView,selectLine,
 		async holdReader() { const lease = await manager.openActiveReader(); held.push(lease); return lease.generation.id; },
 		async releaseReaders() { for (const lease of held.splice(0)) await lease.close(); await refresh(); },

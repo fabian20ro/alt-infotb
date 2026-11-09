@@ -9,5 +9,5 @@
 		"noEmit": true,
 		"types": []
 	},
-	"include": ["src/service-worker.ts", "src/lib/map/tile-policy.ts"]
+	"include": ["src/service-worker.ts", "src/service-worker-offline.ts", "src/offline-preview.d.ts", "src/lib/map/tile-policy.ts"]
 }

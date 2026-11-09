@@ -90,7 +90,7 @@ export function createOfflineMapManager(config: ManagerConfig, ports: ManagerPor
 		if (manifest.regionId !== config.regionId) throw new OfflineMapError('invalid', 'Offer belongs to another region');
 		return { manifest, available: (await ports.metadata.read()).active?.manifestSha256 !== offer.manifestSha256 };
 	}
-	async function install(offer: PackageOffer, externalSignal?: AbortSignal, options: { repair?: boolean } = {}) {
+	async function install(offer: PackageOffer, externalSignal?: AbortSignal, options: { repair?: boolean; expectedActiveId?: string | null } = {}) {
 		live();
 		const controller = new AbortController();
 		controllers.add(controller);
@@ -100,6 +100,11 @@ export function createOfflineMapManager(config: ManagerConfig, ports: ManagerPor
 		const call = withMutation(async () => {
 			await recoverLocked();
 			let s = await ports.metadata.read();
+			// Bind the caller's release-policy decision to the generation observed before
+			// queuing. Another tab may have installed and confirmed a newer map meanwhile.
+			if (options.expectedActiveId !== undefined && (s.active?.id ?? null) !== options.expectedActiveId) {
+				throw new OfflineMapError('busy', 'The active map changed; check the available package again');
+			}
 			if (s.pendingRender || s.previous || s.garbage.length || s.operation) throw new OfflineMapError('busy', 'Confirm the current map or release old readers before installing another package');
 			if (!options.repair && s.active?.manifestSha256 === offer.manifestSha256 && !s.invalidActive && await ports.files.inspect(s.active)) return;
 			controller.signal.throwIfAborted();

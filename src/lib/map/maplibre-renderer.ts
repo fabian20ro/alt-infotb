@@ -2,6 +2,7 @@ import * as ml from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './maplibre-renderer.css';
+import { translations } from '../i18n/translations.js';
 import type { FeatureCollection, LineString, Polygon } from 'geojson';
 import { visibleStations, type Basemap, type MapDirection, type MapScene } from './model.js';
 import type { MapCamera, MapRenderer, MapRendererEvents } from './renderer.js';
@@ -14,6 +15,17 @@ const ROUTES = 'transit-routes';
 const ACCURACY = 'transit-accuracy';
 const safeColor = (color: string | undefined) => color && /^#(?:[a-f0-9]{3}|[a-f0-9]{4}|[a-f0-9]{6}|[a-f0-9]{8})$/i.test(color) ? color : '#0077b6';
 const finitePoint = (lat: number, lon: number) => Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+
+function mapLocale(lang: 'ro' | 'en') {
+	const strings = translations[lang];
+	return {
+		'NavigationControl.ZoomIn': strings.mapZoomIn,
+		'NavigationControl.ZoomOut': strings.mapZoomOut,
+		'NavigationControl.ResetBearing': strings.mapResetNorth,
+		'AttributionControl.ToggleAttribution': strings.mapAttribution,
+		'Map.Title': strings.mapTitle
+	};
+}
 
 export interface MapLibreRendererOptions {
 	offline?: OfflineBasemapSource;
@@ -58,8 +70,7 @@ export function createMapLibreRenderer(container: HTMLElement, initialScene: Map
 		zoom: 14, minZoom: -1, maxZoom: 18, attributionControl: false, renderWorldCopies: false,
 		pitchWithRotate: false, dragRotate: false, touchPitch: false, fadeDuration: 0,
 		localIdeographFontFamily: 'sans-serif',
-		locale: options.lang === 'ro' ? { 'NavigationControl.ZoomIn': 'Mărește', 'NavigationControl.ZoomOut': 'Micșorează',
-			'AttributionControl.ToggleAttribution': 'Afișează atribuirea', 'Map.Title': 'Hartă' } : undefined
+		locale: mapLocale(options.lang ?? 'en')
 	}); } catch (error) {
 		// Preserve the caller's Svelte nodes if GPU initialization fails partway through construction.
 		for (const node of [...container.childNodes]) if (!originalChildren.has(node)) node.remove();
@@ -76,6 +87,23 @@ export function createMapLibreRenderer(container: HTMLElement, initialScene: Map
 	map.keyboard.disableRotation();
 	map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
 	map.addControl(new ml.AttributionControl({ compact: true }), 'bottom-left');
+	let language = options.lang ?? 'en';
+	function localizeControls() {
+		const labels = mapLocale(language);
+		for (const [selector, key] of [
+			['.maplibregl-ctrl-zoom-in', 'NavigationControl.ZoomIn'],
+			['.maplibregl-ctrl-zoom-out', 'NavigationControl.ZoomOut'],
+			['.maplibregl-ctrl-compass', 'NavigationControl.ResetBearing'],
+			['.maplibregl-ctrl-attrib-button', 'AttributionControl.ToggleAttribution']
+		] as const) {
+			const button = container.querySelector<HTMLButtonElement>(selector);
+			button?.setAttribute('aria-label', labels[key]); button?.setAttribute('title', labels[key]);
+		}
+		map.getCanvas().setAttribute('aria-label', labels['Map.Title']);
+	}
+	// Attribution is rebuilt after style changes; localize its accessible button again.
+	map.on('styledata', localizeControls);
+	localizeControls();
 
 	function report(kind: 'context-lost' | 'basemap' | 'offline-data', error: unknown) {
 		if (destroyed) return;
@@ -284,6 +312,9 @@ export function createMapLibreRenderer(container: HTMLElement, initialScene: Map
 				maxZoom: purpose === 'initial' ? 15 : 18, duration: purpose === 'initial' ? 0 : 300 });
 			updateMarkers(); return true;
 		},
+		getCamera() { const center = map.getCenter(); return { lat: center.lat, lon: center.lng, zoom: map.getZoom() + 1 }; },
+		getBounds() { const bounds = map.getBounds(); return { south: bounds.getSouth(), north: bounds.getNorth(), west: bounds.getWest(), east: bounds.getEast() }; },
+		setLanguage(lang) { language = lang; localizeControls(); },
 		inspect() {
 			const center = map.getCenter();
 			const features = map.isStyleLoaded() ? map.queryRenderedFeatures() : [];

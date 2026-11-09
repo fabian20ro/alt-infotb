@@ -58,6 +58,41 @@ test('persistent install, offline reload, update leases, rollback and cross-tab 
 	expect(await page.evaluate(async () => (await (await (await navigator.storage.getDirectory()).getFileHandle('unrelated-sentinel')).getFile()).text())).toBe('keep');
 });
 
+test('snapshot refresh notifications never overlap an unfinished inspection', async ({ page }) => {
+	await ready(page);
+	await page.evaluate(async () => {
+		const h = (window as any).storageHarness;
+		const original = h.manager.snapshot;
+		const before = await original();
+		let release!: () => void;
+		const blocked = new Promise<void>(resolve => { release = resolve; });
+		const counters = { calls: 0, running: 0, maximum: 0 };
+		h.refreshProbe = { counters, release, restore() { h.manager.snapshot = original; } };
+		h.manager.snapshot = async () => {
+			counters.calls++; counters.running++; counters.maximum = Math.max(counters.maximum, counters.running);
+			try { await blocked; return before; } finally { counters.running--; }
+		};
+	});
+	try {
+		// cancel() emits the same observer notification as transfer progress. Keep its
+		// snapshot pending while subsequent notifications cross the 40ms debounce.
+		for (let i = 0; i < 5; i++) {
+			await page.evaluate(() => (window as any).storageHarness.manager.cancel());
+			await page.waitForTimeout(75);
+		}
+		const counters = await page.evaluate(() => (window as any).storageHarness.refreshProbe.counters);
+		expect(counters.running).toBe(1);
+		expect(counters.maximum).toBe(1);
+	} finally {
+		await page.evaluate(() => { const release = (window as any).storageHarness.refreshProbe.release; setTimeout(release, 0); });
+		await page.waitForFunction(() => (window as any).storageHarness.refreshProbe.counters.running === 0, null, { timeout: 10_000 });
+		await page.evaluate(() => (window as any).storageHarness.refreshProbe.restore());
+	}
+	// Coalescing still drains to the real latest storage snapshot after the blocked read.
+	await page.evaluate(() => (window as any).storageHarness.refresh());
+	expect((await snapshot(page)).availability).toBe('absent');
+});
+
 test('cross-tab cancellation recovers incomplete candidate', async ({ page, context }) => {
 	await ready(page);
 	const second = await context.newPage(); await ready(second);

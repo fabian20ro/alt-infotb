@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { readFile, readdir } from 'node:fs/promises';
+import path from 'node:path';
+const directory = process.argv[2] ?? 'build-offline';
+const worker = await readFile(path.join(directory, 'service-worker-offline.js'), 'utf8');
+assert(worker.includes('OFFLINE_SHELL_STATUS'), 'Preview must compile the preview worker, not rename the production worker');
+assert(!worker.includes('__WB_MANIFEST'), 'Precache manifest must be injected');
+const assets = (await readdir(path.join(directory, '_app/immutable'), { recursive: true })).filter(file => /\.(?:m?js|css)$/.test(file));
+assert(assets.some(file => /maplibre-gl-worker.*\.mjs$/.test(file)), 'Preview must contain the renderer worker');
+for (const file of assets) assert(worker.includes(path.basename(file)), `Preview shell omits offline asset: ${file}`);
+console.log(`Verified preview worker identity and ${assets.length} immutable JS/MJS/CSS assets`);
