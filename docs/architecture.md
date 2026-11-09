@@ -307,6 +307,18 @@ pending replacements and unacknowledged navigations defer collection. No reader
 is expired by heartbeat or page visibility. The normal worker and the
 preview share unchanged raster/API policy in `map/raster-worker.ts`.
 
+Recovery remains inside the preview worker. Its autonomous HTML/CSS/script response
+can start without the app's precached files or a valid lifecycle registry. The
+normal preview panel links to the same recovery entry. `shell-cache.recover()`
+accepts only assets pinned by the installed worker's compiled SHA256/SRI manifest;
+missing/corrupt files are restored without deleting complete caches or touching
+the package manager. Network work releases the lifecycle gate, while the repair
+holds the exclusive transition lock and a shared shell reader. Commit rereads
+metadata and preserves concurrent navigation protection. If ownership metadata
+was lost, only the verified current shell is reconstructed and permanently
+pinned; other caches remain outside deletion authority. See the
+[recovery plan and limitations](plans/2026-11-09-offline-shell-recovery.md).
+
 The local distributor serves only validated declared package files on loopback.
 Trusted manifest hashes are compiled from operator-selected local files, not
 learned from a remote catalog. No production deployment, public storage or billing

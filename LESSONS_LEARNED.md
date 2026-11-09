@@ -124,6 +124,10 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Testing & Quality
 
+**[2026-11-09]** Offline emulation must cover service-worker-owned requests — In the routed preview fixture, context.setOffline(true) left navigator.onLine=false but still allowed an SW fetch. Explicitly abort network routes for offline recovery tests; confirm physical offline with the local server stopped and adb reverse removed.
+
+**[2026-11-09]** SvelteKit PWA integrity transforms must precede its URL rewrite — The integration directly injects the Workbox manifest, bypassing the generic beforeBuildServiceWorker path. Wrap its configureOptions hook and prepend the source-file SHA transform while preserving the original mapping; verify actual compiled manifests and installed caches.
+
 **[2026-11-08]** TS paths and Vite aliases do not change native Node dependency resolution — moving the package candidate validator into app sources made tooling-only Node tests resolve `pmtiles` from the absent app node_modules. A shared validation core with injected runtime dependencies, plus thin app/tool wrappers importing their own pinned dependencies, preserves both clean installs without global loader hooks or installing the unrelated app.
 
 **[2026-11-08]** A custom SvelteKit preview worker needs both entry-point and asset checks — changing only VitePWA `filename` can rename the default worker rather than compile the intended source; select `kit.files.serviceWorker` too. MapLibre emits an `.mjs` worker, so a `*.js` precache glob silently misses it. Inspect compiled worker identity and every immutable JS/MJS/CSS filename, then verify a fresh browser process offline.
