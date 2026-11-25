@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Station } from '$lib/stations/types.js';
 	import type { Theme, Lang } from '$lib/stores/settings.svelte.js';
+	import { translations } from '$lib/i18n/translations.js';
 	import { formatCatalogDate } from '$lib/stations/format.js';
 
 	interface Props {
@@ -18,9 +19,10 @@
 		onLangChange: (lang: Lang) => void;
 		onTogglePin: (id: number) => void;
 		onRemoveRecent: (id: number) => void;
+		onOfflineMaps?: () => void;
 	}
 
-	let { open, favorites, recents, theme, lang, catalogVersion, catalogUpdatedAt, pinnedId, onClose, onSelectStation, onThemeChange, onLangChange, onTogglePin, onRemoveRecent }: Props = $props();
+	let { open, favorites, recents, theme, lang, catalogVersion, catalogUpdatedAt, pinnedId, onClose, onSelectStation, onThemeChange, onLangChange, onTogglePin, onRemoveRecent, onOfflineMaps }: Props = $props();
 
 	function handleStationClick(station: Station) {
 		onSelectStation(station);
@@ -103,6 +105,12 @@
 			{/if}
 		</section>
 
+		{#if onOfflineMaps}
+			<section class="drawer-section">
+				<button class="station-item offline-entry" onclick={() => { onClose(); onOfflineMaps?.(); }}>{translations[lang].offlineMaps}</button>
+			</section>
+		{/if}
+
 		<hr class="divider" />
 
 		<section class="drawer-section settings-section">
@@ -155,6 +163,9 @@
 </nav>
 
 <style>
+	.offline-entry { min-height: 44px; }
+	.offline-entry:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
 	.backdrop {
 		position: fixed;
 		inset: 0;

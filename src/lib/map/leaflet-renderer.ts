@@ -408,6 +408,8 @@ export function createLeafletRenderer(
 			});
 			return true;
 		},
+		getCamera() { const center = map?.getCenter(); return { lat: center?.lat ?? 44.4268, lon: center?.lng ?? 26.1025, zoom: map?.getZoom() ?? 15 }; },
+		getBounds() { const bounds = map?.getBounds(); return { south: bounds?.getSouth() ?? 0, north: bounds?.getNorth() ?? 0, west: bounds?.getWest() ?? 0, east: bounds?.getEast() ?? 0 }; },
 		destroy() {
 			if (debounceTimer) clearTimeout(debounceTimer);
 			if (tileRetryTimer) clearTimeout(tileRetryTimer);

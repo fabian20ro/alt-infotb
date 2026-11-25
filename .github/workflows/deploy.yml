@@ -62,6 +62,9 @@ jobs:
           npm run check:service-worker
           npm --prefix shared-api run check
 
+      - name: Check offline preview tooling types
+        run: npm run check:offline-preview
+
       - name: Test
         run: npm test
 

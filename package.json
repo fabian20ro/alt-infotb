@@ -29,7 +29,12 @@
 		"test:e2e:pwa": "playwright test --config playwright.pwa.config.ts",
 		"maps:check": "node --env-file-if-exists=.env.local scripts/check-map-tiles.ts",
 		"check:service-worker": "tsc --project tsconfig.service-worker.json",
-		"test:e2e:maplibre": "playwright test --config playwright.maplibre.config.ts"
+		"test:e2e:maplibre": "playwright test --config playwright.maplibre.config.ts",
+		"offline:prepare": "node scripts/prepare-offline-preview.ts",
+		"build:offline": "vite build --mode offline-preview && node scripts/verify-offline-preview-shell.ts",
+		"preview:offline": "node scripts/serve-offline-preview.ts",
+		"test:e2e:offline": "playwright test --config playwright.offline.config.ts",
+		"check:offline-preview": "tsc --project tsconfig.offline-preview.json"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.58.2",

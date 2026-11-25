@@ -355,6 +355,27 @@ describe('offline package failure boundaries', () => {
 		expect(env.files.size).toBe(0);
 	});
 
+	for (const initial of ['absent', 'a'] as const) it(`rejects stale ${initial} policy after another tab installs and confirms under the shared mutation lock`, async () => {
+		const env = environment();
+		const before = initial === 'a' ? await confirmed(env) : { manager: env.manager(), active: null };
+		const owner = before.manager, queued = env.manager();
+		const manifestRequests = vi.spyOn(env.ports.transport, 'manifest');
+		env.faults.validateGate = gate();
+		const installing = owner.install(offers.b);
+		await env.faults.validateGate.entered;
+		const candidate = (await env.ports.metadata.read()).candidate!;
+		// Both calls queue behind B's install, confirmation first. The stale installer
+		// therefore sees a fully confirmed B, not the pre-existing pending-render guard.
+		const confirming = owner.confirmRendered(candidate.id);
+		const rejected = expect(queued.install(offers.a, undefined, { expectedActiveId: before.active?.id ?? null }))
+			.rejects.toMatchObject({ code: 'busy' });
+		env.faults.validateGate.release();
+		await installing; expect(await confirming).toBe(true); await rejected;
+		expect(await owner.snapshot()).toMatchObject({ active: candidate, pendingRender: false, availability: 'ready' });
+		expect([...env.files.keys()]).toEqual([candidate.id]);
+		expect(manifestRequests).toHaveBeenCalledTimes(1);
+	});
+
 	it('aborts a queued installer on disposal without cancelling another tab owner', async () => {
 		const env = environment(), owner = env.manager(), queued = env.manager();
 		env.faults.validateGate = gate();

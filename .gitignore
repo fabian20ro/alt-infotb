@@ -25,3 +25,10 @@ node_modules
 # Production PWA verification artifacts
 /playwright-report-pwa/
 /test-results-pwa/
+
+# Opt-in offline application preview (local only)
+/build-offline/
+/.offline-preview/
+/playwright-report-offline/
+/test-results-offline/
+/build-offline-next/

@@ -43,6 +43,14 @@ move it to the Archive section at the bottom with a date and reason.
 
 ## Code Patterns & Pitfalls
 
+**[2026-11-08]** Verify client identity across browser APIs instead of assuming equality — actual Chromium tests exposed different Service Worker `Client.id` and Web Locks `clientId` for the same document, despite the specification's correlation. Bind the real message sender through a unique held document lock, and verify that proof and the shared resource lock belong to the same Web Locks owner. Keep deletion authority in an exclusive resource lock; an identity query alone is only a snapshot.
+
+**[2026-11-08]** Rejected service-worker activation work is not rollback — the browser retires the previous worker even if an activate event's `waitUntil` rejects. Journal installation first, then let the actual active worker reconcile interrupted metadata commits before reporting offline readiness or serving navigation. Cache completeness alone cannot establish readiness when navigation also requires valid lifecycle metadata.
+
+**[2026-11-08]** Hit-test wrapped inline links using a real fragment — the center of getBoundingClientRect can fall in whitespace between text lines. Select a visible getClientRects fragment before moving an overlapping marker; still assert that elementFromPoint returns the actual control. Force wrapping in the regression instead of relying on host font metrics.
+
+**[2026-11-08]** Debouncing notifications does not serialize asynchronous inspections — resetting a debounce flag before awaiting a full storage snapshot allowed five progress notifications to start five concurrent inspections. Keep one in-flight refresh promise and coalesce subsequent notifications into a follow-up read. A gated browser regression proves the overlap without relying on machine speed.
+
 **[2026-11-08]** MapLibre markers own their inline opacity — CSS route classes alone did not fade station markers because MapLibre 6 writes inline opacity. Use `Marker.setOpacity()` for selected/served/background state; browser tests must inspect computed opacity, not only class names.
 
 **[2026-11-08]** Normalize zoom at the renderer boundary — MapLibre's 512px world and Leaflet's 256px world give different extents at equal zoom numbers. Preserve the existing camera contract with MapLibre zoom = contract zoom − 1; convert max zoom/canary coordinates consistently. Fit geographic bounds directly.
@@ -115,6 +123,16 @@ move it to the Archive section at the bottom with a date and reason.
 **[2026-07-20]** Viewport mutations must be tied to one-shot, route-scoped events — A Svelte effect that reads the live route while an overview counter remains positive can call `fitBounds` again on every polling snapshot. Keep route drawing viewport-pure, identify overview requests by ID and route key, and mark each request handled only after its fit succeeds.
 
 ## Testing & Quality
+
+**[2026-11-09]** Offline emulation must cover service-worker-owned requests — In the routed preview fixture, context.setOffline(true) left navigator.onLine=false but still allowed an SW fetch. Explicitly abort network routes for offline recovery tests; confirm physical offline with the local server stopped and adb reverse removed.
+
+**[2026-11-09]** SvelteKit PWA integrity transforms must precede its URL rewrite — The integration directly injects the Workbox manifest, bypassing the generic beforeBuildServiceWorker path. Wrap its configureOptions hook and prepend the source-file SHA transform while preserving the original mapping; verify actual compiled manifests and installed caches.
+
+**[2026-11-08]** TS paths and Vite aliases do not change native Node dependency resolution — moving the package candidate validator into app sources made tooling-only Node tests resolve `pmtiles` from the absent app node_modules. A shared validation core with injected runtime dependencies, plus thin app/tool wrappers importing their own pinned dependencies, preserves both clean installs without global loader hooks or installing the unrelated app.
+
+**[2026-11-08]** A custom SvelteKit preview worker needs both entry-point and asset checks — changing only VitePWA `filename` can rename the default worker rather than compile the intended source; select `kit.files.serviceWorker` too. MapLibre emits an `.mjs` worker, so a `*.js` precache glob silently misses it. Inspect compiled worker identity and every immutable JS/MJS/CSS filename, then verify a fresh browser process offline.
+
+**[2026-11-08]** Avoid naming a Svelte component variable or prop `state` when using `$state` runes — Svelte can parse `$state(...)` as a subscription to that local store and emit `store_rune_conflict`. Use a domain name such as `view` or `model`; coordinator snapshots can still expose a plain `.state` property.
 
 **[2026-11-07]** Reserve all one-shot camera guards before calling an engine — A renderer can synchronously emit camera-idle from `setCamera`. Clearing only pending recentre is insufficient when initial framing is still eligible: a newly arrived catalog/GPS can trigger nested GPS+selection framing and override recentre. Reserve the initial-view flag before the call, restore it if rejected, and test with selected station + GPS + synchronous idle together.
 
