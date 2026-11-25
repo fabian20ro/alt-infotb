@@ -1,0 +1,137 @@
+name: PMTiles preview package
+
+on:
+  pull_request:
+    paths:
+      - 'tools/pmtiles/**'
+      - 'src/lib/offline-maps/**'
+      - 'src/lib/map/**'
+      - 'src/lib/stations/**'
+      - 'src/lib/components/map/tiles.ts'
+      - 'e2e/fixtures/line66-scene.json'
+      - 'src/lib/api/proto.ts'
+      - '.github/workflows/pmtiles-package.yml'
+  workflow_dispatch:
+    inputs:
+      retain_artifact:
+        description: Optional 7-day artifact upload; uses existing GitHub storage allowance
+        type: boolean
+        default: false
+      archive_url:
+        description: Optional retained regional archive HTTPS URL; source.json SHA256/size still required
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pmtiles-preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/pmtiles
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/pmtiles/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - name: Build preview without application dependencies
+        run: npm run build:preview
+      - name: Build isolated storage preview
+        run: npm run build:storage
+
+  package:
+    if: github.event_name == 'workflow_dispatch'
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
+        working-directory: tools/pmtiles
+    env:
+      PMTILES_PUBLIC_ROOT: https://pmtiles-preview.invalid/packages/
+      PMTILES_TOOL_REVISION: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/pmtiles/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - name: Verify preinstalled Chromium version
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { access, constants } from 'node:fs/promises';
+          import { createRequire } from 'node:module';
+          import { chromium } from '@playwright/test';
+          const require = createRequire(import.meta.url);
+          assert.equal(require('@playwright/test/package.json').version, '1.58.2');
+          await access(chromium.executablePath(), constants.X_OK);
+          NODE
+      - name: Install checksum-pinned PMTiles CLI
+        run: python3 scripts/install-cli.py
+      - name: Restore pinned source cache
+        uses: actions/cache@v4
+        with:
+          path: tools/pmtiles/.cache
+          key: pmtiles-source-v1-${{ hashFiles('tools/pmtiles/source.json') }}
+      - name: Generate and validate package
+        id: generate
+        env:
+          RETAINED_ARCHIVE_URL: ${{ inputs.archive_url }}
+        run: |
+          args=(--public-root "$PMTILES_PUBLIC_ROOT" --output out --cache .cache --pmtiles-cli .bin/pmtiles)
+          if [[ -n "$RETAINED_ARCHIVE_URL" ]]; then args+=(--archive-url "$RETAINED_ARCHIVE_URL"); fi
+          npm run generate -- "${args[@]}"
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from 'node:fs';
+          import source from './source.json' with { type: 'json' };
+          appendFileSync(process.env.GITHUB_ENV, `PMTILES_PACKAGE_DIR=out/${source.regionId}/${source.version}\n`);
+          NODE
+      - name: Independently verify generated directory
+        run: npm run verify -- --directory "$PMTILES_PACKAGE_DIR" --public-root "$PMTILES_PUBLIC_ROOT" --pmtiles-cli .bin/pmtiles
+      - name: Build isolated browser preview
+        run: npm run build:preview
+      - name: Verify 84 render scenarios and offline assets
+        run: npm run test:browser
+      - name: Build isolated storage preview
+        run: npm run build:storage
+      - name: Verify offline storage, update, deletion and crash recovery
+        env:
+          PMTILES_CLI: .bin/pmtiles
+        run: npm run test:storage
+      # Opt-in only: no artifact storage is allocated by default. A failed browser
+      # run can retain its extract, but cannot produce a successful receipt.
+      - name: Retain regional package and verification evidence
+        if: always() && inputs.retain_artifact && steps.generate.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pmtiles-package-${{ github.sha }}
+          path: tools/pmtiles/out/
+          retention-days: 7
+          if-no-files-found: error
+          compression-level: 0

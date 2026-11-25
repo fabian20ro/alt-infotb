@@ -1,0 +1,14 @@
+node_modules/
+.cache/
+out/
+dist/
+test-results/
+playwright-report/
+.env*
+!.env.example
+
+dist-preview/
+.bin/
+__pycache__/
+
+dist-storage/

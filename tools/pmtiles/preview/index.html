@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ro">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verificare pachet PMTiles</title></head>
+<body>
+<header><h1>Verificare pachet București–Ilfov</h1><p>Instrument separat de test. Descarcă pachetul în memorie; închiderea paginii îl elimină. Nu instalează o hartă offline în aplicație.</p></header>
+<section aria-label="Comenzi">
+<button id="download">Descarcă și verifică pachetul</button>
+<label>Tema <select id="theme" disabled><option value="light">Luminoasă</option><option value="dark">Întunecată</option></select></label>
+<p id="status" role="status">Pregătit pentru descărcare.</p>
+<progress id="progress" hidden></progress>
+</section>
+<div id="map" aria-label="Hartă de verificare"></div>
+<details><summary>Rezultatele verificării</summary><pre id="results"></pre></details>
+<script type="module" src="/main.ts"></script>
+</body></html>

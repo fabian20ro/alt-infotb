@@ -1,0 +1,1 @@
+{"name": "PMTiles Storage Preview", "short_name": "PMTiles test", "start_url": "/", "scope": "/", "display": "standalone", "background_color": "#f5f7fa", "theme_color": "#173a46", "icons": [{"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"}, {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}]}

@@ -1,6 +1,6 @@
 # Plan: integrare PMTiles și hărți offline
 
-**Stare: plan acceptat, 2026-11-07.** Pasul 1 este implementat pe branchul `codex/pmtiles-integration-contracts`; pașii 2–6 rămân planificați. Nicio activare sau publicare în producție. Detalii: [contractele pasului 1](../pmtiles-contracts.md).
+**Stare: plan acceptat, 2026-11-07.** Pasul 1 este integrat; pasul 2 este implementat izolat în `tools/pmtiles`, cu export local și artifact GitHub Actions opțional, dezactivat implicit. Utilizatorul a refuzat activarea R2 din cauza riscului de facturare; distribuția cloud este amânată. Pasul 3 este implementat și verificat izolat; pasul 4 este implementat în preview izolat, iar pașii 5–6 rămân planificați. Vezi [adaptorul MapLibre și următorul pas](2026-11-08-maplibre-preview.md). Vezi [managerul offline și următorul pas](2026-11-07-pmtiles-offline-manager.md). Vezi [raportul pasului 2](2026-11-07-pmtiles-package-pipeline.md). Nicio activare sau publicare în producție. Detalii: [contractele pasului 1](../pmtiles-contracts.md).
 
 ## Recomandare
 
@@ -51,9 +51,11 @@ Manifestul este validat la intrare: scheme/versiuni cunoscute, limite numerice, 
 
 Pipeline separat: extragere din sursă Protomaps fixată → verificare PMTiles → resurse complete → verificări de simboluri/fonturi → manifest/hashuri → test offline → publicare obiecte imutabile → publicare pointerul `latest` **ultimul**. Păstrăm extrasul regional; nu depindem de retenția temporară a arhivelor planetare Protomaps. Nu schimbăm sursa în tăcere dacă data fixată nu mai există.
 
-**Găzduire recomandată:** bucket Cloudflare R2 separat pentru aceste date redistribuibile, cu adresă publică stabilă și CORS pentru aplicație. Nu trecem fișierele prin proxy-ul STB și nu avem nevoie de chei secrete în browser. Fișierele PMTiles păstrează reprezentarea binară pentru Range requests; fără transformări care schimbă offseturile. Verificăm GET/HEAD/Range, răspuns 206, Content-Range, ETag și CORS. Nu folosim domeniul de dezvoltare cu limitări ca infrastructură permanentă.
+**Găzduire — recomandare inițială, neaprobată:** bucket Cloudflare R2 separat pentru aceste date redistribuibile, cu adresă publică stabilă și CORS pentru aplicație. Nu trecem fișierele prin proxy-ul STB și nu avem nevoie de chei secrete în browser. Fișierele PMTiles păstrează reprezentarea binară pentru Range requests; fără transformări care schimbă offseturile. Verificăm GET/HEAD/Range, răspuns 206, Content-Range, ETag și CORS. Nu folosim domeniul de dezvoltare cu limitări ca infrastructură permanentă.
 
 Obiecte versionate: cache HTTP lung, immutable; manifestul `latest`: prospețime scurtă/revalidare. Păstrăm cel puțin ultimele trei versiuni / 90 zile pentru reinstalare și revenire; politica exactă se confirmă înainte de lansare. Pachetele deja instalate continuă să funcționeze și după retragerea versiunii lor de pe server.
+
+**Actualizare 2026-11-07:** R2 nu se activează. Pasul 2 exportă local un pachet verificat, cu artifact GitHub Actions opțional (7 zile, dezactivat implicit), fără job de publicare sau credentiale cloud. Alegerea unei găzduiri fără risc de facturare și verificarea ei reală rămân deschise.
 
 Inițial publicare manuală; ulterior candidat lunar și la cerere, activat numai după verificări. Publicarea unui pachet nou nu obligă dispozitivele să îl descarce.
 
@@ -144,7 +146,7 @@ Fiecare etapă produce un PR separat; producția se activează abia după gate-u
 | 5. SW și UI | Rute SW dedicate și activare controlată; panou „Hărți offline” în `DrawerMenu.svelte`, traduceri RO/EN și store Svelte 5 | Stări corecte, instalare PWA, request/read persistence, dimensiuni/progres/update/delete; shell și pachet complet offline |
 | 6. Verificare și lansare | E2E pe buildul real cu baza `/alt-infotb/`; test fizic; documentație operațională | Matricea de acceptare de mai jos; preview opt-in, apoi activare explicită separată; revenire testată |
 
-Prima implementare recomandată: contractul pachetului + limita rendererului și scenariile de paritate. Nu mutăm direct codul demo în `MapView.svelte`.
+Următoarea implementare recomandată: pasul 5, coordonatorul aplicației, UI și shell offline, încă opt-in. Adaptorul MapLibre este implementat în preview separat. Managerul pasului 3 furnizează cititori pentru generații imutabile; rendererul îi eliberează după distrugerea hărții. Nu mutăm codul demo în `MapView.svelte` și nu schimbăm motorul implicit în acest pas.
 
 ### Matrice minimă de acceptare
 
@@ -166,7 +168,7 @@ Prima implementare recomandată: contractul pachetului + limita rendererului și
 
 După stabilizare: eliminarea adaptorului Leaflet temporar, reducerea/deduplicarea glyph-urilor, împachetarea resurselor pentru mai puține cereri HTTP, resume Range verificat, mai multe regiuni și eventual actualizări diferențiale. Nu eliminăm glyph-uri după o simplă presupunere că toate numele sunt latine; o optimizare trebuie verificată pe conținutul și stilul efective.
 
-Decizii de confirmat înainte de rollout, fără a bloca proiectarea acum: numele/bugetul infrastructurii R2, politica finală de retenție/publicare și lista browserelor suportate. Opt-in și revenirea rămân obligatorii până la validarea funcțiilor existente.
+Decizii de confirmat înainte de rollout: distribuție fără risc de facturare (R2 refuzat), politica finală de retenție/publicare și lista browserelor suportate. Opt-in și revenirea rămân obligatorii până la validarea funcțiilor existente.
 
 ## Surse
 

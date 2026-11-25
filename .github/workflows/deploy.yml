@@ -77,6 +77,11 @@ jobs:
         timeout-minutes: 10
         run: npm run test:e2e:map
 
+      - name: Verify opt-in MapLibre renderer parity
+        id: maplibre_browser
+        timeout-minutes: 10
+        run: npm run test:e2e:maplibre
+
       - name: Verify production PWA and tile cache
         id: map_cache
         timeout-minutes: 10
@@ -95,7 +100,7 @@ jobs:
         run: npm run test:e2e:pwa
 
       - name: Retain failing map evidence
-        if: failure() && (steps.map_browser.outcome == 'failure' || steps.map_cache.outcome == 'failure' || steps.map_no_key.outcome == 'failure')
+        if: failure() && (steps.map_browser.outcome == 'failure' || steps.maplibre_browser.outcome == 'failure' || steps.map_cache.outcome == 'failure' || steps.map_no_key.outcome == 'failure')
         uses: actions/upload-artifact@v4
         with:
           name: map-browser-failure
@@ -117,6 +122,18 @@ jobs:
         env:
           VITE_CARTO_API_KEY: ${{ vars.VITE_CARTO_API_KEY }}
         run: npm run build
+
+      - name: Keep preview renderer out of production artifact
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readdirSync, readFileSync } from 'node:fs';
+          for (const file of readdirSync('build', { recursive: true })) {
+            if (!/\.(?:m?js|css)$/.test(file)) continue;
+            assert(!/maplibre|pmtiles/i.test(file), `Preview asset in production: ${file}`);
+            assert(!/maplibregl-|maplibre-gl-worker|PMTiles/.test(readFileSync(`build/${file}`, 'utf8')), `Preview runtime in production: ${file}`);
+          }
+          NODE
 
       - name: Upload artifact
         if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
